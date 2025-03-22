@@ -60,7 +60,14 @@ children: [
 ]
 ```
 
-What is important to note here is that the watcher will repaint the widget when any event in storage matches the regular filter. But a reply does not match the regular filter, as it is not a kind 1. That is where the `and` argument comes in, allowing now to repaint replies, but not any reply!, only those in a relationship with any matching kind 1 of the regular filter.
+What is important to note here is that the watcher will repaint the widget when any event in storage matches the regular filter. But a reply does not match the regular filter, as it is not a kind 1. That is where the `and` argument comes in, allowing now to repaint upon replies, but not any reply!, only those in a relationship with any matching kind 1 of the regular filter.
+
+Lastly, watching replaceable events will also be a thing:
+
+```dart
+final Profile signedInProfile = ref.watch(signedInProfileProvider);
+final state = ref.watch(nostr(signedInProfile, and: (_) => {_.following}));
+```
 
 Relays can be configured in pools, e.g. `storage.configure('big-relays', {'wss://relay.damus.io', 'wss://relay.primal.net'})` and then addressed by label throughout the application; when no relay pools are supplied it is inferred that the outbox model must be utilized.
 
