@@ -24,7 +24,7 @@ ref.watch(nostr(authors: {'a1b2c3'}, kinds: {1}, since: DateTime.now().subtract(
 
 Every single event coming through this watcher comes from local storage and never from a relay directly. 
 
-Also, every call by default hits nostr relays and saves the returned events to local storage (it can be disabled) therefore immediately showing up via the watcher - if its filter matches.
+Also, every call by default hits nostr relays (it can be disabled) and saves the returned events to local storage therefore immediately showing up via the watcher - if its filter matches.
 
 The system is aware of previously loaded data so it will add different `since` filters to relay queries appropriately.
 
@@ -36,13 +36,28 @@ The modelling layer intends to abstract away NIP jargon and be as domain languag
 final note = await storage.findOne<Note>(authors: {'a'});
 final Reply reply = await PartialReply('this is cool').signWith(signer);
 note.replies.add(reply);
-print(note.replies.toList());
+print(await note.replies.toList());
 // And maybe:
 await storage.publish(reply, to: {'big-relays'});
+
+// The initial note could of course be retrieved like:
+final note = await signedInProfile.notes.first;
 ```
 
+And then:
+
 ```dart
-ref.watch(nostr(authors: {'a1b2c3'}, kinds: {1}, and: (_) => {_.replies}));
+final state = ref.watch(nostr(authors: {'a1b2c3'}, kinds: {1}, and: (_) => {_.replies}));
+
+// ...
+children: [
+ if (state case RelayData(:final models))
+  for (final model in models)
+    for (final reply in (model as Note).replies)
+      ListTile(
+        title: Text('Note ${model.content} has reply: ${reply}'),
+      )
+]
 ```
 
 Relays can be configured in pools, e.g. `storage.configure('big-relays', {'wss://relay.damus.io', 'wss://relay.primal.net'})` and then addressed by label throughout the application; when no relay pools are supplied it is inferred that the outbox model must be utilized.
