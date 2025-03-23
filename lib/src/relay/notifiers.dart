@@ -29,7 +29,8 @@ AutoDisposeStateNotifierProvider<StorageNotifier, StorageState> query(
     String? search,
     DateTime? since,
     DateTime? until,
-    int? limit}) {
+    int? limit,
+    bool storageOnly = false}) {
   final req = RequestFilter(
       kinds: kinds,
       ids: ids,
@@ -38,7 +39,8 @@ AutoDisposeStateNotifierProvider<StorageNotifier, StorageState> query(
       search: search,
       since: since,
       until: until,
-      limit: limit);
+      limit: limit,
+      storageOnly: storageOnly);
   return storageNotifierProvider(req);
 }
 
@@ -58,6 +60,7 @@ class RequestFilter extends Equatable {
   final int? limit;
   // TODO
   final bool bufferUntilEose;
+  final bool storageOnly;
   // TODO: Add queryLimit for total limit (as limit only applies to first state)
 
   RequestFilter({
@@ -71,6 +74,7 @@ class RequestFilter extends Equatable {
     this.limit,
     // TODO: Implement buffer until EOSE
     this.bufferUntilEose = true,
+    this.storageOnly = false,
     String? subscriptionId,
   })  : ids = ids ?? const {},
         authors = authors ?? const {},

@@ -91,8 +91,10 @@ class DummyStorageNotifier extends StorageNotifier {
     // Execute query and notify
     state = StorageData(db.query(req, applyLimit: applyLimit));
     applyLimit = false;
-    // Send request filter to relays
-    send(req);
+    if (!req.storageOnly) {
+      // Send request filter to relays
+      send(req);
+    }
   }
 
   void save(List<Event> events) {

@@ -3,8 +3,9 @@ import 'dart:convert';
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
 import 'package:models/src/event.dart';
+import 'package:models/src/signer.dart';
 
-class Profile extends ReplaceableEvent<Profile> with ProfileMixin {
+class Profile extends ReplaceableEvent<Profile> {
   late final Map<String, dynamic> _content;
 
   Profile.fromJson(super.map) : super.fromJson() {
@@ -33,19 +34,21 @@ class Profile extends ReplaceableEvent<Profile> with ProfileMixin {
   String get nameOrNpub => name ?? npub;
 }
 
-class PartialProfile extends ReplaceablePartialEvent<Profile>
-    with ProfileMixin {
-  PartialProfile(
-      {this.name, this.npub, this.nip05, this.pictureUrl, this.lud16});
+class PartialProfile extends ReplaceablePartialEvent<Profile> {
+  PartialProfile({this.name, this.nip05, this.pictureUrl, this.lud16});
 
   String? name;
-  String? npub;
   String? nip05;
   String? pictureUrl;
   String? lud16;
-}
 
-mixin ProfileMixin on EventBase<Profile> {}
+  @override
+  Future<Profile> signWith(Signer signer, {String? withPubkey}) {
+    event.content =
+        jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
+    return super.signWith(signer, withPubkey: withPubkey);
+  }
+}
 
 // Extensions
 
