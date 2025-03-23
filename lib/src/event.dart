@@ -66,9 +66,14 @@ sealed class Event<E extends Event<E>>
   @override
   List<Object?> get props => [event.id];
 
+  @override
+  String toString() {
+    return toMap().toString();
+  }
+
   // Registerable mappings
   static final Map<String, ({int kind, EventConstructor constructor})> types = {
-    'User': (kind: 0, constructor: Profile.fromJson),
+    'Profile': (kind: 0, constructor: Profile.fromJson),
     'Note': (kind: 1, constructor: Note.fromJson),
     'DirectMessage': (kind: 4, constructor: DirectMessage.fromJson),
     'FileMetadata': (kind: 1063, constructor: FileMetadata.fromJson),

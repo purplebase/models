@@ -75,8 +75,6 @@ class DummySigner extends Signer {
     return Event.getConstructor<E>()!.call({
       'id': partialEvent.getEventId(withPubkey ?? _pubkey),
       'pubkey': withPubkey ?? _pubkey,
-      'sig':
-          '2f418a876d153edf3fc6eec41794c8f1536c05fa9c3f441f1a369b661f3cb107124c48c51b3177d46efcc4b7d38bfa0b40d8bdf970d204c9787449f148bdb5d4',
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ...partialEvent.toMap(),
     });

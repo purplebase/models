@@ -1,18 +1,19 @@
 import 'dart:async';
 
 import 'package:models/models.dart';
+import 'package:models/src/relay/dummy.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-class RelayNotifierTester {
-  final RelayNotifier notifier;
+class StorageNotifierTester {
+  final StorageNotifier notifier;
 
   final _disposeFns = [];
   var completer = Completer();
   var initial = true;
 
-  RelayNotifierTester(this.notifier, {bool fireImmediately = false}) {
+  StorageNotifierTester(this.notifier, {bool fireImmediately = false}) {
     final dispose = notifier.addListener((state) {
-      // print('received: ${state.models}');
       if (fireImmediately && initial) {
         Future.microtask(() {
           completer.complete(state);
@@ -27,8 +28,12 @@ class RelayNotifierTester {
     _disposeFns.add(dispose);
   }
 
-  Future<void> expect(Matcher m) async {
+  Future<dynamic> expect(Matcher m) async {
     return expectLater(completer.future, completion(m));
+  }
+
+  Future<dynamic> expectModels(Matcher m) async {
+    return expect(isA<StorageData>().having((s) => s.models, 'models', m));
   }
 
   dispose() {
@@ -36,4 +41,38 @@ class RelayNotifierTester {
       fn.call();
     }
   }
+}
+
+extension ProviderContainerExt on ProviderContainer {
+  StorageNotifierTester testerFor(
+          AutoDisposeStateNotifierProvider<StorageNotifier, StorageState>
+              provider,
+          {bool fireImmediately = true}) =>
+      StorageNotifierTester(read(provider.notifier),
+          fireImmediately: fireImmediately);
+}
+
+extension PartialEventExt<E extends Event<E>> on PartialEvent<E> {
+  Future<E> by(String pubkey) {
+    return signWith(dummySigner, withPubkey: pubkey);
+  }
+}
+
+/// Runs code in a separate dimension that compresses time
+Zone getFastTimerZone() {
+  return Zone.current.fork(
+    specification: ZoneSpecification(
+      // Regular timers complete immediately
+      createTimer: (Zone self, ZoneDelegate parent, Zone zone,
+          Duration duration, void Function() f) {
+        return parent.createTimer(zone, Duration.zero, f);
+      },
+
+      // Periodic timers fire at 1ms intervals for speed while maintaining periodic behavior
+      createPeriodicTimer: (Zone self, ZoneDelegate parent, Zone zone,
+          Duration period, void Function(Timer) f) {
+        return parent.createPeriodicTimer(zone, Duration(milliseconds: 1), f);
+      },
+    ),
+  );
 }

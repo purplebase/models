@@ -75,10 +75,9 @@ Relays can be configured in pools, e.g. `storage.configure('big-relays', {'wss:/
 
  - [x] Relay, request and other basic interfaces
  - [x] Storage API and in-memory implementation
- - [ ] Use faker data library
+ - [ ] Popular nostr models, at least those used in Zaplab
  - [ ] Remote relay configuration
  - [ ] Smart querying using `since` based on local data
- - [ ] Popular nostr models, at least those used in Zaplab
  - [ ] Model relationships
  - [ ] Ability for a watcher to watch a particular subscription (instead of a regular filter)
  - [ ] Allow typed queries `ref.watch(nostr<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter

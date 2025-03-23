@@ -1,13 +1,18 @@
 import 'package:models/src/event.dart';
 
-mixin _NoteMixin on EventBase<Note> {}
+class Note extends RegularEvent<Note> {
+  Note.fromJson(super.map) : super.fromJson();
+}
 
-class Note = RegularEvent<Note> with _NoteMixin;
-
-class PartialNote extends RegularPartialEvent<Note> with _NoteMixin {
-  PartialNote([String? content]) {
-    if (content != null) {
-      event.content = content;
+class PartialNote extends RegularPartialEvent<Note> {
+  PartialNote(String content,
+      {DateTime? createdAt, Set<String> tags = const {}}) {
+    event.content = content;
+    if (createdAt != null) {
+      event.createdAt = createdAt;
+    }
+    for (final tag in tags) {
+      event.addTag('#t', tag);
     }
   }
 }
