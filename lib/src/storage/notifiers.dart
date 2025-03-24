@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
-import 'package:models/src/relay/dummy.dart';
+import 'package:models/src/storage/dummy.dart';
 import 'package:models/src/utils.dart';
 import 'package:riverpod/riverpod.dart';
 

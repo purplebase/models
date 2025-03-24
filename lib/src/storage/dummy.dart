@@ -88,6 +88,10 @@ class DummyStorageNotifier extends StorageNotifier {
 
   DummyStorageNotifier(this.ref, this.req) : super() {
     db = InMemoryRelay(ref);
+    // If no filters were provided, do nothing
+    if (req.toMap().isEmpty) {
+      return;
+    }
     // Execute query and notify
     state = StorageData(db.query(req, applyLimit: applyLimit));
     applyLimit = false;

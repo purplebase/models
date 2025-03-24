@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:models/models.dart';
-import 'package:models/src/relay/dummy.dart';
+import 'package:models/src/storage/dummy.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 

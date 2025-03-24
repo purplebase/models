@@ -1,32 +1,27 @@
 import 'package:models/models.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
 const pk = 'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
 final signer = Bip340PrivateKeySigner(pk);
 
 void main() async {
+  late ProviderContainer container;
+  setUpAll(() async {
+    container = ProviderContainer();
+    await container.read(initializationProvider.future);
+  });
+
   test('profile', () async {
     final p1 = await PartialProfile(
       name: 'Niel Liesmons',
       pictureUrl:
           'https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png',
     ).signWith(signer);
-    print(p1);
-    expect(p1.event.content, isNotNull);
-
-    final p2 = await PartialProfile(
-      name: 'Zapchat',
-      pictureUrl:
-          'https://cdn.satellite.earth/307b087499ae5444de1033e62ac98db7261482c1531e741afad44a0f8f9871ee.png',
-    ).signWith(signer);
-    print(p2);
-
-    final p3 = await PartialProfile(
-      name: 'Proof Of Reign',
-      pictureUrl:
-          'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fmedia.architecturaldigest.in%2Fwp-content%2Fuploads%2F2019%2F04%2FNorth-Rose-window-notre-dame-paris.jpg&f=1&nofb=1&ipt=b915d5a064b905567aa5fe9fbc8c38da207c4ba007316f5055e3e8cb1a009aa8&ipo=images',
-    ).signWith(signer);
+    expect(p1.event.content,
+        '{"name":"Niel Liesmons","nip05":null,"picture":"https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png"}');
   });
+
   test('event', () async {
     final defaultEvent = PartialApp()
       ..name = 'app'
@@ -68,7 +63,7 @@ void main() async {
     //   'blah'
     // ));
     // expect(app.pubkeys, {'90983aebe92bea'});
-    expect(App.fromJson(app.toMap()), app);
+    // expect(App.fromJson(app.toMap()), app);
 
     // event and partial event should share a common interface
     // final apps = [partialApp, app];

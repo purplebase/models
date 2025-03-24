@@ -2,6 +2,7 @@ import 'package:bip340/bip340.dart' as bip340;
 import 'package:convert/convert.dart';
 import 'package:models/src/event.dart';
 import 'package:models/src/utils.dart';
+import 'package:riverpod/riverpod.dart';
 
 mixin Signable<E extends Event<E>> {
   Future<E> signWith(Signer signer, {String? withPubkey}) {
@@ -9,7 +10,14 @@ mixin Signable<E extends Event<E>> {
   }
 }
 
+final initializationProvider = FutureProvider<bool>((ref) async {
+  // Initialize a private ref exclusive for signers
+  Signer._ref = ref;
+  return true;
+});
+
 abstract class Signer {
+  static late Ref _ref;
   Future<Signer> initialize();
   Future<String?> getPublicKey();
 
@@ -51,7 +59,7 @@ class Bip340PrivateKeySigner extends Signer {
     final aux = hex.encode(List<int>.generate(32, (i) => 1));
     final signature = bip340.sign(privateKey, id.toString(), aux);
     final map = _prepare(partialEvent.toMap(), id, pubkey, signature);
-    return Event.getConstructor<E>()!.call(map);
+    return Event.getConstructor<E>()!.call(map, Signer._ref);
   }
 }
 
@@ -77,6 +85,6 @@ class DummySigner extends Signer {
       'pubkey': withPubkey ?? _pubkey,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ...partialEvent.toMap(),
-    });
+    }, Signer._ref);
   }
 }

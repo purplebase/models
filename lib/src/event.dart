@@ -12,6 +12,7 @@ import 'package:models/src/models/zap_receipt.dart';
 import 'package:models/src/models/zap_request.dart';
 import 'package:models/src/signer.dart';
 import 'package:models/src/utils.dart';
+import 'package:riverpod/riverpod.dart';
 
 mixin EventBase<E extends Event<E>> {
   // TODO: Make event private and access via EventBase.getFor(this)
@@ -24,8 +25,9 @@ sealed class Event<E extends Event<E>>
     implements EventBase<E> {
   @override
   final ImmutableInternalEvent event;
+  final Ref ref;
 
-  Event.fromJson(Map<String, dynamic> map)
+  Event.fromJson(Map<String, dynamic> map, this.ref)
       : event = ImmutableInternalEvent<E>(
             id: map['id'],
             content: map['content'],
@@ -219,7 +221,7 @@ abstract class EphemeralPartialEvent<E extends Event<E>> = PartialEvent<E>
     with _EmptyMixin;
 
 abstract class ReplaceableEvent<E extends Event<E>> extends Event<E> {
-  ReplaceableEvent.fromJson(super.map) : super.fromJson();
+  ReplaceableEvent.fromJson(super.map, super.ref) : super.fromJson();
 
   ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
       (event.kind, pubkey ?? event.pubkey, null);
@@ -238,7 +240,8 @@ mixin IdentifierMixin {
 
 abstract class ParameterizableReplaceableEvent<E extends Event<E>>
     extends ReplaceableEvent<E> implements IdentifierMixin {
-  ParameterizableReplaceableEvent.fromJson(super.map) : super.fromJson() {
+  ParameterizableReplaceableEvent.fromJson(super.map, super.ref)
+      : super.fromJson() {
     if (!event.containsTag('d')) {
       throw Exception('Event must contain a `d` tag');
     }

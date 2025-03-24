@@ -1,7 +1,7 @@
 library;
 
-export 'src/relay/state.dart';
-export 'src/relay/notifiers.dart';
+export 'src/storage/state.dart';
+export 'src/storage/notifiers.dart';
 export 'src/event.dart';
 export 'src/signer.dart';
 export 'src/models/app.dart';
@@ -13,3 +13,4 @@ export 'src/models/profile.dart';
 export 'src/models/release.dart';
 export 'src/models/zap_receipt.dart';
 export 'src/models/zap_request.dart';
+export 'src/models/relationship.dart';

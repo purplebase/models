@@ -5,8 +5,10 @@ import 'package:bip340/bip340.dart' as bip340;
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:models/models.dart';
+import 'package:riverpod/riverpod.dart';
 
-typedef EventConstructor<E extends Event<E>> = E Function(Map<String, dynamic>);
+typedef EventConstructor<E extends Event<E>> = E Function(
+    Map<String, dynamic>, Ref ref);
 
 typedef ReplaceableEventLink = (int, String, String?);
 

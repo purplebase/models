@@ -10,6 +10,7 @@ void main() async {
 
   setUpAll(() async {
     container = ProviderContainer();
+    await container.read(initializationProvider.future);
   });
   tearDownAll(() => tester.dispose());
 
@@ -101,6 +102,12 @@ void main() async {
       tester =
           container.testerFor(query(kinds: {1}, authors: {'niel'}, limit: 3));
       await tester.expectModels(orderedEquals({d, c, a}));
+    });
+
+    test('relationships', () {
+      tester = container.testerFor(query());
+      expect(a.profile.value, profile);
+      expect(profile.notes.toList(), unorderedEquals({a, b, c, d}));
     });
   });
 
