@@ -41,13 +41,11 @@ class Bip340PrivateKeySigner extends Signer {
   }
 
   Map<String, dynamic> _prepare(
-      Map<String, dynamic> map, String id, String pubkey, String signature,
-      {DateTime? createdAt}) {
+      Map<String, dynamic> map, String id, String pubkey, String signature) {
     return map
       ..['id'] = id
       ..['pubkey'] = pubkey
-      ..['sig'] = signature
-      ..['created_at'] = createdAt ?? map['created_at'] ?? DateTime.now();
+      ..['sig'] = signature;
   }
 
   @override
