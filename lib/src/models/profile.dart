@@ -2,12 +2,7 @@ import 'dart:convert';
 
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
-import 'package:models/src/event.dart';
-import 'package:models/src/models/note.dart';
-import 'package:models/src/models/relationship.dart';
-import 'package:models/src/signer.dart';
-import 'package:models/src/storage/notifiers.dart';
-import 'package:riverpod/riverpod.dart';
+import 'package:models/models.dart';
 
 class Profile extends ReplaceableEvent<Profile> {
   late final Map<String, dynamic> _content;
@@ -15,7 +10,7 @@ class Profile extends ReplaceableEvent<Profile> {
 
   Profile.fromJson(super.map, super.ref) : super.fromJson() {
     _content = event.content.isNotEmpty ? jsonDecode(event.content) : {};
-    notes = NoteHasMany(ref, pubkey);
+    notes = HasMany(ref, RequestFilter(kinds: {1}, authors: {event.pubkey}));
   }
 
   String get pubkey => event.pubkey;
@@ -51,18 +46,6 @@ class PartialProfile extends ReplaceablePartialEvent<Profile> {
     event.content =
         jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
     return super.signWith(signer, withPubkey: withPubkey);
-  }
-}
-
-class ProfileBelongsTo extends BelongsTo<Profile> {
-  final Ref ref;
-  final String pubkey;
-  ProfileBelongsTo(this.ref, this.pubkey);
-  @override
-  Profile? get value {
-    final s = ref.read(
-        query(kinds: {0}, authors: {pubkey}, limit: 1, storageOnly: true));
-    return s.models.firstOrNull as Profile?;
   }
 }
 

@@ -2,43 +2,52 @@ import 'dart:async';
 
 import 'package:faker/faker.dart';
 import 'package:models/models.dart';
+import 'package:models/src/utils.dart';
 import 'package:riverpod/riverpod.dart';
 
 final dummySigner = DummySigner();
 
-class InMemoryRelay {
-  final List<Event> _events = [];
-  static InMemoryRelay? _instance;
+class DummyStorage implements Storage {
+  final Map<String, Event> _events = {};
+  static DummyStorage? _instance;
   final Ref ref;
 
-  factory InMemoryRelay(Ref ref) {
-    return _instance ??= InMemoryRelay._internal(ref);
+  factory DummyStorage(Ref ref) {
+    return _instance ??= DummyStorage._internal(ref);
   }
 
-  InMemoryRelay._internal(this.ref) {
+  DummyStorage._internal(this.ref) {
     // Pre-populate database from provider,
     // happens once as this is a singleton
     save(ref.read(dummyDataProvider));
   }
 
-  void save(List<Event> events) {
+  @override
+  Future<void> save(List<Event> events) async {
     for (final event in events) {
-      final existingIndex =
-          _events.indexWhere((e) => e.event.id == event.event.id);
-      if (existingIndex >= 0) {
-        _events[existingIndex] = event;
-      } else {
-        _events.add(event);
-      }
+      final id = switch (event) {
+        ParameterizableReplaceableEvent() =>
+          (event.event.kind, event.event.pubkey, event.identifier).formatted,
+        ReplaceableEvent() =>
+          (event.event.kind, event.event.pubkey, null).formatted,
+        EphemeralEvent() => event.event.id,
+        RegularEvent() => event.event.id,
+      };
+      _events[id] = event;
     }
   }
 
-  List<Event> query(RequestFilter req, {bool applyLimit = true}) {
-    var results = [..._events];
+  @override
+  Future<List<Event>> query(RequestFilter req, {bool applyLimit = true}) async {
+    List<Event> results;
 
     if (req.ids.isNotEmpty) {
-      results =
-          results.where((event) => req.ids.contains(event.event.id)).toList();
+      results = _events.entries
+          .where((e) => req.ids.contains(e.key))
+          .map((e) => e.value)
+          .toList();
+    } else {
+      results = [..._events.values];
     }
 
     if (req.authors.isNotEmpty) {
@@ -83,27 +92,29 @@ class InMemoryRelay {
 class DummyStorageNotifier extends StorageNotifier {
   final RequestFilter req;
   final Ref ref;
-  late final InMemoryRelay db;
+  late final DummyStorage db;
   var applyLimit = true;
 
   DummyStorageNotifier(this.ref, this.req) : super() {
-    db = InMemoryRelay(ref);
+    db = DummyStorage(ref);
     // If no filters were provided, do nothing
     if (req.toMap().isEmpty) {
       return;
     }
     // Execute query and notify
-    state = StorageData(db.query(req, applyLimit: applyLimit));
-    applyLimit = false;
-    if (!req.storageOnly) {
-      // Send request filter to relays
-      send(req);
-    }
+    db.query(req, applyLimit: applyLimit).then((events) {
+      state = StorageData(events);
+      applyLimit = false;
+      if (!req.storageOnly) {
+        // Send request filter to relays
+        send(req);
+      }
+    });
   }
 
-  void save(List<Event> events) {
-    db.save(events);
-    state = StorageData(db.query(req, applyLimit: applyLimit));
+  Future<void> save(List<Event> events) async {
+    await db.save(events);
+    state = StorageData(await db.query(req, applyLimit: applyLimit));
   }
 
   @override
@@ -135,7 +146,6 @@ class DummyStorageNotifier extends StorageNotifier {
           save(models);
         }
       } else {
-        print('bro its closed');
         t.cancel();
       }
     });

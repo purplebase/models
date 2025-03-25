@@ -1,10 +1,19 @@
 import 'dart:math';
 
 import 'package:equatable/equatable.dart';
-import 'package:models/models.dart';
-import 'package:models/src/storage/dummy.dart';
 import 'package:models/src/utils.dart';
 import 'package:riverpod/riverpod.dart';
+
+import '../event.dart';
+import 'dummy.dart';
+import 'state.dart';
+
+abstract class Storage {
+  Future<List<Event>> query(RequestFilter req, {bool applyLimit = true});
+  Future<void> save(List<Event> events);
+}
+
+final storageProvider = Provider((ref) => DummyStorage(ref));
 
 final storageNotifierProvider = StateNotifierProvider.autoDispose
     .family<StorageNotifier, StorageState, RequestFilter>(
@@ -58,10 +67,11 @@ class RequestFilter extends Equatable {
   final DateTime? since;
   final DateTime? until;
   final int? limit;
-  // TODO
+  // TODO: Add queryLimit for total limit (as limit only applies to first state)
+  final int? queryLimit;
+  // TODO: Implement buffer until EOSE
   final bool bufferUntilEose;
   final bool storageOnly;
-  // TODO: Add queryLimit for total limit (as limit only applies to first state)
 
   RequestFilter({
     Set<String>? ids,
@@ -72,7 +82,7 @@ class RequestFilter extends Equatable {
     this.since,
     this.until,
     this.limit,
-    // TODO: Implement buffer until EOSE
+    this.queryLimit,
     this.bufferUntilEose = true,
     this.storageOnly = false,
     String? subscriptionId,
@@ -95,6 +105,22 @@ class RequestFilter extends Equatable {
       if (limit != null) 'limit': limit,
       if (search != null) 'search': search,
     };
+  }
+
+  RequestFilter copyWith({int? limit, bool? storageOnly}) {
+    return RequestFilter(
+        ids: ids,
+        authors: authors,
+        kinds: kinds,
+        tags: tags,
+        search: search,
+        since: since,
+        until: until,
+        limit: limit ?? this.limit,
+        queryLimit: queryLimit,
+        bufferUntilEose: bufferUntilEose,
+        storageOnly: storageOnly ?? this.storageOnly,
+        subscriptionId: subscriptionId);
   }
 
   @override

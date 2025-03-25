@@ -104,10 +104,10 @@ void main() async {
       await tester.expectModels(orderedEquals({d, c, a}));
     });
 
-    test('relationships', () {
+    test('relationships', () async {
       tester = container.testerFor(query());
-      expect(a.profile.value, profile);
-      expect(profile.notes.toList(), unorderedEquals({a, b, c, d}));
+      expect(await a.profile.value, profile);
+      expect(await profile.notes.toList(), unorderedEquals({a, b, c, d}));
     });
   });
 

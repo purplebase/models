@@ -71,6 +71,15 @@ final state = ref.watch(nostr(signedInProfile, and: (_) => {_.following}));
 
 Relays can be configured in pools, e.g. `storage.configure('big-relays', {'wss://relay.damus.io', 'wss://relay.primal.net'})` and then addressed by label throughout the application; when no relay pools are supplied it is inferred that the outbox model must be utilized.
 
+### Storage vs relay
+
+A storage is very close to a relay but has some key differences, it:
+
+ - Stores replaceable event IDs as the main ID for querying
+ - Discards event signatures after validation, so not meant for rebroadcasting
+ - Tracks origin relays for events, as well as connection timestamps for subsequent  time-based querying
+ - Has more efficient interfaces for mass deleting data
+
 ## TODO
 
  - [x] Relay, request and other basic interfaces

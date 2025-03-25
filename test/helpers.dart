@@ -47,7 +47,7 @@ extension ProviderContainerExt on ProviderContainer {
   StorageNotifierTester testerFor(
           AutoDisposeStateNotifierProvider<StorageNotifier, StorageState>
               provider,
-          {bool fireImmediately = true}) =>
+          {bool fireImmediately = false}) =>
       StorageNotifierTester(read(provider.notifier),
           fireImmediately: fireImmediately);
 }
