@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:faker/faker.dart';
 import 'package:models/models.dart';
-import 'package:models/src/utils.dart';
+import 'package:models/src/core/utils.dart';
 import 'package:riverpod/riverpod.dart';
 
 final dummySigner = DummySigner();
@@ -23,7 +23,7 @@ class DummyStorage implements Storage {
   }
 
   @override
-  Future<void> save(List<Event> events) async {
+  Future<void> save(Iterable<Event> events) async {
     for (final event in events) {
       final id = switch (event) {
         ParameterizableReplaceableEvent() =>
@@ -75,8 +75,19 @@ class DummyStorage implements Storage {
     }
 
     if (req.tags.isNotEmpty) {
-      results =
-          results.where((event) => req.matchesTags(event.event.tags)).toList();
+      results = results.where((event) {
+        // Requested tags should behave like AND: use fold with initial true and acc &&
+        return req.tags.entries.fold(true, (acc, entry) {
+          final wantedTagKey = entry.key.substring(1); // remove #
+          final wantedTagValues = entry.value;
+          // Event tags should behave like OR: use fold with initial false and acc ||
+          return acc &&
+              event.event.getTagSet(wantedTagKey).fold(false,
+                  (acc, currentTagValue) {
+                return acc || wantedTagValues.contains(currentTagValue);
+              });
+        });
+      }).toList();
     }
 
     results.sort((a, b) => b.event.createdAt.compareTo(a.event.createdAt));
@@ -86,6 +97,16 @@ class DummyStorage implements Storage {
     }
 
     return results;
+  }
+
+  @override
+  Future<void> clear([RequestFilter? req]) async {
+    if (req == null) {
+      _events.clear();
+      return;
+    }
+    final events = await query(req);
+    _events.removeWhere((_, e) => events.contains(e));
   }
 }
 
@@ -149,46 +170,5 @@ class DummyStorageNotifier extends StorageNotifier {
         t.cancel();
       }
     });
-  }
-}
-
-extension IX on RequestFilter {
-  bool matchesTags(List<List<String>> eventTags) {
-    if (tags.isEmpty) return true;
-
-    // Convert event tags to a map for easier lookup
-    Map<String, List<String>> eventTagsMap = {};
-
-    for (final tag in eventTags) {
-      if (tag.length >= 2) {
-        final tagName = tag[0];
-        final tagValue = tag[1];
-
-        if (!eventTagsMap.containsKey(tagName)) {
-          eventTagsMap[tagName] = [];
-        }
-
-        eventTagsMap[tagName]!.add(tagValue);
-      }
-    }
-
-    // Check each tag filter
-    for (final entry in tags.entries) {
-      final tagName = entry.key;
-      final requiredValues = entry.value;
-
-      // If this tag name isn't in the event tags, it doesn't match
-      if (!eventTagsMap.containsKey(tagName)) {
-        return false;
-      }
-
-      // If none of the required values match, it doesn't match
-      if (!requiredValues
-          .any((value) => eventTagsMap[tagName]!.contains(value))) {
-        return false;
-      }
-    }
-
-    return true;
   }
 }

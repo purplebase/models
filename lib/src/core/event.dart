@@ -10,8 +10,8 @@ import 'package:models/src/models/profile.dart';
 import 'package:models/src/models/release.dart';
 import 'package:models/src/models/zap_receipt.dart';
 import 'package:models/src/models/zap_request.dart';
-import 'package:models/src/signer.dart';
-import 'package:models/src/utils.dart';
+import 'package:models/src/core/signer.dart';
+import 'package:models/src/core/utils.dart';
 import 'package:riverpod/riverpod.dart';
 
 mixin EventBase<E extends Event<E>> {

@@ -1,5 +1,5 @@
-import 'package:models/src/event.dart';
-import 'package:models/src/utils.dart';
+import 'package:models/src/core/event.dart';
+import 'package:models/src/core/utils.dart';
 
 class FileMetadata = RegularEvent<FileMetadata> with FileMetadataMixin;
 

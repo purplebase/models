@@ -1,4 +1,4 @@
-import 'package:models/src/event.dart';
+import 'package:models/src/core/event.dart';
 import 'package:models/src/models/profile.dart';
 
 mixin _DirectMessageMixin on EventBase<DirectMessage> {

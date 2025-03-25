@@ -1,4 +1,4 @@
-import 'package:models/src/event.dart';
+import 'package:models/src/core/event.dart';
 
 class AppCurationSet = ParameterizableReplaceableEvent<AppCurationSet>
     with AppCurationSetMixin;

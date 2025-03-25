@@ -1,7 +1,7 @@
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:convert/convert.dart';
-import 'package:models/src/event.dart';
-import 'package:models/src/utils.dart';
+import 'package:models/src/core/event.dart';
+import 'package:models/src/core/utils.dart';
 import 'package:riverpod/riverpod.dart';
 
 mixin Signable<E extends Event<E>> {

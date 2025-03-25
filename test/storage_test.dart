@@ -12,7 +12,11 @@ void main() async {
     container = ProviderContainer();
     await container.read(initializationProvider.future);
   });
-  tearDownAll(() => tester.dispose());
+
+  tearDownAll(() async {
+    tester.dispose();
+    await container.read(storageProvider).clear();
+  });
 
   group('storage filters', () {
     late Note a, b, c, d, e, f, g;
@@ -81,6 +85,12 @@ void main() async {
         '#t': {'test'}
       }));
       await tester.expectModels(isEmpty);
+
+      tester = container.testerFor(query(tags: {
+        '#t': {'nostr'},
+        '#e': {'a1b2c3'}
+      }));
+      await tester.expectModels(isEmpty);
     });
 
     test('until', () async {
@@ -104,10 +114,17 @@ void main() async {
       await tester.expectModels(orderedEquals({d, c, a}));
     });
 
+    // TODO: Move to events_test with other seed data
     test('relationships', () async {
-      tester = container.testerFor(query());
+      tester = container.testerFor(query()); // no-op query
       expect(await a.profile.value, profile);
-      expect(await profile.notes.toList(), unorderedEquals({a, b, c, d}));
+      expect(await profile.notes.toList(), orderedEquals({a, b, c, d}));
+      expect(await profile.notes.toList(limit: 2), orderedEquals({c, d}));
+
+      final replyPartialNote = PartialNote('replying')..addLinkedEvent(c);
+      final replyNote = await replyPartialNote.by('bro');
+      await container.read(storageProvider).save({replyNote});
+      expect(await c.notes.toList(), {replyNote});
     });
   });
 

@@ -1,16 +1,17 @@
 import 'dart:math';
 
 import 'package:equatable/equatable.dart';
-import 'package:models/src/utils.dart';
+import 'package:models/src/core/utils.dart';
 import 'package:riverpod/riverpod.dart';
 
-import '../event.dart';
+import '../core/event.dart';
 import 'dummy.dart';
 import 'state.dart';
 
 abstract class Storage {
   Future<List<Event>> query(RequestFilter req, {bool applyLimit = true});
-  Future<void> save(List<Event> events);
+  Future<void> save(Iterable<Event> events);
+  Future<void> clear([RequestFilter? req]);
 }
 
 final storageProvider = Provider((ref) => DummyStorage(ref));

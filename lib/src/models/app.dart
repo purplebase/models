@@ -1,4 +1,4 @@
-import 'package:models/src/event.dart';
+import 'package:models/src/core/event.dart';
 
 class App = ParameterizableReplaceableEvent<App> with AppMixin;
 class PartialApp = ParameterizableReplaceablePartialEvent<App>
