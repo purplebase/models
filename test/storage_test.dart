@@ -121,10 +121,18 @@ void main() async {
       expect(await profile.notes.toList(), orderedEquals({a, b, c, d}));
       expect(await profile.notes.toList(limit: 2), orderedEquals({c, d}));
 
-      final replyPartialNote = PartialNote('replying')..addLinkedEvent(c);
-      final replyNote = await replyPartialNote.by('bro');
-      await container.read(storageProvider).save({replyNote});
-      expect(await c.notes.toList(), {replyNote});
+      final replyPartialNote = PartialNote('replying')
+        ..addLinkedEvent(c, marker: EventMarker.root);
+      final replyNote = await replyPartialNote.by('foo');
+
+      final replyToReplyPartialNote = PartialNote('replying')
+        ..addLinkedEvent(replyNote, marker: EventMarker.reply)
+        ..addLinkedEvent(c, marker: EventMarker.root);
+      final replyToReplyNote = await replyToReplyPartialNote.by('bar');
+      print(replyToReplyNote);
+
+      await container.read(storageProvider).save({replyNote, replyToReplyNote});
+      expect(await c.notes.toList(), {replyNote, replyToReplyNote});
     });
   });
 

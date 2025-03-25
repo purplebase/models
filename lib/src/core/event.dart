@@ -104,12 +104,23 @@ mixin PartialEventBase<E extends Event<E>> implements EventBase<E> {
   @override
   PartialInternalEvent get event;
 
-  void addLinkedEvent(Event e) => event.setTag('e', e.event.id);
+  void addLinkedEvent(Event e,
+      {String? relayUrl, EventMarker? marker, String? pubkey}) {
+    event.addTag('e', [
+      e.event.id,
+      relayUrl ?? "",
+      if (marker != null) marker.name,
+      if (pubkey != null) pubkey
+    ]);
+  }
+
   void removeLinkedEvent(Event e) => event.removeTag('e', e.event.id);
 
   void addLinkedUser(Profile u) => event.setTag('p', u.pubkey);
   void removeLinkedUser(Profile u) => event.removeTag('p', u.pubkey);
 }
+
+enum EventMarker { reply, root, mention }
 
 sealed class PartialEvent<E extends Event<E>>
     with Signable<E>, PartialEventBase<E> {
