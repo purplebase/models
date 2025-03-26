@@ -1,16 +1,8 @@
 import 'package:models/models.dart';
 
-// final String nevent;
-// final String npub;
-// final String message;
-// final String profileName;
-// final String profilePicUrl;
-// final DateTime timestamp;
-// final List<Reaction> reactions;
-// final List<Zap> zaps;
-
 class ChatMessage extends RegularEvent<ChatMessage> {
   ChatMessage.fromMap(super.map, super.ref) : super.fromMap();
+  String get message => internal.content;
 }
 
 class PartialChatMessage extends RegularPartialEvent<ChatMessage> {

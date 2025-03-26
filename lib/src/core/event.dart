@@ -11,8 +11,7 @@ import 'package:models/src/models/note.dart';
 import 'package:models/src/models/profile.dart';
 import 'package:models/src/models/reaction.dart';
 import 'package:models/src/models/release.dart';
-import 'package:models/src/models/zap_receipt.dart';
-import 'package:models/src/models/zap_request.dart';
+import 'package:models/src/models/zap.dart';
 import 'package:models/src/core/signer.dart';
 import 'package:models/src/core/utils.dart';
 import 'package:models/src/storage/notifiers.dart';
@@ -29,7 +28,10 @@ sealed class Event<E extends Event<E>>
   @override
   final ImmutableInternalEvent internal;
   final Ref ref;
+
   late final BelongsTo<Profile> author;
+  late final HasMany<Reaction> reactions;
+  late final HasMany<Zap> zaps;
 
   Event.fromMap(Map<String, dynamic> map, this.ref)
       : internal = ImmutableInternalEvent<E>(
@@ -58,7 +60,27 @@ sealed class Event<E extends Event<E>>
     // General relationships
     author =
         BelongsTo(ref, RequestFilter(kinds: {0}, authors: {internal.pubkey}));
+
+    reactions = HasMany<Reaction>(
+        ref,
+        RequestFilter(kinds: {
+          7
+        }, tags: {
+          // TODO: Does this work for replaceable events?
+          '#e': {internal.id}
+        }));
+
+    zaps = HasMany<Zap>(
+        ref,
+        RequestFilter(kinds: {
+          9735
+        }, tags: {
+          // TODO: Does this work for replaceable events?
+          '#e': {internal.id}
+        }));
   }
+
+  DateTime get createdAt => internal.createdAt;
 
   static Map<String, Set<TagValue>> deserializeTags(Iterable originalTags) {
     final tagList = [for (final t in originalTags) List.from(t).cast<String>()];
@@ -115,7 +137,7 @@ sealed class Event<E extends Event<E>>
     'DirectMessage': (kind: 4, constructor: DirectMessage.fromMap),
     'FileMetadata': (kind: 1063, constructor: FileMetadata.fromMap),
     'ZapRequest': (kind: 9734, constructor: ZapRequest.fromMap),
-    'ZapReceipt': (kind: 9735, constructor: ZapReceipt.fromMap),
+    'ZapReceipt': (kind: 9735, constructor: Zap.fromMap),
     'Release': (kind: 30063, constructor: Release.fromMap),
     'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromMap),
     'App': (kind: 32267, constructor: App.fromMap)
@@ -233,6 +255,9 @@ sealed class InternalEvent<E extends Event<E>> {
   DateTime get createdAt;
   String get content;
   Map<String, Set<TagValue>> get tags;
+
+  // TODO: Implement nevent
+  String get nevent => 'nevent123';
 
   Set<String> get linkedEventIds => getTagSetValues('e');
   Set<ReplaceableEventLink> get linkedReplaceableEventIds {

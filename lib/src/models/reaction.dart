@@ -1,6 +1,6 @@
 import 'package:models/models.dart';
 
-class Reaction extends RegularEvent<Reaction> {
+class Reaction extends RegularEvent<Reaction> with EmojiMixin {
   late final BelongsTo<Event> reactedOn;
   late final BelongsTo<Profile> reactedOnAuthor;
 
@@ -13,20 +13,12 @@ class Reaction extends RegularEvent<Reaction> {
           if (internal.containsTag('p')) internal.getFirstTagValue('p')!
         }));
   }
-
-  (String name, String url)? get emojiTag {
-    final tag = internal.getFirstTag('emoji');
-    if (tag != null && tag.values.length > 1) {
-      return (tag.value, tag.values[1]);
-    }
-    return null;
-  }
 }
 
-class PartialReaction extends RegularPartialEvent<Reaction> {
+class PartialReaction extends RegularPartialEvent<Reaction> with EmojiMixin {
   PartialReaction(
       {String? content,
-      required Event reactedOn,
+      Event? reactedOn,
       Profile? reactedOnAuthor,
       (String name, String url)? emojiTag}) {
     if (emojiTag != null) {
@@ -36,9 +28,21 @@ class PartialReaction extends RegularPartialEvent<Reaction> {
     } else {
       internal.content = content ?? "+";
     }
-    linkEvent(reactedOn);
+    if (reactedOn != null) {
+      linkEvent(reactedOn);
+    }
     if (reactedOnAuthor != null) {
       linkProfile(reactedOnAuthor);
     }
+  }
+}
+
+mixin EmojiMixin on EventBase<Reaction> {
+  (String name, String url)? get emojiTag {
+    final tag = internal.getFirstTag('emoji');
+    if (tag != null && tag.values.length > 1) {
+      return (tag.value, tag.values[1]);
+    }
+    return null;
   }
 }
