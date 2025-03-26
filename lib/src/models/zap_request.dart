@@ -1,7 +1,7 @@
 import 'package:models/src/core/event.dart';
 
 class ZapRequest extends RegularEvent<ZapRequest> {
-  ZapRequest.fromJson(super.map, super.ref) : super.fromJson();
+  ZapRequest.fromMap(super.map, super.ref) : super.fromMap();
 }
 
 class PartialZapRequest extends RegularPartialEvent<ZapRequest> {

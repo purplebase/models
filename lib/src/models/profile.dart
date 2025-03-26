@@ -8,7 +8,7 @@ class Profile extends ReplaceableEvent<Profile> {
   late final Map<String, dynamic> _content;
   late final HasMany<Note> notes;
 
-  Profile.fromJson(super.map, super.ref) : super.fromJson() {
+  Profile.fromMap(super.map, super.ref) : super.fromMap() {
     _content = internal.content.isNotEmpty ? jsonDecode(internal.content) : {};
     notes = HasMany(ref, RequestFilter(kinds: {1}, authors: {internal.pubkey}));
   }

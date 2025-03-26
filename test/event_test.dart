@@ -143,7 +143,7 @@ void main() async {
       //   'blah'
       // ));
       // expect(app.pubkeys, {'90983aebe92bea'});
-      // expect(App.fromJson(app.toMap()), app);
+      // expect(App.fromMap(app.toMap()), app);
 
       // event and partial event should share a common interface
       // final apps = [partialApp, app];

@@ -7,7 +7,7 @@ class Note extends RegularEvent<Note> {
   late final HasMany<Note> allNotes;
   late final HasMany<Reaction> reactions;
 
-  Note.fromJson(super.map, super.ref) : super.fromJson() {
+  Note.fromMap(super.map, super.ref) : super.fromMap() {
     allNotes = HasMany(
       ref,
       RequestFilter(

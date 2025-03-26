@@ -4,7 +4,7 @@ class Reaction extends RegularEvent<Reaction> {
   late final BelongsTo<Event> reactedOn;
   late final BelongsTo<Profile> reactedOnAuthor;
 
-  Reaction.fromJson(super.map, super.ref) : super.fromJson() {
+  Reaction.fromMap(super.map, super.ref) : super.fromMap() {
     reactedOn = BelongsTo<Event>(
         ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
     reactedOnAuthor = BelongsTo<Profile>(

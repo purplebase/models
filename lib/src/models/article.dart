@@ -2,7 +2,7 @@ import 'package:models/models.dart';
 import 'package:models/src/core/utils.dart';
 
 class Article extends ParameterizableReplaceableEvent<Article> {
-  Article.fromJson(super.map, super.ref) : super.fromJson();
+  Article.fromMap(super.map, super.ref) : super.fromMap();
   // final List<Reaction>? reactions;
   // final List<Zap>? zaps;
 }

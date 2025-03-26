@@ -31,7 +31,7 @@ sealed class Event<E extends Event<E>>
   final Ref ref;
   late final BelongsTo<Profile> author;
 
-  Event.fromJson(Map<String, dynamic> map, this.ref)
+  Event.fromMap(Map<String, dynamic> map, this.ref)
       : internal = ImmutableInternalEvent<E>(
             id: map['id'],
             content: map['content'],
@@ -110,16 +110,16 @@ sealed class Event<E extends Event<E>>
 
   // Registerable mappings
   static final Map<String, ({int kind, EventConstructor constructor})> types = {
-    'Profile': (kind: 0, constructor: Profile.fromJson),
-    'Note': (kind: 1, constructor: Note.fromJson),
-    'Reaction': (kind: 7, constructor: Reaction.fromJson),
-    'DirectMessage': (kind: 4, constructor: DirectMessage.fromJson),
-    'FileMetadata': (kind: 1063, constructor: FileMetadata.fromJson),
-    'ZapRequest': (kind: 9734, constructor: ZapRequest.fromJson),
-    'ZapReceipt': (kind: 9735, constructor: ZapReceipt.fromJson),
-    'Release': (kind: 30063, constructor: Release.fromJson),
-    'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromJson),
-    'App': (kind: 32267, constructor: App.fromJson)
+    'Profile': (kind: 0, constructor: Profile.fromMap),
+    'Note': (kind: 1, constructor: Note.fromMap),
+    'Reaction': (kind: 7, constructor: Reaction.fromMap),
+    'DirectMessage': (kind: 4, constructor: DirectMessage.fromMap),
+    'FileMetadata': (kind: 1063, constructor: FileMetadata.fromMap),
+    'ZapRequest': (kind: 9734, constructor: ZapRequest.fromMap),
+    'ZapReceipt': (kind: 9735, constructor: ZapReceipt.fromMap),
+    'Release': (kind: 30063, constructor: Release.fromMap),
+    'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromMap),
+    'App': (kind: 32267, constructor: App.fromMap)
   };
 
   static EventConstructor<E>? getConstructor<E extends Event<E>>() {
@@ -129,7 +129,7 @@ sealed class Event<E extends Event<E>>
       throw Exception('''
 Could not find the constructor for $E. Did you forget to register the type?
 
-You can do so by calling: Event.types['$E'] = (kind, $E.fromJson);
+You can do so by calling: Event.types['$E'] = (kind, $E.fromMap);
 ''');
     }
     return constructor;
@@ -329,7 +329,7 @@ abstract class EphemeralPartialEvent<E extends Event<E>> = PartialEvent<E>
     with _EmptyMixin;
 
 abstract class ReplaceableEvent<E extends Event<E>> extends Event<E> {
-  ReplaceableEvent.fromJson(super.map, super.ref) : super.fromJson();
+  ReplaceableEvent.fromMap(super.map, super.ref) : super.fromMap();
 
   ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
       (internal.kind, pubkey ?? internal.pubkey, null);
@@ -348,8 +348,8 @@ mixin IdentifierMixin {
 
 abstract class ParameterizableReplaceableEvent<E extends Event<E>>
     extends ReplaceableEvent<E> implements IdentifierMixin {
-  ParameterizableReplaceableEvent.fromJson(super.map, super.ref)
-      : super.fromJson() {
+  ParameterizableReplaceableEvent.fromMap(super.map, super.ref)
+      : super.fromMap() {
     if (!internal.containsTag('d')) {
       throw Exception('Event must contain a `d` tag');
     }

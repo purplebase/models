@@ -10,7 +10,7 @@ import 'package:models/models.dart';
 // final List<Zap> zaps;
 
 class ChatMessage extends RegularEvent<ChatMessage> {
-  ChatMessage.fromJson(super.map, super.ref) : super.fromJson();
+  ChatMessage.fromMap(super.map, super.ref) : super.fromMap();
 }
 
 class PartialChatMessage extends RegularPartialEvent<ChatMessage> {
