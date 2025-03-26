@@ -1,11 +1,17 @@
 import 'package:models/models.dart';
 
 class Reaction extends RegularEvent<Reaction> {
-  late final BelongsTo<Event> event_;
+  late final BelongsTo<Event> reactedOn;
+  late final BelongsTo<Profile> reactedOnAuthor;
 
   Reaction.fromJson(super.map, super.ref) : super.fromJson() {
-    event_ = BelongsTo<Event>(
+    reactedOn = BelongsTo<Event>(
         ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
+    reactedOnAuthor = BelongsTo<Profile>(
+        ref,
+        RequestFilter(ids: {
+          if (internal.containsTag('p')) internal.getFirstTagValue('p')!
+        }));
   }
 
   (String name, String url)? get emojiTag {
@@ -25,10 +31,10 @@ class PartialReaction extends RegularPartialEvent<Reaction> {
       (String name, String url)? emojiTag}) {
     if (emojiTag != null) {
       final (name, url) = emojiTag;
-      this.internal.content = ':$name:';
-      this.internal.addTag('emoji', TagValue([name, url]));
+      internal.content = ':$name:';
+      internal.addTag('emoji', TagValue([name, url]));
     } else {
-      this.internal.content = content ?? "+";
+      internal.content = content ?? "+";
     }
     if (event != null) {
       linkEvent(event);

@@ -7,7 +7,7 @@ class PartialFileMetadata = RegularPartialEvent<FileMetadata>
     with FileMetadataMixin, PartialFileMetadataMixin;
 
 mixin FileMetadataMixin on EventBase<FileMetadata> {
-  Set<String> get urls => internal.getTagSet('url');
+  Set<String> get urls => internal.getTagSetValues('url');
   String? get mimeType => internal.getFirstTagValue('m');
   String? get hash => internal.getFirstTagValue('x');
   int? get size => internal.getFirstTagValue('size').toInt();
@@ -15,7 +15,7 @@ mixin FileMetadataMixin on EventBase<FileMetadata> {
   int? get versionCode =>
       int.tryParse(internal.getFirstTagValue('version_code') ?? '');
   String? get repository => internal.getFirstTagValue('repository');
-  Set<String> get platforms => internal.getTagSet('f');
+  Set<String> get platforms => internal.getTagSetValues('f');
   String? get apkSignatureHash =>
       internal.getFirstTagValue('apk_signature_hash');
 }

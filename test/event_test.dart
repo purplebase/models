@@ -90,7 +90,7 @@ void main() async {
     });
 
     test('note and relationships', () async {
-      expect(await a.profile.value, profile);
+      expect(await a.author.value, profile);
       expect(await profile.notes.toList(), orderedEquals({a, b, c, d}));
       expect(await profile.notes.toList(limit: 2), orderedEquals({c, d}));
 
@@ -98,20 +98,23 @@ void main() async {
         ..linkEvent(c, marker: EventMarker.root);
       final replyNote = await replyPartialNote.by('foo');
 
-      final replyToReplyPartialNote = PartialNote('replying')
+      final replyToReplyPartialNote = PartialNote('replying to reply')
         ..linkEvent(replyNote, marker: EventMarker.reply)
         ..linkEvent(c, marker: EventMarker.root);
       final replyToReplyNote = await replyToReplyPartialNote.by('bar');
       // print(replyToReplyNote);
 
       await container.read(storageProvider).save({replyNote, replyToReplyNote});
-      // expect(await c.notes.toList(), {replyNote});
+      expect(await c.notes.toList(), {replyNote});
+      expect(await c.allNotes.toList(), {replyNote, replyToReplyNote});
 
-      final r = await PartialReaction(event: a, emojiTag: ('test', 'test://t'))
-          .by('pubkey');
-      print(r.internal.tags);
-      print(await r.event_.value);
-      // print(r.emojiTag!.url);
+      final reaction =
+          await PartialReaction(event: a, emojiTag: ('test', 'test://t'))
+              .by('niel');
+      expect(reaction.internal.getFirstTag('emoji'),
+          equals(TagValue(['test', 'test://t'])));
+      expect(await reaction.reactedOn.value, a);
+      expect(await reaction.author.value, profile);
     });
 
     test('profile', () async {

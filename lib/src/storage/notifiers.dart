@@ -64,7 +64,6 @@ class RequestFilter extends Equatable {
   final Set<int> kinds;
   final Set<String> authors;
   final Map<String, Set<String>> tags;
-  final EventMarker? tagMarker;
   final String? search;
   final DateTime? since;
   final DateTime? until;
@@ -75,12 +74,14 @@ class RequestFilter extends Equatable {
   final bool bufferUntilEose;
   final bool storageOnly;
 
+  /// Used to provide additional filtering after the query, in Dart
+  final bool Function(Event)? where;
+
   RequestFilter({
     Set<String>? ids,
     Set<String>? authors,
     Set<int>? kinds,
     Map<String, Set<String>>? tags,
-    this.tagMarker,
     this.search,
     this.since,
     this.until,
@@ -88,6 +89,7 @@ class RequestFilter extends Equatable {
     this.queryLimit,
     this.bufferUntilEose = true,
     this.storageOnly = false,
+    this.where,
     String? subscriptionId,
   })  : ids = ids ?? const {},
         authors = authors ?? const {},
@@ -116,7 +118,6 @@ class RequestFilter extends Equatable {
         authors: authors,
         kinds: kinds,
         tags: tags,
-        tagMarker: tagMarker,
         search: search,
         since: since,
         until: until,
@@ -124,6 +125,7 @@ class RequestFilter extends Equatable {
         queryLimit: queryLimit,
         bufferUntilEose: bufferUntilEose,
         storageOnly: storageOnly ?? this.storageOnly,
+        where: where,
         subscriptionId: subscriptionId);
   }
 

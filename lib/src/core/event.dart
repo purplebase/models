@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
+import 'package:models/src/core/relationship.dart';
 import 'package:models/src/models/app.dart';
 import 'package:models/src/models/direct_message.dart';
 import 'package:models/src/models/file_metadata.dart';
@@ -14,6 +15,7 @@ import 'package:models/src/models/zap_receipt.dart';
 import 'package:models/src/models/zap_request.dart';
 import 'package:models/src/core/signer.dart';
 import 'package:models/src/core/utils.dart';
+import 'package:models/src/storage/notifiers.dart';
 import 'package:riverpod/riverpod.dart';
 
 mixin EventBase<E extends Event<E>> {
@@ -27,6 +29,7 @@ sealed class Event<E extends Event<E>>
   @override
   final ImmutableInternalEvent internal;
   final Ref ref;
+  late final BelongsTo<Profile> author;
 
   Event.fromJson(Map<String, dynamic> map, this.ref)
       : internal = ImmutableInternalEvent<E>(
@@ -52,6 +55,10 @@ sealed class Event<E extends Event<E>>
       throw Exception(
           'Kind ${internal.kind} does not match the type of event: regular, replaceable, etc. Check the model definition inherits the right one.');
     }
+
+    // General relationships
+    author =
+        BelongsTo(ref, RequestFilter(kinds: {0}, authors: {internal.pubkey}));
   }
 
   static Map<String, Set<TagValue>> deserializeTags(Iterable originalTags) {
@@ -176,10 +183,16 @@ sealed class PartialEvent<E extends Event<E>>
   }
 }
 
-final class TagValue {
+final class TagValue with EquatableMixin {
   final List<String> values;
-  const TagValue(this.values);
+  TagValue(this.values) {
+    if (values.isEmpty) throw 'empty tag';
+  }
   String get value => values.first;
+
+  @override
+  List<Object?> get props => values;
+
   @override
   String toString() {
     return values.toString();
@@ -222,21 +235,23 @@ sealed class InternalEvent<E extends Event<E>> {
   String get content;
   Map<String, Set<TagValue>> get tags;
 
-  Set<String> get linkedEvents => getTagSet('e');
-  Set<ReplaceableEventLink> get linkedReplaceableEvents {
-    return getTagSet('a').map((e) => e.toReplaceableLink()).toSet();
+  Set<String> get linkedEventIds => getTagSetValues('e');
+  Set<ReplaceableEventLink> get linkedReplaceableEventIds {
+    return getTagSetValues('a').map((e) => e.toReplaceableLink()).toSet();
   }
 
   String? getFirstTagValue(String key) {
-    return tags[key]?.firstOrNull?.values.firstOrNull;
+    return getFirstTag(key)?.value;
   }
 
   TagValue? getFirstTag(String key) {
     return tags[key]?.firstOrNull;
   }
 
-  Set<String> getTagSet(String key) =>
-      tags[key]?.map((t) => t.value).toSet() ?? {};
+  Set<String> getTagSetValues(String key) =>
+      getTagSet(key).map((e) => e.value).toSet();
+
+  Set<TagValue> getTagSet(String key) => tags[key]?.toSet() ?? {};
 
   bool containsTag(String key) => tags.containsKey(key);
 }

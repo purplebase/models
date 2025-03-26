@@ -81,11 +81,11 @@ class DummyStorage implements Storage {
       results = results.where((event) {
         // Requested tags should behave like AND: use fold with initial true and acc &&
         return req.tags.entries.fold(true, (acc, entry) {
-          final wantedTagKey = entry.key.substring(1); // remove #
+          final wantedTagKey = entry.key.substring(1); // remove leading '#'
           final wantedTagValues = entry.value;
           // Event tags should behave like OR: use fold with initial false and acc ||
           return acc &&
-              event.internal.getTagSet(wantedTagKey).fold(false,
+              event.internal.getTagSetValues(wantedTagKey).fold(false,
                   (acc, currentTagValue) {
                 return acc || wantedTagValues.contains(currentTagValue);
               });
@@ -98,6 +98,10 @@ class DummyStorage implements Storage {
 
     if (applyLimit && req.limit != null && results.length > req.limit!) {
       results = results.sublist(0, req.limit!);
+    }
+
+    if (req.where != null) {
+      results = results.where(req.where!).toList();
     }
 
     return results;

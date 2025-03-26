@@ -10,8 +10,8 @@ mixin AppMixin on EventBase<App> {
   String get description => internal.content;
   String? get url => internal.getFirstTagValue('url');
   String? get license => internal.getFirstTagValue('license');
-  Set<String> get icons => internal.getTagSet('icon');
-  Set<String> get images => internal.getTagSet('image');
+  Set<String> get icons => internal.getTagSetValues('icon');
+  Set<String> get images => internal.getTagSetValues('image');
 }
 
 mixin PartialAppMixin on PartialEventBase<App> {
