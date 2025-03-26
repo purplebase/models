@@ -17,8 +17,7 @@ import 'package:models/src/core/utils.dart';
 import 'package:riverpod/riverpod.dart';
 
 mixin EventBase<E extends Event<E>> {
-  // TODO: Make event private and access via EventBase.getFor(this)
-  InternalEvent get event;
+  InternalEvent get internal;
   Map<String, dynamic> toMap();
 }
 
@@ -26,23 +25,23 @@ sealed class Event<E extends Event<E>>
     with EquatableMixin
     implements EventBase<E> {
   @override
-  final ImmutableInternalEvent event;
+  final ImmutableInternalEvent internal;
   final Ref ref;
 
   Event.fromJson(Map<String, dynamic> map, this.ref)
-      : event = ImmutableInternalEvent<E>(
+      : internal = ImmutableInternalEvent<E>(
             id: map['id'],
             content: map['content'],
             pubkey: map['pubkey'],
             createdAt: (map['created_at'] as int).toDate(),
             tags: deserializeTags(map['tags']),
             signature: map['sig']) {
-    if (map['kind'] != event.kind) {
+    if (map['kind'] != internal.kind) {
       throw Exception(
-          'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E (${event.kind})');
+          'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E (${internal.kind})');
     }
 
-    final kindCheck = switch (event.kind) {
+    final kindCheck = switch (internal.kind) {
       // TODO: Check NIP-01 again, something about n < 45
       >= 10000 && < 20000 || 0 || 3 => this is ReplaceableEvent,
       >= 20000 && < 30000 => this is EphemeralEvent,
@@ -51,26 +50,23 @@ sealed class Event<E extends Event<E>>
     };
     if (!kindCheck) {
       throw Exception(
-          'Kind ${event.kind} does not match the type of event: regular, replaceable, etc. Check the model definition inherits the right one.');
+          'Kind ${internal.kind} does not match the type of event: regular, replaceable, etc. Check the model definition inherits the right one.');
     }
   }
 
   static Map<String, Set<TagValue>> deserializeTags(Iterable originalTags) {
-    final tagList = [
-      for (final t in originalTags)
-        List.from(t).map((e) => e.toString()).toList()
-    ];
+    final tagList = [for (final t in originalTags) List.from(t).cast<String>()];
     return tagList.fold(<String, Set<TagValue>>{}, (acc, e) {
       if (e.length >= 2) {
         final [name, ...rest] = e;
-        if (e.length >= 2) {
-          acc[name] ??= {};
-          if (name == 'e') {
-            acc[name]!.add(EventTagValue(rest.first,
-                relayUrl: rest[1], marker: EventMarker.fromString(rest[2])));
-          } else {
-            acc[name]!.add(TagValue(rest));
-          }
+        acc[name] ??= {};
+        if (name == 'e') {
+          acc[name]!.add(EventTagValue(rest.first,
+              relayUrl: rest[1],
+              marker:
+                  rest.length > 2 ? EventMarker.fromString(rest[2]) : null));
+        } else {
+          acc[name]!.add(TagValue(rest));
         }
       }
       return acc;
@@ -87,18 +83,18 @@ sealed class Event<E extends Event<E>>
   @override
   Map<String, dynamic> toMap() {
     return {
-      'id': event.id,
-      'content': event.content,
-      'created_at': event.createdAt.toSeconds(),
-      'pubkey': event.pubkey,
-      'kind': event.kind,
-      'tags': serializeTags(event.tags),
-      'sig': event.signature,
+      'id': internal.id,
+      'content': internal.content,
+      'created_at': internal.createdAt.toSeconds(),
+      'pubkey': internal.pubkey,
+      'kind': internal.kind,
+      'tags': serializeTags(internal.tags),
+      'sig': internal.signature,
     };
   }
 
   @override
-  List<Object?> get props => [event.id];
+  List<Object?> get props => [internal.id];
 
   @override
   String toString() {
@@ -135,42 +131,42 @@ You can do so by calling: Event.types['$E'] = (kind, $E.fromJson);
 
 mixin PartialEventBase<E extends Event<E>> implements EventBase<E> {
   @override
-  PartialInternalEvent get event;
+  PartialInternalEvent get internal;
 
   void linkEvent(Event e,
       {String? relayUrl, EventMarker? marker, String? pubkey}) {
     switch (e) {
       case ReplaceableEvent():
-        event.addTag(
+        internal.addTag(
             'a',
             EventTagValue(e.getReplaceableEventLink().formatted,
                 relayUrl: relayUrl, marker: marker, pubkey: pubkey));
       case _:
-        event.addTag(
+        internal.addTag(
             'e',
-            EventTagValue(e.event.id,
+            EventTagValue(e.internal.id,
                 relayUrl: relayUrl, marker: marker, pubkey: pubkey));
     }
   }
 
-  void unlinkEvent(Event e) => event.removeTagWithValue('e', e.event.id);
+  void unlinkEvent(Event e) => internal.removeTagWithValue('e', e.internal.id);
 
-  void linkProfile(Profile p) => event.setTagValue('p', p.pubkey);
-  void unlinkProfile(Profile u) => event.removeTagWithValue('p', u.pubkey);
+  void linkProfile(Profile p) => internal.setTagValue('p', p.pubkey);
+  void unlinkProfile(Profile u) => internal.removeTagWithValue('p', u.pubkey);
 }
 
 sealed class PartialEvent<E extends Event<E>>
     with Signable<E>, PartialEventBase<E> {
   @override
-  final PartialInternalEvent event = PartialInternalEvent<E>();
+  final PartialInternalEvent internal = PartialInternalEvent<E>();
 
   @override
   Map<String, dynamic> toMap() {
     return {
-      'content': event.content,
-      'created_at': event.createdAt.toSeconds(),
-      'kind': event.kind,
-      'tags': Event.serializeTags(event.tags),
+      'content': internal.content,
+      'created_at': internal.createdAt.toSeconds(),
+      'kind': internal.kind,
+      'tags': Event.serializeTags(internal.tags),
     };
   }
 
@@ -180,7 +176,7 @@ sealed class PartialEvent<E extends Event<E>>
   }
 }
 
-class TagValue {
+final class TagValue {
   final List<String> values;
   const TagValue(this.values);
   String get value => values.first;
@@ -190,7 +186,7 @@ class TagValue {
   }
 }
 
-class EventTagValue extends TagValue {
+final class EventTagValue extends TagValue {
   final String? relayUrl;
   final EventMarker? marker;
   final String? pubkey;
@@ -321,7 +317,7 @@ abstract class ReplaceableEvent<E extends Event<E>> extends Event<E> {
   ReplaceableEvent.fromJson(super.map, super.ref) : super.fromJson();
 
   ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
-      (event.kind, pubkey ?? event.pubkey, null);
+      (internal.kind, pubkey ?? internal.pubkey, null);
 
   @override
   List<Object?> get props => [getReplaceableEventLink().formatted];
@@ -339,22 +335,22 @@ abstract class ParameterizableReplaceableEvent<E extends Event<E>>
     extends ReplaceableEvent<E> implements IdentifierMixin {
   ParameterizableReplaceableEvent.fromJson(super.map, super.ref)
       : super.fromJson() {
-    if (!event.containsTag('d')) {
+    if (!internal.containsTag('d')) {
       throw Exception('Event must contain a `d` tag');
     }
   }
 
   @override
-  String get identifier => event.getFirstTagValue('d')!;
+  String get identifier => internal.getFirstTagValue('d')!;
 
   @override
   ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
-      (event.kind, pubkey ?? event.pubkey, identifier);
+      (internal.kind, pubkey ?? internal.pubkey, identifier);
 }
 
 abstract class ParameterizableReplaceablePartialEvent<E extends Event<E>>
     extends ReplaceablePartialEvent<E> implements IdentifierMixin {
   @override
-  String? get identifier => event.getFirstTagValue('d');
-  set identifier(String? value) => event.setTagValue('d', value);
+  String? get identifier => internal.getFirstTagValue('d');
+  set identifier(String? value) => internal.setTagValue('d', value);
 }

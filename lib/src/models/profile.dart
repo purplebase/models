@@ -9,11 +9,11 @@ class Profile extends ReplaceableEvent<Profile> {
   late final HasMany<Note> notes;
 
   Profile.fromJson(super.map, super.ref) : super.fromJson() {
-    _content = event.content.isNotEmpty ? jsonDecode(event.content) : {};
-    notes = HasMany(ref, RequestFilter(kinds: {1}, authors: {event.pubkey}));
+    _content = internal.content.isNotEmpty ? jsonDecode(internal.content) : {};
+    notes = HasMany(ref, RequestFilter(kinds: {1}, authors: {internal.pubkey}));
   }
 
-  String get pubkey => event.pubkey;
+  String get pubkey => internal.pubkey;
   String get npub => bech32Encode('npub', pubkey);
 
   String? get name {
@@ -43,7 +43,7 @@ class PartialProfile extends ReplaceablePartialEvent<Profile> {
 
   @override
   Future<Profile> signWith(Signer signer, {String? withPubkey}) {
-    event.content =
+    internal.content =
         jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
     return super.signWith(signer, withPubkey: withPubkey);
   }

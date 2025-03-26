@@ -26,12 +26,15 @@ class DummyStorage implements Storage {
   Future<void> save(Iterable<Event> events) async {
     for (final event in events) {
       final id = switch (event) {
-        ParameterizableReplaceableEvent() =>
-          (event.event.kind, event.event.pubkey, event.identifier).formatted,
+        ParameterizableReplaceableEvent() => (
+            event.internal.kind,
+            event.internal.pubkey,
+            event.identifier
+          ).formatted,
         ReplaceableEvent() =>
-          (event.event.kind, event.event.pubkey, null).formatted,
-        EphemeralEvent() => event.event.id,
-        RegularEvent() => event.event.id,
+          (event.internal.kind, event.internal.pubkey, null).formatted,
+        EphemeralEvent() => event.internal.id,
+        RegularEvent() => event.internal.id,
       };
       _events[id] = event;
     }
@@ -52,25 +55,25 @@ class DummyStorage implements Storage {
 
     if (req.authors.isNotEmpty) {
       results = results
-          .where((event) => req.authors.contains(event.event.pubkey))
+          .where((event) => req.authors.contains(event.internal.pubkey))
           .toList();
     }
 
     if (req.kinds.isNotEmpty) {
       results = results
-          .where((event) => req.kinds.contains(event.event.kind))
+          .where((event) => req.kinds.contains(event.internal.kind))
           .toList();
     }
 
     if (req.since != null) {
       results = results
-          .where((event) => event.event.createdAt.isAfter(req.since!))
+          .where((event) => event.internal.createdAt.isAfter(req.since!))
           .toList();
     }
 
     if (req.until != null) {
       results = results
-          .where((event) => event.event.createdAt.isBefore(req.until!))
+          .where((event) => event.internal.createdAt.isBefore(req.until!))
           .toList();
     }
 
@@ -82,7 +85,7 @@ class DummyStorage implements Storage {
           final wantedTagValues = entry.value;
           // Event tags should behave like OR: use fold with initial false and acc ||
           return acc &&
-              event.event.getTagSet(wantedTagKey).fold(false,
+              event.internal.getTagSet(wantedTagKey).fold(false,
                   (acc, currentTagValue) {
                 return acc || wantedTagValues.contains(currentTagValue);
               });
@@ -90,7 +93,8 @@ class DummyStorage implements Storage {
       }).toList();
     }
 
-    results.sort((a, b) => b.event.createdAt.compareTo(a.event.createdAt));
+    results
+        .sort((a, b) => b.internal.createdAt.compareTo(a.internal.createdAt));
 
     if (applyLimit && req.limit != null && results.length > req.limit!) {
       results = results.sublist(0, req.limit!);

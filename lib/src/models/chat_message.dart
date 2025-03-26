@@ -16,12 +16,12 @@ class ChatMessage extends RegularEvent<ChatMessage> {
 class PartialChatMessage extends RegularPartialEvent<ChatMessage> {
   PartialChatMessage(String content,
       {DateTime? createdAt, ChatMessage? replyTo}) {
-    event.content = content;
+    internal.content = content;
     if (createdAt != null) {
-      event.createdAt = createdAt;
+      internal.createdAt = createdAt;
     }
     if (replyTo != null) {
-      event.addTagValue('q', replyTo.event.id);
+      internal.addTagValue('q', replyTo.internal.id);
     }
   }
 }

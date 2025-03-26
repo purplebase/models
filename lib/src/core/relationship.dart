@@ -1,7 +1,7 @@
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 
-sealed class Relationship<E extends Event<E>> {
+sealed class Relationship<E extends Event<dynamic>> {
   final RequestFilter req;
   final Ref ref;
   Relationship(this.ref, this.req);
@@ -13,7 +13,7 @@ sealed class Relationship<E extends Event<E>> {
   }
 }
 
-class BelongsTo<E extends Event<E>> extends Relationship<E> {
+final class BelongsTo<E extends Event<dynamic>> extends Relationship<E> {
   BelongsTo(Ref ref, RequestFilter req) : super(ref, req.copyWith(limit: 1));
   Future<E?> get value async {
     final events = await toList();
@@ -21,6 +21,6 @@ class BelongsTo<E extends Event<E>> extends Relationship<E> {
   }
 }
 
-class HasMany<E extends Event<E>> extends Relationship<E> {
+final class HasMany<E extends Event<E>> extends Relationship<E> {
   HasMany(super.ref, super.req);
 }

@@ -6,10 +6,10 @@ class PartialRelease = ParameterizableReplaceablePartialEvent<Release>
     with ReleaseMixin, PartialReleaseMixin;
 
 mixin ReleaseMixin on EventBase<Release>, IdentifierMixin {
-  String get releaseNotes => event.content;
+  String get releaseNotes => internal.content;
   String get version => identifier!.split('@').last;
 }
 
 mixin PartialReleaseMixin on PartialEventBase<Release>, IdentifierMixin {
-  set releaseNotes(String value) => event.content = value;
+  set releaseNotes(String value) => internal.content = value;
 }

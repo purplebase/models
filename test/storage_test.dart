@@ -48,7 +48,7 @@ void main() async {
     });
 
     test('ids', () async {
-      tester = container.testerFor(query(ids: {a.event.id, e.event.id}));
+      tester = container.testerFor(query(ids: {a.internal.id, e.internal.id}));
       await tester.expectModels(unorderedEquals({a, e}));
     });
 
@@ -61,7 +61,7 @@ void main() async {
       tester = container.testerFor(query(kinds: {1}));
       await tester.expectModels(allOf(
         hasLength(7),
-        everyElement((e) => e is Event && e.event.kind == 1),
+        everyElement((e) => e is Event && e.internal.kind == 1),
       ));
 
       tester = container.testerFor(query(kinds: {0}));
@@ -112,32 +112,6 @@ void main() async {
       tester =
           container.testerFor(query(kinds: {1}, authors: {'niel'}, limit: 3));
       await tester.expectModels(orderedEquals({d, c, a}));
-    });
-
-    // TODO: Move to events_test with other seed data
-    test('relationships', () async {
-      tester = container.testerFor(query()); // no-op query
-      expect(await a.profile.value, profile);
-      expect(await profile.notes.toList(), orderedEquals({a, b, c, d}));
-      expect(await profile.notes.toList(limit: 2), orderedEquals({c, d}));
-
-      final replyPartialNote = PartialNote('replying')
-        ..linkEvent(c, marker: EventMarker.root);
-      final replyNote = await replyPartialNote.by('foo');
-
-      final replyToReplyPartialNote = PartialNote('replying')
-        ..linkEvent(replyNote, marker: EventMarker.reply)
-        ..linkEvent(c, marker: EventMarker.root);
-      final replyToReplyNote = await replyToReplyPartialNote.by('bar');
-      print(replyToReplyNote);
-
-      await container.read(storageProvider).save({replyNote, replyToReplyNote});
-      // expect(await c.notes.toList(), {replyNote});
-
-      final r = await PartialReaction(emojiTag: EmojiTag('test', 'test://t'))
-          .by('pubkey');
-      print(r);
-      // print(r.emojiTag!.url);
     });
   });
 

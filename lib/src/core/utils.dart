@@ -22,10 +22,10 @@ extension PartialEventExt on PartialEvent {
     final data = [
       0,
       pubkey.toLowerCase(),
-      event.createdAt.toSeconds(),
-      event.kind,
-      Event.serializeTags(event.tags),
-      event.content
+      internal.createdAt.toSeconds(),
+      internal.kind,
+      Event.serializeTags(internal.tags),
+      internal.content
     ];
     final digest =
         sha256.convert(Uint8List.fromList(utf8.encode(json.encode(data))));

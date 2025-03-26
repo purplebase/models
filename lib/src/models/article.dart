@@ -9,8 +9,8 @@ class Article extends ParameterizableReplaceableEvent<Article> {
 
 class PartialArticle extends ParameterizableReplaceablePartialEvent<Article> {
   PartialArticle(String title, String content, {DateTime? publishedAt}) {
-    event.content = content;
-    event.addTagValue('title', title);
-    event.addTagValue('published_at', publishedAt?.toSeconds().toString());
+    internal.content = content;
+    internal.addTagValue('title', title);
+    internal.addTagValue('published_at', publishedAt?.toSeconds().toString());
   }
 }

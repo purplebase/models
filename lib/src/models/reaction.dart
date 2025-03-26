@@ -1,20 +1,34 @@
 import 'package:models/models.dart';
 
 class Reaction extends RegularEvent<Reaction> {
-  Reaction.fromJson(super.map, super.ref) : super.fromJson();
-  EmojiTag? get emojiTag {
-    return event.getFirstTag('emoji') as EmojiTag?;
+  late final BelongsTo<Event> event_;
+
+  Reaction.fromJson(super.map, super.ref) : super.fromJson() {
+    event_ = BelongsTo<Event>(
+        ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
+  }
+
+  (String name, String url)? get emojiTag {
+    final tag = internal.getFirstTag('emoji');
+    if (tag != null && tag.values.length > 1) {
+      return (tag.value, tag.values[1]);
+    }
+    return null;
   }
 }
 
 class PartialReaction extends RegularPartialEvent<Reaction> {
   PartialReaction(
-      {String? content, Profile? profile, Event? event, EmojiTag? emojiTag}) {
+      {String? content,
+      Profile? profile,
+      Event? event,
+      (String name, String url)? emojiTag}) {
     if (emojiTag != null) {
-      this.event.content = ':${emojiTag.name}:';
-      this.event.addTag('emoji', emojiTag);
+      final (name, url) = emojiTag;
+      this.internal.content = ':$name:';
+      this.internal.addTag('emoji', TagValue([name, url]));
     } else {
-      this.event.content = content ?? "+";
+      this.internal.content = content ?? "+";
     }
     if (event != null) {
       linkEvent(event);
@@ -23,10 +37,4 @@ class PartialReaction extends RegularPartialEvent<Reaction> {
       linkProfile(profile);
     }
   }
-}
-
-class EmojiTag extends TagValue {
-  EmojiTag(String name, String url) : super([name, url]);
-  String get name => value;
-  String get url => values[1];
 }
