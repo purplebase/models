@@ -74,21 +74,38 @@ void main() async {
     // notes.first.event.content;
   });
 
+  test('tag serialization', () {
+    final originalTags = [
+      ["e", "a5118885bb80c63cee4dc7009c1888bfcbc8de5a7c53ed44892deb9850421421"],
+      [
+        "e",
+        "09c1888bfcbc8de5a7c53ed44892deb9850421421a5118885bb80c63cee4dc70",
+        "",
+        "reply"
+      ],
+      ["p", "cad00c48a8c689d32d7c770b90221124d6a68bbc6b1d31c2039a84d5ab90cf7b"]
+    ];
+    final tags = Event.deserializeTags(originalTags);
+    // print(tags);
+    // print(Event.serializeTags(tags));
+    expect(Event.serializeTags(tags), unorderedEquals(originalTags));
+  });
+
   test('tags', () {
-    final note = PartialNote('yo hello')
-      ..event.tags = [
-        ['url', 'http://z'],
-        ['e', '93893923', 'mention'],
-        ['e', 'ab9387'],
-        ['param', 'a', '1'],
-        ['param', 'a', '2'],
-        ['param', 'b', '3']
-      ];
+    final note = PartialNote('yo hello');
+    note.event.addTagValue('url', 'http://z');
+    note.event
+        .addTag('e', EventTagValue('93893923', marker: EventMarker.mention));
+    note.event.addTagValue('e', 'ab9387');
+    note.event.addTag('param', TagValue(['a', '1']));
+    note.event.addTag('param', TagValue(['a', '2']));
+    note.event.addTag('param', TagValue(['a', '3']));
+
     print(note.toMap());
-    note.event.addTag('param', {'b', '4'});
-    note.event.removeTag('e');
+    note.event.addTag('param', TagValue(['b', '4']));
+    note.event.removeTagWithValue('e');
     expect(note.event.containsTag('e'), isFalse);
-    expect(note.event.getTag('url'), 'http://z');
+    expect(note.event.getFirstTagValue('url'), 'http://z');
     print(note.toMap());
   });
 }

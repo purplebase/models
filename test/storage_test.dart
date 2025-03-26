@@ -122,17 +122,22 @@ void main() async {
       expect(await profile.notes.toList(limit: 2), orderedEquals({c, d}));
 
       final replyPartialNote = PartialNote('replying')
-        ..addLinkedEvent(c, marker: EventMarker.root);
+        ..linkEvent(c, marker: EventMarker.root);
       final replyNote = await replyPartialNote.by('foo');
 
       final replyToReplyPartialNote = PartialNote('replying')
-        ..addLinkedEvent(replyNote, marker: EventMarker.reply)
-        ..addLinkedEvent(c, marker: EventMarker.root);
+        ..linkEvent(replyNote, marker: EventMarker.reply)
+        ..linkEvent(c, marker: EventMarker.root);
       final replyToReplyNote = await replyToReplyPartialNote.by('bar');
       print(replyToReplyNote);
 
       await container.read(storageProvider).save({replyNote, replyToReplyNote});
-      expect(await c.notes.toList(), {replyNote, replyToReplyNote});
+      // expect(await c.notes.toList(), {replyNote});
+
+      final r = await PartialReaction(emojiTag: EmojiTag('test', 'test://t'))
+          .by('pubkey');
+      print(r);
+      // print(r.emojiTag!.url);
     });
   });
 

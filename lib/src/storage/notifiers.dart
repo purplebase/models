@@ -64,6 +64,7 @@ class RequestFilter extends Equatable {
   final Set<int> kinds;
   final Set<String> authors;
   final Map<String, Set<String>> tags;
+  final EventMarker? tagMarker;
   final String? search;
   final DateTime? since;
   final DateTime? until;
@@ -79,6 +80,7 @@ class RequestFilter extends Equatable {
     Set<String>? authors,
     Set<int>? kinds,
     Map<String, Set<String>>? tags,
+    this.tagMarker,
     this.search,
     this.since,
     this.until,
@@ -101,8 +103,8 @@ class RequestFilter extends Equatable {
       if (authors.isNotEmpty) 'authors': authors.toList(),
       for (final e in tags.entries)
         if (e.value.isNotEmpty) e.key: e.value,
-      if (since != null) 'since': since!.toInt(),
-      if (until != null) 'until': until!.toInt(),
+      if (since != null) 'since': since!.toSeconds(),
+      if (until != null) 'until': until!.toSeconds(),
       if (limit != null) 'limit': limit,
       if (search != null) 'search': search,
     };
@@ -114,6 +116,7 @@ class RequestFilter extends Equatable {
         authors: authors,
         kinds: kinds,
         tags: tags,
+        tagMarker: tagMarker,
         search: search,
         since: since,
         until: until,

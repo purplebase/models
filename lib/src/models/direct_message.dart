@@ -2,7 +2,7 @@ import 'package:models/src/core/event.dart';
 import 'package:models/src/models/profile.dart';
 
 mixin _DirectMessageMixin on EventBase<DirectMessage> {
-  String get receiver => event.getTag('p')!.npub;
+  String get receiver => event.getFirstTagValue('p')!.npub;
   String get content => event.content;
 }
 
@@ -15,6 +15,6 @@ class PartialDirectMessage extends RegularPartialEvent<DirectMessage>
     required String receiver,
   }) {
     event.content = content;
-    event.setTag('p', receiver.hexKey);
+    event.setTagValue('p', receiver.hexKey);
   }
 }

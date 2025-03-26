@@ -9,12 +9,13 @@ class Note extends RegularEvent<Note> {
     profile =
         BelongsTo(ref, RequestFilter(kinds: {0}, authors: {event.pubkey}));
     notes = HasMany(
-        ref,
-        RequestFilter(kinds: {
-          1
-        }, tags: {
-          '#e': {event.id}
-        }));
+      ref,
+      RequestFilter(kinds: {
+        1
+      }, tags: {
+        '#e': {event.id}
+      }, tagMarker: EventMarker.reply),
+    );
   }
 }
 
@@ -26,7 +27,7 @@ class PartialNote extends RegularPartialEvent<Note> {
       event.createdAt = createdAt;
     }
     for (final tag in tags) {
-      event.addTag('t', tag);
+      event.addTagValue('t', tag);
     }
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:models/src/models/app.dart';
 import 'package:models/src/models/direct_message.dart';
@@ -7,6 +8,7 @@ import 'package:models/src/models/file_metadata.dart';
 import 'package:models/src/models/lists.dart';
 import 'package:models/src/models/note.dart';
 import 'package:models/src/models/profile.dart';
+import 'package:models/src/models/reaction.dart';
 import 'package:models/src/models/release.dart';
 import 'package:models/src/models/zap_receipt.dart';
 import 'package:models/src/models/zap_request.dart';
@@ -33,7 +35,7 @@ sealed class Event<E extends Event<E>>
             content: map['content'],
             pubkey: map['pubkey'],
             createdAt: (map['created_at'] as int).toDate(),
-            tags: [for (final t in map['tags']) List.from(t)],
+            tags: deserializeTags(map['tags']),
             signature: map['sig']) {
     if (map['kind'] != event.kind) {
       throw Exception(
@@ -41,6 +43,7 @@ sealed class Event<E extends Event<E>>
     }
 
     final kindCheck = switch (event.kind) {
+      // TODO: Check NIP-01 again, something about n < 45
       >= 10000 && < 20000 || 0 || 3 => this is ReplaceableEvent,
       >= 20000 && < 30000 => this is EphemeralEvent,
       >= 30000 && < 40000 => this is ParameterizableReplaceableEvent,
@@ -52,15 +55,44 @@ sealed class Event<E extends Event<E>>
     }
   }
 
+  static Map<String, Set<TagValue>> deserializeTags(Iterable originalTags) {
+    final tagList = [
+      for (final t in originalTags)
+        List.from(t).map((e) => e.toString()).toList()
+    ];
+    return tagList.fold(<String, Set<TagValue>>{}, (acc, e) {
+      if (e.length >= 2) {
+        final [name, ...rest] = e;
+        if (e.length >= 2) {
+          acc[name] ??= {};
+          if (name == 'e') {
+            acc[name]!.add(EventTagValue(rest.first,
+                relayUrl: rest[1], marker: EventMarker.fromString(rest[2])));
+          } else {
+            acc[name]!.add(TagValue(rest));
+          }
+        }
+      }
+      return acc;
+    });
+  }
+
+  static List<List<String>> serializeTags(Map<String, Set<TagValue>> tags) {
+    return [
+      for (final e in tags.entries)
+        for (final t in e.value) [e.key, ...t.values]
+    ];
+  }
+
   @override
   Map<String, dynamic> toMap() {
     return {
       'id': event.id,
       'content': event.content,
-      'created_at': event.createdAt.toInt(),
+      'created_at': event.createdAt.toSeconds(),
       'pubkey': event.pubkey,
       'kind': event.kind,
-      'tags': event.tags,
+      'tags': serializeTags(event.tags),
       'sig': event.signature,
     };
   }
@@ -77,6 +109,7 @@ sealed class Event<E extends Event<E>>
   static final Map<String, ({int kind, EventConstructor constructor})> types = {
     'Profile': (kind: 0, constructor: Profile.fromJson),
     'Note': (kind: 1, constructor: Note.fromJson),
+    'Reaction': (kind: 7, constructor: Reaction.fromJson),
     'DirectMessage': (kind: 4, constructor: DirectMessage.fromJson),
     'FileMetadata': (kind: 1063, constructor: FileMetadata.fromJson),
     'ZapRequest': (kind: 9734, constructor: ZapRequest.fromJson),
@@ -104,23 +137,27 @@ mixin PartialEventBase<E extends Event<E>> implements EventBase<E> {
   @override
   PartialInternalEvent get event;
 
-  void addLinkedEvent(Event e,
+  void linkEvent(Event e,
       {String? relayUrl, EventMarker? marker, String? pubkey}) {
-    event.addTag('e', [
-      e.event.id,
-      relayUrl ?? "",
-      if (marker != null) marker.name,
-      if (pubkey != null) pubkey
-    ]);
+    switch (e) {
+      case ReplaceableEvent():
+        event.addTag(
+            'a',
+            EventTagValue(e.getReplaceableEventLink().formatted,
+                relayUrl: relayUrl, marker: marker, pubkey: pubkey));
+      case _:
+        event.addTag(
+            'e',
+            EventTagValue(e.event.id,
+                relayUrl: relayUrl, marker: marker, pubkey: pubkey));
+    }
   }
 
-  void removeLinkedEvent(Event e) => event.removeTag('e', e.event.id);
+  void unlinkEvent(Event e) => event.removeTagWithValue('e', e.event.id);
 
-  void addLinkedUser(Profile u) => event.setTag('p', u.pubkey);
-  void removeLinkedUser(Profile u) => event.removeTag('p', u.pubkey);
+  void linkProfile(Profile p) => event.setTagValue('p', p.pubkey);
+  void unlinkProfile(Profile u) => event.removeTagWithValue('p', u.pubkey);
 }
-
-enum EventMarker { reply, root, mention }
 
 sealed class PartialEvent<E extends Event<E>>
     with Signable<E>, PartialEventBase<E> {
@@ -131,9 +168,9 @@ sealed class PartialEvent<E extends Event<E>>
   Map<String, dynamic> toMap() {
     return {
       'content': event.content,
-      'created_at': event.createdAt.toInt(),
+      'created_at': event.createdAt.toSeconds(),
       'kind': event.kind,
-      'tags': event.tags,
+      'tags': Event.serializeTags(event.tags),
     };
   }
 
@@ -143,26 +180,69 @@ sealed class PartialEvent<E extends Event<E>>
   }
 }
 
+class TagValue {
+  final List<String> values;
+  const TagValue(this.values);
+  String get value => values.first;
+  @override
+  String toString() {
+    return values.toString();
+  }
+}
+
+class EventTagValue extends TagValue {
+  final String? relayUrl;
+  final EventMarker? marker;
+  final String? pubkey;
+  EventTagValue(String value, {this.relayUrl, this.marker, this.pubkey})
+      : super([
+          value,
+          relayUrl ?? "",
+          if (marker != null) marker.name,
+          if (pubkey != null) pubkey
+        ]);
+}
+
+enum EventMarker {
+  reply,
+  root,
+  mention;
+
+  static fromString(String value) {
+    for (final element in EventMarker.values) {
+      if (element.name.toLowerCase() == value.toLowerCase()) {
+        return element;
+      }
+    }
+    return null;
+  }
+}
+
 // Internal events
 
 sealed class InternalEvent<E extends Event<E>> {
   final int kind = Event.types[E.toString()]!.kind;
   DateTime get createdAt;
   String get content;
-  List<List<String>> get tags;
+  Map<String, Set<TagValue>> get tags;
 
   Set<String> get linkedEvents => getTagSet('e');
   Set<ReplaceableEventLink> get linkedReplaceableEvents {
     return getTagSet('a').map((e) => e.toReplaceableLink()).toSet();
   }
 
-  String? getTag(String key) {
-    return BaseUtil.getTag(tags, key);
+  String? getFirstTagValue(String key) {
+    return tags[key]?.firstOrNull?.values.firstOrNull;
   }
 
-  Set<String> getTagSet(String key) => BaseUtil.getTagSet(tags, key);
+  TagValue? getFirstTag(String key) {
+    return tags[key]?.firstOrNull;
+  }
 
-  bool containsTag(String key) => BaseUtil.containsTag(tags, key);
+  Set<String> getTagSet(String key) =>
+      tags[key]?.map((t) => t.value).toSet() ?? {};
+
+  bool containsTag(String key) => tags.containsKey(key);
 }
 
 final class ImmutableInternalEvent<E extends Event<E>>
@@ -174,7 +254,7 @@ final class ImmutableInternalEvent<E extends Event<E>>
   @override
   final String content;
   @override
-  final List<List<String>> tags;
+  final Map<String, Set<TagValue>> tags;
   // Signature is nullable as it may be removed as optimization
   final String? signature;
   ImmutableInternalEvent(
@@ -194,27 +274,33 @@ final class PartialInternalEvent<E extends Event<E>> extends InternalEvent<E> {
   @override
   DateTime createdAt = DateTime.now();
   @override
-  List<List<String>> tags = [];
+  Map<String, Set<TagValue>> tags = {};
 
-  void addTag(String key, Object? value) {
-    if (value == null) return;
-    if (value is Iterable) {
-      return tags.add(
-        [key, ...value.nonNulls.cast()],
-      );
+  void addTagValue(String key, String? value) {
+    if (value != null) {
+      tags[key] ??= {};
+      tags[key]!.add(TagValue([value]));
     }
-    tags.add([key, value.toString()]);
   }
 
-  void removeTag(String key, [String? value]) {
-    tags.removeWhere(
-        (tag) => tag.first == key && (value != null ? tag[1] == value : true));
+  void addTag(String key, TagValue tag) {
+    tags[key] ??= {};
+    tags[key]!.add(tag);
   }
 
-  void setTag(String key, Object? value) {
-    if (value == null) return;
-    removeTag(key);
-    addTag(key, value);
+  void removeTagWithValue(String key, [String? value]) {
+    if (value != null) {
+      tags[key]?.removeWhere((t) => t.value == value);
+    } else {
+      tags.remove(key);
+    }
+  }
+
+  void setTagValue(String key, String? value) {
+    if (value != null) {
+      removeTagWithValue(key);
+      addTagValue(key, value);
+    }
   }
 }
 
@@ -259,7 +345,7 @@ abstract class ParameterizableReplaceableEvent<E extends Event<E>>
   }
 
   @override
-  String get identifier => event.getTag('d')!;
+  String get identifier => event.getFirstTagValue('d')!;
 
   @override
   ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
@@ -269,6 +355,6 @@ abstract class ParameterizableReplaceableEvent<E extends Event<E>>
 abstract class ParameterizableReplaceablePartialEvent<E extends Event<E>>
     extends ReplaceablePartialEvent<E> implements IdentifierMixin {
   @override
-  String? get identifier => event.getTag('d');
-  set identifier(String? value) => event.setTag('d', value);
+  String? get identifier => event.getFirstTagValue('d');
+  set identifier(String? value) => event.setTagValue('d', value);
 }

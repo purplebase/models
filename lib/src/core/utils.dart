@@ -22,9 +22,9 @@ extension PartialEventExt on PartialEvent {
     final data = [
       0,
       pubkey.toLowerCase(),
-      event.createdAt.toInt(),
+      event.createdAt.toSeconds(),
       event.kind,
-      event.tags,
+      Event.serializeTags(event.tags),
       event.content
     ];
     final digest =
@@ -40,7 +40,7 @@ extension StringMaybeExt on String? {
 }
 
 extension DateTimeExt on DateTime {
-  int toInt() => millisecondsSinceEpoch ~/ 1000;
+  int toSeconds() => millisecondsSinceEpoch ~/ 1000;
 }
 
 extension IntExt on int {
@@ -55,20 +55,6 @@ extension StringExt on String {
 }
 
 class BaseUtil {
-  static String? getTag(Iterable tags, String key) {
-    return tags.firstWhereOrNull((tag) => tag.first == key)?[1];
-  }
-
-  static Set<String> getTagSet(Iterable tags, String key) => tags
-      .where((tag) => tag.first == key)
-      .map((tag) => tag[1]?.toString())
-      .nonNulls
-      .toSet();
-
-  static bool containsTag(Iterable tags, String key) {
-    return tags.firstWhereOrNull((tag) => tag.first == key) != null;
-  }
-
   static String getPublicKey(String privateKey) {
     return bip340.getPublicKey(privateKey).toLowerCase();
   }

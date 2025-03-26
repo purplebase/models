@@ -11,6 +11,7 @@ export 'src/models/file_metadata.dart';
 export 'src/models/lists.dart';
 export 'src/models/note.dart';
 export 'src/models/profile.dart';
+export 'src/models/reaction.dart';
 export 'src/models/release.dart';
 export 'src/models/zap_receipt.dart';
 export 'src/models/zap_request.dart';
