@@ -102,17 +102,17 @@ void main() async {
         ..linkEvent(replyNote, marker: EventMarker.reply)
         ..linkEvent(c, marker: EventMarker.root);
       final replyToReplyNote = await replyToReplyPartialNote.by('bar');
-      // print(replyToReplyNote);
 
       await container.read(storageProvider).save({replyNote, replyToReplyNote});
       expect(await c.notes.toList(), {replyNote});
       expect(await c.allNotes.toList(), {replyNote, replyToReplyNote});
 
       final reaction =
-          await PartialReaction(event: a, emojiTag: ('test', 'test://t'))
+          await PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
               .by('niel');
       expect(reaction.internal.getFirstTag('emoji'),
           equals(TagValue(['test', 'test://t'])));
+      expect(reaction.reactedOn.ids, {a.internal.id});
       expect(await reaction.reactedOn.value, a);
       expect(await reaction.author.value, profile);
     });

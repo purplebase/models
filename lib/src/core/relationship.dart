@@ -6,6 +6,8 @@ sealed class Relationship<E extends Event<dynamic>> {
   final Ref ref;
   Relationship(this.ref, this.req);
 
+  Set<String> get ids => req.ids;
+
   Future<List<E>> toList({int? limit}) async {
     final updatedReq = req.copyWith(limit: limit, storageOnly: true);
     final events = await ref.read(storageProvider).query(updatedReq);

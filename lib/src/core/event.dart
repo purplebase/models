@@ -45,7 +45,6 @@ sealed class Event<E extends Event<E>>
     }
 
     final kindCheck = switch (internal.kind) {
-      // TODO: Check NIP-01 again, something about n < 45
       >= 10000 && < 20000 || 0 || 3 => this is ReplaceableEvent,
       >= 20000 && < 30000 => this is EphemeralEvent,
       >= 30000 && < 40000 => this is ParameterizableReplaceableEvent,

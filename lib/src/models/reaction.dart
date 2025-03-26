@@ -26,8 +26,8 @@ class Reaction extends RegularEvent<Reaction> {
 class PartialReaction extends RegularPartialEvent<Reaction> {
   PartialReaction(
       {String? content,
-      Profile? profile,
-      Event? event,
+      required Event reactedOn,
+      Profile? reactedOnAuthor,
       (String name, String url)? emojiTag}) {
     if (emojiTag != null) {
       final (name, url) = emojiTag;
@@ -36,11 +36,9 @@ class PartialReaction extends RegularPartialEvent<Reaction> {
     } else {
       internal.content = content ?? "+";
     }
-    if (event != null) {
-      linkEvent(event);
-    }
-    if (profile != null) {
-      linkProfile(profile);
+    linkEvent(reactedOn);
+    if (reactedOnAuthor != null) {
+      linkProfile(reactedOnAuthor);
     }
   }
 }
