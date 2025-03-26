@@ -8,17 +8,27 @@ sealed class Relationship<E extends Event<dynamic>> {
 
   Set<String> get ids => req.ids;
 
-  Future<List<E>> toList({int? limit}) async {
+  List<E> toList({int? limit}) {
     final updatedReq = req.copyWith(limit: limit, storageOnly: true);
-    final events = await ref.read(storageProvider).query(updatedReq);
+    final events = ref.read(storageProvider).query(updatedReq);
+    return events.whereType<E>().toList();
+  }
+
+  Future<List<E>> toListAsync({int? limit}) async {
+    final updatedReq = req.copyWith(limit: limit, storageOnly: true);
+    final events = await ref.read(storageProvider).queryAsync(updatedReq);
     return events.whereType<E>().toList();
   }
 }
 
 final class BelongsTo<E extends Event<dynamic>> extends Relationship<E> {
   BelongsTo(Ref ref, RequestFilter req) : super(ref, req.copyWith(limit: 1));
-  Future<E?> get value async {
-    final events = await toList();
+  E? get value {
+    return toList().firstOrNull;
+  }
+
+  Future<E?> get valueAsync async {
+    final events = await toListAsync();
     return events.firstOrNull;
   }
 }

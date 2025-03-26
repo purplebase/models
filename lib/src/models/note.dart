@@ -5,7 +5,6 @@ class Note extends RegularEvent<Note> {
 
   late final HasMany<Note> notes;
   late final HasMany<Note> allNotes;
-  late final HasMany<Reaction> reactions;
 
   Note.fromMap(super.map, super.ref) : super.fromMap() {
     allNotes = HasMany(
@@ -42,14 +41,6 @@ class Note extends RegularEvent<Note> {
               (tags.first as EventTagValue).marker == EventMarker.root;
         },
       ),
-    );
-    reactions = HasMany(
-      ref,
-      RequestFilter(kinds: {
-        7
-      }, tags: {
-        '#e': {internal.id}
-      }),
     );
   }
 }

@@ -41,7 +41,13 @@ class DummyStorage implements Storage {
   }
 
   @override
-  Future<List<Event>> query(RequestFilter req, {bool applyLimit = true}) async {
+  Future<List<Event>> queryAsync(RequestFilter req,
+      {bool applyLimit = true}) async {
+    return query(req, applyLimit: applyLimit);
+  }
+
+  @override
+  List<Event> query(RequestFilter req, {bool applyLimit = true}) {
     List<Event> results;
 
     if (req.ids.isNotEmpty) {
@@ -113,7 +119,7 @@ class DummyStorage implements Storage {
       _events.clear();
       return;
     }
-    final events = await query(req);
+    final events = await queryAsync(req);
     _events.removeWhere((_, e) => events.contains(e));
   }
 }
@@ -131,7 +137,7 @@ class DummyStorageNotifier extends StorageNotifier {
       return;
     }
     // Execute query and notify
-    db.query(req, applyLimit: applyLimit).then((events) {
+    db.queryAsync(req, applyLimit: applyLimit).then((events) {
       state = StorageData(events);
       applyLimit = false;
       if (!req.storageOnly) {
@@ -143,7 +149,7 @@ class DummyStorageNotifier extends StorageNotifier {
 
   Future<void> save(List<Event> events) async {
     await db.save(events);
-    state = StorageData(await db.query(req, applyLimit: applyLimit));
+    state = StorageData(await db.queryAsync(req, applyLimit: applyLimit));
   }
 
   @override

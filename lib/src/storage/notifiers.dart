@@ -9,7 +9,8 @@ import 'dummy.dart';
 import 'state.dart';
 
 abstract class Storage {
-  Future<List<Event>> query(RequestFilter req, {bool applyLimit = true});
+  Future<List<Event>> queryAsync(RequestFilter req, {bool applyLimit = true});
+  List<Event> query(RequestFilter req, {bool applyLimit = true});
   Future<void> save(Iterable<Event> events);
   Future<void> clear([RequestFilter? req]);
 }
