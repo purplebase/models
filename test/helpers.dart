@@ -6,7 +6,7 @@ import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
 class StorageNotifierTester {
-  final StorageNotifier notifier;
+  final RequestNotifier notifier;
 
   final _disposeFns = [];
   var completer = Completer();
@@ -45,7 +45,7 @@ class StorageNotifierTester {
 
 extension ProviderContainerExt on ProviderContainer {
   StorageNotifierTester testerFor(
-          AutoDisposeStateNotifierProvider<StorageNotifier, StorageState>
+          AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
               provider,
           {bool fireImmediately = false}) =>
       StorageNotifierTester(read(provider.notifier),

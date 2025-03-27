@@ -17,22 +17,46 @@ abstract class Storage {
 
 final storageProvider = Provider((ref) => DummyStorage(ref));
 
-final storageNotifierProvider = StateNotifierProvider.autoDispose
-    .family<StorageNotifier, StorageState, RequestFilter>(
+//
+
+abstract class StorageNotifier extends StateNotifier<StorageSignal> {
+  StorageNotifier() : super(StorageSignal());
+  Future<void> save(List<Event> events);
+  Future<void> generateDummyFor(
+      {required String pubkey,
+      required int kind,
+      int amount = 10,
+      bool stream = false});
+}
+
+final storageNotifierProvider =
+    StateNotifierProvider.autoDispose<StorageNotifier, StorageSignal>(
+  (ref) {
+    // TODO: Using keepAlive to make tests work, isn't it contradictory to auto-dispose?
+    ref.keepAlive();
+    ref.onDispose(() => print('disposing provider'));
+    return DummyStorageNotifier(ref);
+  },
+);
+
+//
+
+abstract class RequestNotifier extends StateNotifier<StorageState> {
+  RequestNotifier() : super(StorageLoading([]));
+  void send(RequestFilter req);
+}
+
+final requestNotifierProvider = StateNotifierProvider.autoDispose
+    .family<RequestNotifier, StorageState, RequestFilter>(
   (ref, req) {
     // TODO: Using keepAlive to make tests work, isn't it contradictory to auto-dispose?
     ref.keepAlive();
     ref.onDispose(() => print('disposing provider'));
-    return DummyStorageNotifier(ref, req);
+    return DummyRequestNotifier(ref, req);
   },
 );
 
-abstract class StorageNotifier extends StateNotifier<StorageState> {
-  StorageNotifier() : super(StorageData([]));
-  void send(RequestFilter req);
-}
-
-AutoDisposeStateNotifierProvider<StorageNotifier, StorageState> query(
+AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query(
     {Set<int>? kinds,
     Set<String>? ids,
     Set<String>? authors,
@@ -52,7 +76,7 @@ AutoDisposeStateNotifierProvider<StorageNotifier, StorageState> query(
       until: until,
       limit: limit,
       storageOnly: storageOnly);
-  return storageNotifierProvider(req);
+  return requestNotifierProvider(req);
 }
 
 final dummyDataProvider = StateProvider<List<Event>>((_) => []);
