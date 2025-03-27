@@ -31,6 +31,14 @@ class Profile extends ReplaceableEvent<Profile> {
   String? get pictureUrl => _content['picture'];
   String? get lud16 => _content['lud16'];
   String get nameOrNpub => name ?? npub;
+
+  /// Attempts to convert this string (hex) to npub. Returns same if already npub.
+  static String npubFromHex(String hex) =>
+      hex.startsWith('npub') ? hex : bech32Encode('npub', hex);
+
+  /// Attempts to convert this string (npub) to a hex pubkey. Returns same if already hex pubkey.
+  static String hexFromNpub(String npub) =>
+      npub.startsWith('npub') ? bech32Decode(npub) : npub;
 }
 
 class PartialProfile extends ReplaceablePartialEvent<Profile> {
@@ -47,16 +55,6 @@ class PartialProfile extends ReplaceablePartialEvent<Profile> {
         jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
     return super.signWith(signer, withPubkey: withPubkey);
   }
-}
-
-// Extensions
-
-extension Bech32StringX on String {
-  /// Attempts to convert this string (hex) to npub. Returns same if already npub.
-  String get npub => startsWith('npub') ? this : bech32Encode('npub', this);
-
-  /// Attempts to convert this string (npub) to a hex pubkey. Returns same if already hex pubkey.
-  String get hexKey => startsWith('npub') ? bech32Decode(this) : this;
 }
 
 String bech32Encode(String prefix, String hexData) {

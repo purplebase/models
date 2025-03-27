@@ -115,21 +115,30 @@ void main() async {
     });
   });
 
-  test('relay request should notify with events', () async {
-    tester =
-        container.testerFor(query(kinds: {1}, authors: {'a', 'b'}, limit: 2));
-    // First state is existing in storage
-    await tester.expectModels(isEmpty);
-    // As query hits relays and dummy creates fake ones, they come in via storage
-    final nModels = 4; // limit * number of authors
-    await tester.expectModels(hasLength(nModels));
-  });
+  group('storage relay interface', () {
+    test('request filter', () {
+      tester = container.testerFor(query()); // no-op
+      final r1 = RequestFilter(kinds: {7}, authors: {'a', 'b'});
+      final r2 = RequestFilter(kinds: {7}, authors: {'a', 'b'});
+      expect(r1, equals(r2));
+    });
 
-  test('', () {
-    // tester.notifier.send(RequestFilter(authors: {'a'}));
+    test('relay request should notify with events', () async {
+      tester =
+          container.testerFor(query(kinds: {1}, authors: {'a', 'b'}, limit: 2));
+      // First state is existing in storage
+      await tester.expectModels(isEmpty);
+      // As query hits relays and dummy creates fake ones, they come in via storage
+      final nModels = 4; // limit * number of authors
+      await tester.expectModels(hasLength(nModels));
+    });
 
-    // final note =
-    //     await PartialNote('yo').signWith(DummySigner(), withPubkey: 'a');
-    // relay.publish(note);
+    test('', () {
+      // tester.notifier.send(RequestFilter(authors: {'a'}));
+
+      // final note =
+      //     await PartialNote('yo').signWith(DummySigner(), withPubkey: 'a');
+      // relay.publish(note);
+    });
   });
 }

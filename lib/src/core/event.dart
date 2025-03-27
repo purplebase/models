@@ -2,19 +2,8 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
-import 'package:models/src/core/relationship.dart';
-import 'package:models/src/models/app.dart';
-import 'package:models/src/models/direct_message.dart';
-import 'package:models/src/models/file_metadata.dart';
-import 'package:models/src/models/lists.dart';
-import 'package:models/src/models/note.dart';
-import 'package:models/src/models/profile.dart';
-import 'package:models/src/models/reaction.dart';
-import 'package:models/src/models/release.dart';
-import 'package:models/src/models/zap.dart';
-import 'package:models/src/core/signer.dart';
+import 'package:models/models.dart';
 import 'package:models/src/core/utils.dart';
-import 'package:models/src/storage/notifiers.dart';
 import 'package:riverpod/riverpod.dart';
 
 mixin EventBase<E extends Event<E>> {
@@ -133,11 +122,13 @@ sealed class Event<E extends Event<E>>
   static final Map<String, ({int kind, EventConstructor constructor})> types = {
     'Profile': (kind: 0, constructor: Profile.fromMap),
     'Note': (kind: 1, constructor: Note.fromMap),
-    'Reaction': (kind: 7, constructor: Reaction.fromMap),
     'DirectMessage': (kind: 4, constructor: DirectMessage.fromMap),
+    'ChatMessage': (kind: 9, constructor: ChatMessage.fromMap),
+    'Reaction': (kind: 7, constructor: Reaction.fromMap),
     'FileMetadata': (kind: 1063, constructor: FileMetadata.fromMap),
     'ZapRequest': (kind: 9734, constructor: ZapRequest.fromMap),
-    'ZapReceipt': (kind: 9735, constructor: Zap.fromMap),
+    'Zap': (kind: 9735, constructor: Zap.fromMap),
+    'Article': (kind: 30023, constructor: Article.fromMap),
     'Release': (kind: 30063, constructor: Release.fromMap),
     'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromMap),
     'App': (kind: 32267, constructor: App.fromMap)
