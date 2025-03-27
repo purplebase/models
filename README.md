@@ -34,26 +34,25 @@ The modelling layer intends to abstract away NIP jargon and be as domain languag
 
 ```dart
 final note = await storage.findOne<Note>(authors: {'a'});
-final Reply reply = await PartialReply('this is cool').signWith(signer);
-note.replies.add(reply);
-print(await note.replies.toList());
+final Reply reply = await PartialNote('this is cool', replyTo: note).signWith(signer);
+print(note.replies.toList());
 // And maybe:
 await storage.publish(reply, to: {'big-relays'});
 
 // The initial note could of course be retrieved like:
-final note = await signedInProfile.notes.first;
+final note = signedInProfile.notes.first;
 ```
 
 And then:
 
 ```dart
-final state = ref.watch(nostr(authors: {'a1b2c3'}, kinds: {1}, and: (_) => {_.replies}));
+final state = ref.watch(query(authors: {'a1b2c3'}, kinds: {1}, and: (_) => {_.replies}));
 
 // ...
 children: [
- if (state case RelayData(:final models))
-  for (final model in models)
-    for (final reply in (model as Note).replies)
+ if (state case StorageData(:final models))
+  for (final model in models.cast<Note>())
+    for (final reply in model.replies)
       ListTile(
         title: Text('Note ${model.content} has reply: ${reply}'),
       )
@@ -66,7 +65,7 @@ Lastly, watching replaceable events will also be a thing:
 
 ```dart
 final Profile signedInProfile = ref.watch(signedInProfileProvider);
-final state = ref.watch(nostr(signedInProfile, and: (_) => {_.following}));
+final state = ref.watch(query(signedInProfile, and: (_) => {_.following}));
 ```
 
 Relays can be configured in pools, e.g. `storage.configure('big-relays', {'wss://relay.damus.io', 'wss://relay.primal.net'})` and then addressed by label throughout the application; when no relay pools are supplied it is inferred that the outbox model must be utilized.
@@ -77,8 +76,9 @@ A storage is very close to a relay but has some key differences, it:
 
  - Stores replaceable event IDs as the main ID for querying
  - Discards event signatures after validation, so not meant for rebroadcasting
- - Tracks origin relays for events, as well as connection timestamps for subsequent  time-based querying
+ - Tracks origin relays for events, as well as connection timestamps for subsequent time-based querying
  - Has more efficient interfaces for mass deleting data
+ - Can store decrypted DMs or cashu tokens, cache profile images, etc
 
 ## TODO
 

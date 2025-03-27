@@ -4,6 +4,7 @@ export 'src/storage/state.dart';
 export 'src/storage/notifiers.dart';
 export 'src/core/event.dart';
 export 'src/core/signer.dart';
+export 'src/core/tags.dart';
 export 'src/core/relationship.dart';
 export 'src/models/app.dart';
 export 'src/models/article.dart';

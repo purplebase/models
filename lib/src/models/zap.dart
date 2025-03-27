@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:models/src/core/event.dart';
+import 'package:models/models.dart';
 import 'package:models/src/core/utils.dart';
 
 /// Zap is technically a kind 9735 Zap Receipt

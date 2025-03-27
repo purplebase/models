@@ -1,15 +1,12 @@
 import 'package:models/src/core/event.dart';
 
-class Release = ParameterizableReplaceableEvent<Release> with ReleaseMixin;
+class Release extends ParameterizableReplaceableEvent<Release> {
+  Release.fromMap(super.map, super.ref) : super.fromMap();
 
-class PartialRelease = ParameterizableReplaceablePartialEvent<Release>
-    with ReleaseMixin, PartialReleaseMixin;
-
-mixin ReleaseMixin on EventBase<Release>, IdentifierMixin {
   String get releaseNotes => internal.content;
-  String get version => identifier!.split('@').last;
+  String get version => internal.identifier.split('@').last;
 }
 
-mixin PartialReleaseMixin on PartialEventBase<Release>, IdentifierMixin {
+class PartialRelease extends ParameterizableReplaceablePartialEvent<Release> {
   set releaseNotes(String value) => internal.content = value;
 }

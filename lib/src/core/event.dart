@@ -22,14 +22,10 @@ sealed class Event<E extends Event<E>>
   late final HasMany<Reaction> reactions;
   late final HasMany<Zap> zaps;
 
+  Event._internal(this.ref, this.internal);
+
   Event.fromMap(Map<String, dynamic> map, this.ref)
-      : internal = ImmutableInternalEvent<E>(
-            id: map['id'],
-            content: map['content'],
-            pubkey: map['pubkey'],
-            createdAt: (map['created_at'] as int).toDate(),
-            tags: deserializeTags(map['tags']),
-            signature: map['sig']) {
+      : internal = ImmutableInternalEvent<E>(map) {
     if (map['kind'] != internal.kind) {
       throw Exception(
           'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E (${internal.kind})');
@@ -51,51 +47,15 @@ sealed class Event<E extends Event<E>>
         BelongsTo(ref, RequestFilter(kinds: {0}, authors: {internal.pubkey}));
 
     reactions = HasMany<Reaction>(
-        ref,
-        RequestFilter(kinds: {
-          7
-        }, tags: {
-          // TODO: Does this work for replaceable events?
-          '#e': {internal.id}
-        }));
+        ref, RequestFilter(kinds: {7}, tags: internal.addressableIdTagMap));
 
     zaps = HasMany<Zap>(
-        ref,
-        RequestFilter(kinds: {
-          9735
-        }, tags: {
-          // TODO: Does this work for replaceable events?
-          '#e': {internal.id}
-        }));
+        ref, RequestFilter(kinds: {9735}, tags: internal.addressableIdTagMap));
   }
+
+  String get id => internal.addressableId;
 
   DateTime get createdAt => internal.createdAt;
-
-  static Map<String, Set<TagValue>> deserializeTags(Iterable originalTags) {
-    final tagList = [for (final t in originalTags) List.from(t).cast<String>()];
-    return tagList.fold(<String, Set<TagValue>>{}, (acc, e) {
-      if (e.length >= 2) {
-        final [name, ...rest] = e;
-        acc[name] ??= {};
-        if (name == 'e') {
-          acc[name]!.add(EventTagValue(rest.first,
-              relayUrl: rest[1],
-              marker:
-                  rest.length > 2 ? EventMarker.fromString(rest[2]) : null));
-        } else {
-          acc[name]!.add(TagValue(rest));
-        }
-      }
-      return acc;
-    });
-  }
-
-  static List<List<String>> serializeTags(Map<String, Set<TagValue>> tags) {
-    return [
-      for (final e in tags.entries)
-        for (final t in e.value) [e.key, ...t.values]
-    ];
-  }
 
   @override
   Map<String, dynamic> toMap() {
@@ -105,7 +65,7 @@ sealed class Event<E extends Event<E>>
       'created_at': internal.createdAt.toSeconds(),
       'pubkey': internal.pubkey,
       'kind': internal.kind,
-      'tags': serializeTags(internal.tags),
+      'tags': TagValue.serialize(internal.tags),
       'sig': internal.signature,
     };
   }
@@ -154,18 +114,10 @@ mixin PartialEventBase<E extends Event<E>> implements EventBase<E> {
 
   void linkEvent(Event e,
       {String? relayUrl, EventMarker? marker, String? pubkey}) {
-    switch (e) {
-      case ReplaceableEvent():
-        internal.addTag(
-            'a',
-            EventTagValue(e.getReplaceableEventLink().formatted,
-                relayUrl: relayUrl, marker: marker, pubkey: pubkey));
-      case _:
-        internal.addTag(
-            'e',
-            EventTagValue(e.internal.id,
-                relayUrl: relayUrl, marker: marker, pubkey: pubkey));
-    }
+    internal.addTag(
+        'e',
+        EventTagValue(e.id,
+            relayUrl: relayUrl, marker: marker, pubkey: pubkey));
   }
 
   void unlinkEvent(Event e) => internal.removeTagWithValue('e', e.internal.id);
@@ -185,57 +137,13 @@ sealed class PartialEvent<E extends Event<E>>
       'content': internal.content,
       'created_at': internal.createdAt.toSeconds(),
       'kind': internal.kind,
-      'tags': Event.serializeTags(internal.tags),
+      'tags': TagValue.serialize(internal.tags),
     };
   }
 
   @override
   String toString() {
     return jsonEncode(toMap());
-  }
-}
-
-final class TagValue with EquatableMixin {
-  final List<String> values;
-  TagValue(this.values) {
-    if (values.isEmpty) throw 'empty tag';
-  }
-  String get value => values.first;
-
-  @override
-  List<Object?> get props => values;
-
-  @override
-  String toString() {
-    return values.toString();
-  }
-}
-
-final class EventTagValue extends TagValue {
-  final String? relayUrl;
-  final EventMarker? marker;
-  final String? pubkey;
-  EventTagValue(String value, {this.relayUrl, this.marker, this.pubkey})
-      : super([
-          value,
-          relayUrl ?? "",
-          if (marker != null) marker.name,
-          if (pubkey != null) pubkey
-        ]);
-}
-
-enum EventMarker {
-  reply,
-  root,
-  mention;
-
-  static fromString(String value) {
-    for (final element in EventMarker.values) {
-      if (element.name.toLowerCase() == value.toLowerCase()) {
-        return element;
-      }
-    }
-    return null;
   }
 }
 
@@ -246,14 +154,6 @@ sealed class InternalEvent<E extends Event<E>> {
   DateTime get createdAt;
   String get content;
   Map<String, Set<TagValue>> get tags;
-
-  // TODO: Implement nevent
-  String get nevent => 'nevent123';
-
-  Set<String> get linkedEventIds => getTagSetValues('e');
-  Set<ReplaceableEventLink> get linkedReplaceableEventIds {
-    return getTagSetValues('a').map((e) => e.toReplaceableLink()).toSet();
-  }
 
   String? getFirstTagValue(String key) {
     return getFirstTag(key)?.value;
@@ -283,13 +183,56 @@ final class ImmutableInternalEvent<E extends Event<E>>
   final Map<String, Set<TagValue>> tags;
   // Signature is nullable as it may be removed as optimization
   final String? signature;
-  ImmutableInternalEvent(
-      {required this.id,
-      required this.createdAt,
-      required this.pubkey,
-      required this.tags,
-      required this.content,
-      required this.signature});
+
+  ImmutableInternalEvent(Map<String, dynamic> map)
+      : id = map['id'],
+        content = map['content'],
+        pubkey = map['pubkey'],
+        createdAt = (map['created_at'] as int).toDate(),
+        tags = TagValue.deserialize(map['tags']),
+        signature = map['sig'];
+
+  String get nevent => bech32Encode('nevent', id);
+
+  String get addressableId => switch (this) {
+        ImmutableReplaceableInternalEvent() =>
+          (this as ImmutableReplaceableInternalEvent)
+              .getReplaceableEventLink()
+              .formatted,
+        _ => id,
+      };
+
+  Map<String, Set<String>> get addressableIdTagMap => switch (this) {
+        ImmutableReplaceableInternalEvent() => {
+            '#a': {
+              (this as ImmutableReplaceableInternalEvent)
+                  .getReplaceableEventLink()
+                  .formatted
+            }
+          },
+        _ => {
+            '#e': {id}
+          },
+      };
+}
+
+final class ImmutableReplaceableInternalEvent<E extends Event<E>>
+    extends ImmutableInternalEvent<E> {
+  ImmutableReplaceableInternalEvent(super.map);
+
+  ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
+      (kind, pubkey ?? this.pubkey, null);
+}
+
+final class ImmutableParameterizableReplaceableInternalEvent<E extends Event<E>>
+    extends ImmutableReplaceableInternalEvent<E> {
+  ImmutableParameterizableReplaceableInternalEvent(super.map);
+
+  String get identifier => getFirstTagValue('d')!;
+
+  @override
+  ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
+      (kind, pubkey ?? this.pubkey, identifier);
 }
 
 final class PartialInternalEvent<E extends Event<E>> extends InternalEvent<E> {
@@ -332,7 +275,7 @@ final class PartialInternalEvent<E extends Event<E>> extends InternalEvent<E> {
 
 // Event types
 
-// Use an empty mixin in order to use the = class definitions
+// Create an empty mixin in order to use the = class definitions
 mixin _EmptyMixin {}
 
 abstract class RegularEvent<E extends Event<E>> = Event<E> with _EmptyMixin;
@@ -344,43 +287,43 @@ abstract class EphemeralPartialEvent<E extends Event<E>> = PartialEvent<E>
     with _EmptyMixin;
 
 abstract class ReplaceableEvent<E extends Event<E>> extends Event<E> {
-  ReplaceableEvent.fromMap(super.map, super.ref) : super.fromMap();
+  @override
+  ImmutableReplaceableInternalEvent<E> get internal =>
+      super.internal as ImmutableReplaceableInternalEvent<E>;
 
-  ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
-      (internal.kind, pubkey ?? internal.pubkey, null);
+  ReplaceableEvent.fromMap(Map<String, dynamic> map, Ref ref)
+      : this._internal(ref, ImmutableReplaceableInternalEvent<E>(map));
+
+  ReplaceableEvent._internal(
+      Ref ref, ImmutableReplaceableInternalEvent internal)
+      : super._internal(ref, internal);
 
   @override
-  List<Object?> get props => [getReplaceableEventLink().formatted];
+  List<Object?> get props => [id];
 }
 
 abstract class ReplaceablePartialEvent<E extends Event<E>> = PartialEvent<E>
     with _EmptyMixin;
 
-// TODO: Rethink this mixin
-mixin IdentifierMixin {
-  String? get identifier;
-}
+//
 
 abstract class ParameterizableReplaceableEvent<E extends Event<E>>
-    extends ReplaceableEvent<E> implements IdentifierMixin {
-  ParameterizableReplaceableEvent.fromMap(super.map, super.ref)
-      : super.fromMap() {
+    extends ReplaceableEvent<E> {
+  @override
+  ImmutableParameterizableReplaceableInternalEvent<E> get internal =>
+      super.internal as ImmutableParameterizableReplaceableInternalEvent<E>;
+
+  ParameterizableReplaceableEvent.fromMap(Map<String, dynamic> map, Ref ref)
+      : super._internal(
+            ref, ImmutableParameterizableReplaceableInternalEvent<E>(map)) {
     if (!internal.containsTag('d')) {
       throw Exception('Event must contain a `d` tag');
     }
   }
-
-  @override
-  String get identifier => internal.getFirstTagValue('d')!;
-
-  @override
-  ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
-      (internal.kind, pubkey ?? internal.pubkey, identifier);
 }
 
 abstract class ParameterizableReplaceablePartialEvent<E extends Event<E>>
-    extends ReplaceablePartialEvent<E> implements IdentifierMixin {
-  @override
+    extends ReplaceablePartialEvent<E> {
   String? get identifier => internal.getFirstTagValue('d');
   set identifier(String? value) => internal.setTagValue('d', value);
 }

@@ -5,6 +5,8 @@ import 'package:models/src/storage/dummy.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
+final refProvider = Provider((ref) => ref);
+
 class StorageNotifierTester {
   final RequestNotifier notifier;
 

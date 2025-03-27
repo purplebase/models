@@ -1,10 +1,8 @@
 import 'package:models/src/core/event.dart';
 
-class App = ParameterizableReplaceableEvent<App> with AppMixin;
-class PartialApp = ParameterizableReplaceablePartialEvent<App>
-    with AppMixin, PartialAppMixin;
+class App extends ParameterizableReplaceableEvent<App> {
+  App.fromMap(super.map, super.ref) : super.fromMap();
 
-mixin AppMixin on EventBase<App> {
   String? get name => internal.getFirstTagValue('name');
   String? get repository => internal.getFirstTagValue('repository');
   String get description => internal.content;
@@ -14,7 +12,7 @@ mixin AppMixin on EventBase<App> {
   Set<String> get images => internal.getTagSetValues('image');
 }
 
-mixin PartialAppMixin on PartialEventBase<App> {
+class PartialApp extends ParameterizableReplaceablePartialEvent<App> {
   set description(String value) => internal.content = value;
   set name(String? value) => internal.setTagValue('name', value);
   set repository(String? value) => internal.setTagValue('repository', value);

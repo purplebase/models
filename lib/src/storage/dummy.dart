@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:faker/faker.dart';
 import 'package:models/models.dart';
-import 'package:models/src/core/utils.dart';
 import 'package:riverpod/riverpod.dart';
 
 final dummySigner = DummySigner();
@@ -25,18 +24,7 @@ class DummyStorage implements Storage {
   @override
   Future<void> save(Iterable<Event> events) async {
     for (final event in events) {
-      final id = switch (event) {
-        ParameterizableReplaceableEvent() => (
-            event.internal.kind,
-            event.internal.pubkey,
-            event.identifier
-          ).formatted,
-        ReplaceableEvent() =>
-          (event.internal.kind, event.internal.pubkey, null).formatted,
-        EphemeralEvent() => event.internal.id,
-        RegularEvent() => event.internal.id,
-      };
-      _events[id] = event;
+      _events[event.id] = event;
     }
   }
 

@@ -1,15 +1,14 @@
 import 'package:models/src/core/event.dart';
 import 'package:models/src/models/profile.dart';
 
-mixin _DirectMessageMixin on EventBase<DirectMessage> {
+class DirectMessage extends RegularEvent<DirectMessage> {
+  DirectMessage.fromMap(super.map, super.ref) : super.fromMap();
+
   String get receiver => Profile.npubFromHex(internal.getFirstTagValue('p')!);
   String get content => internal.content;
 }
 
-class DirectMessage = RegularEvent<DirectMessage> with _DirectMessageMixin;
-
-class PartialDirectMessage extends RegularPartialEvent<DirectMessage>
-    with _DirectMessageMixin {
+class PartialDirectMessage extends RegularPartialEvent<DirectMessage> {
   PartialDirectMessage({
     required String content,
     required String receiver,

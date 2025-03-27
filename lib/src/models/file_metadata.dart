@@ -1,12 +1,8 @@
 import 'package:models/src/core/event.dart';
 import 'package:models/src/core/utils.dart';
 
-class FileMetadata = RegularEvent<FileMetadata> with FileMetadataMixin;
-
-class PartialFileMetadata = RegularPartialEvent<FileMetadata>
-    with FileMetadataMixin, PartialFileMetadataMixin;
-
-mixin FileMetadataMixin on EventBase<FileMetadata> {
+class FileMetadata extends RegularEvent<FileMetadata> {
+  FileMetadata.fromMap(super.map, super.ref) : super.fromMap();
   Set<String> get urls => internal.getTagSetValues('url');
   String? get mimeType => internal.getFirstTagValue('m');
   String? get hash => internal.getFirstTagValue('x');
@@ -20,4 +16,4 @@ mixin FileMetadataMixin on EventBase<FileMetadata> {
       internal.getFirstTagValue('apk_signature_hash');
 }
 
-mixin PartialFileMetadataMixin on PartialEventBase<FileMetadata> {}
+class PartialFileMetadata extends RegularPartialEvent<FileMetadata> {}

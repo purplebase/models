@@ -93,9 +93,7 @@ class RequestFilter extends Equatable {
   final DateTime? since;
   final DateTime? until;
   final int? limit;
-  // TODO: Add queryLimit for total limit (as limit only applies to first state)
-  final int? queryLimit;
-  // TODO: Implement buffer until EOSE
+  final int? queryLimit; // Total limit including streaming
   final bool bufferUntilEose;
   final bool storageOnly;
 

@@ -3,11 +3,11 @@ import 'package:models/models.dart';
 class Note extends RegularEvent<Note> {
   String get content => internal.content;
 
-  late final HasMany<Note> notes;
-  late final HasMany<Note> allNotes;
+  late final HasMany<Note> replies;
+  late final HasMany<Note> allReplies;
 
   Note.fromMap(super.map, super.ref) : super.fromMap() {
-    allNotes = HasMany(
+    allReplies = HasMany(
       ref,
       RequestFilter(
         kinds: {1},
@@ -25,7 +25,7 @@ class Note extends RegularEvent<Note> {
         },
       ),
     );
-    notes = HasMany(
+    replies = HasMany(
       ref,
       RequestFilter(
         kinds: {1},

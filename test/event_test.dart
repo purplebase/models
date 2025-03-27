@@ -104,8 +104,8 @@ void main() async {
       final replyToReplyNote = await replyToReplyPartialNote.by('bar');
 
       await container.read(storageProvider).save({replyNote, replyToReplyNote});
-      expect(c.notes.toList(), {replyNote});
-      expect(c.allNotes.toList(), {replyNote, replyToReplyNote});
+      expect(c.replies.toList(), {replyNote});
+      expect(c.allReplies.toList(), {replyNote, replyToReplyNote});
 
       final reaction =
           await PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
@@ -131,27 +131,20 @@ void main() async {
       final partialApp = PartialApp()
         ..identifier = 'w'
         ..description = 'test app';
-      final app = await partialApp
-          .by('gordo'); // identifier: 'blah'; pubkeys: {'90983aebe92bea'}
-      // expect(app.isValid, isTrue);
+      final app = await partialApp.by(
+          'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
+
       expect(app.internal.kind, 32267);
       expect(app.description, 'test app');
-      // expect(app.identifier, 'blah');
-      // expect(app.getReplaceableEventLink(), (
-      //   32267,
-      //   'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1',
-      //   'blah'
-      // ));
-      // expect(app.pubkeys, {'90983aebe92bea'});
-      // expect(App.fromMap(app.toMap()), app);
-
-      // event and partial event should share a common interface
-      // final apps = [partialApp, app];
-      // apps.first.repository;
-
-      // final note = await PartialNote().signWith(signer);
-      // final List<EventBase> notes = [PartialNote(), note];
-      // notes.first.event.content;
+      expect(app.id,
+          '32267:f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1:w');
+      expect(app.internal.getReplaceableEventLink(), (
+        32267,
+        'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1',
+        'w'
+      ));
+      // expect(app.internal.nevent, 'bla');
+      expect(App.fromMap(app.toMap(), container.read(refProvider)), app);
     });
   });
 }

@@ -1,14 +1,16 @@
 import 'package:models/src/core/event.dart';
+import 'package:models/src/core/utils.dart';
 
-class AppCurationSet = ParameterizableReplaceableEvent<AppCurationSet>
-    with AppCurationSetMixin;
-
-class PartialAppCurationSet = ParameterizableReplaceablePartialEvent<
-    AppCurationSet> with AppCurationSetMixin, PartialAppCurationSetMixin;
-
-mixin AppCurationSetMixin on EventBase<AppCurationSet> {
-  Set<String> get appIds =>
-      internal.linkedReplaceableEventIds.map((a) => a.$3).nonNulls.toSet();
+class AppCurationSet extends ParameterizableReplaceableEvent<AppCurationSet> {
+  AppCurationSet.fromMap(super.map, super.ref) : super.fromMap();
+  Set<String> get appIds => internal
+      .getTagSetValues('a')
+      .map((e) => e.toReplaceableLink())
+      .toSet()
+      .map((a) => a.$3)
+      .nonNulls
+      .toSet();
 }
 
-mixin PartialAppCurationSetMixin on PartialEventBase<AppCurationSet> {}
+class PartialAppCurationSet
+    extends ParameterizableReplaceablePartialEvent<AppCurationSet> {}
