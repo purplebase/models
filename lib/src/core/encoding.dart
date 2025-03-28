@@ -59,7 +59,8 @@ String bech32Encode(String prefix, String hexData, {int? maxLength}) {
   final data = hex.decode(hexData);
   final convertedData = convertBits(data, 8, 5, true);
   final bech32Data = Bech32(prefix, convertedData);
-  return bech32.encode(bech32Data, maxLength);
+  if (maxLength != null) return bech32.encode(bech32Data, maxLength);
+  return bech32.encode(bech32Data);
 }
 
 /// For these events, the contents are a binary-encoded list of TLV (type-length-value),

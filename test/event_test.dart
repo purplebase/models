@@ -126,6 +126,7 @@ void main() async {
 
       expect(niel.internal.content,
           '{"name":"Niel Liesmons","nip05":null,"picture":"https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png"}');
+      print(niel.internal.shareableId);
     });
 
     test('app', () async {
