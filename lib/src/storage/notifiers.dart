@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:equatable/equatable.dart';
-import 'package:models/src/core/utils.dart';
+import 'package:models/src/core/extensions.dart';
 import 'package:riverpod/riverpod.dart';
 
 import '../core/event.dart';

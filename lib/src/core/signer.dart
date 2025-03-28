@@ -1,7 +1,6 @@
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:convert/convert.dart';
-import 'package:models/src/core/event.dart';
-import 'package:models/src/core/utils.dart';
+import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 
 mixin Signable<E extends Event<E>> {
@@ -37,7 +36,7 @@ class Bip340PrivateKeySigner extends Signer {
 
   @override
   Future<String?> getPublicKey() async {
-    return BaseUtil.getPublicKey(privateKey);
+    return Profile.getPublicKey(privateKey);
   }
 
   Map<String, dynamic> _prepare(
@@ -51,7 +50,7 @@ class Bip340PrivateKeySigner extends Signer {
   @override
   Future<E> sign<E extends Event<E>>(PartialEvent<E> partialEvent,
       {String? withPubkey}) async {
-    final pubkey = BaseUtil.getPublicKey(privateKey);
+    final pubkey = Profile.getPublicKey(privateKey);
     final id = partialEvent.getEventId(pubkey);
     // TODO: Should aux be random? random.nextInt(256)
     final aux = hex.encode(List<int>.generate(32, (i) => 1));

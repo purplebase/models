@@ -1,15 +1,22 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
-import 'package:models/src/core/utils.dart';
+import 'package:models/src/core/extensions.dart';
+import 'package:models/src/core/internal_event.dart';
 import 'package:riverpod/riverpod.dart';
 
 mixin EventBase<E extends Event<E>> {
   InternalEvent get internal;
   Map<String, dynamic> toMap();
 }
+
+typedef EventConstructor<E extends Event<E>> = E Function(
+    Map<String, dynamic>, Ref ref);
+
+// Event
 
 sealed class Event<E extends Event<E>>
     with EquatableMixin
@@ -108,28 +115,48 @@ You can do so by calling: Event.types['$E'] = (kind, $E.fromMap);
   }
 }
 
-mixin PartialEventBase<E extends Event<E>> implements EventBase<E> {
+sealed class PartialEvent<E extends Event<E>>
+    with Signable<E>
+    implements EventBase<E> {
   @override
-  PartialInternalEvent get internal;
+  final PartialInternalEvent internal = PartialInternalEvent<E>();
+
+  String getEventId(String pubkey) {
+    final data = [
+      0,
+      pubkey.toLowerCase(),
+      internal.createdAt.toSeconds(),
+      internal.kind,
+      TagValue.serialize(internal.tags),
+      internal.content
+    ];
+    final digest =
+        sha256.convert(Uint8List.fromList(utf8.encode(json.encode(data))));
+    return digest.toString();
+  }
 
   void linkEvent(Event e,
       {String? relayUrl, EventMarker? marker, String? pubkey}) {
-    internal.addTag(
-        'e',
-        EventTagValue(e.id,
-            relayUrl: relayUrl, marker: marker, pubkey: pubkey));
+    if (e is ReplaceableEvent) {
+      internal.addTag('a', TagValue([e.id]));
+    } else {
+      internal.addTag(
+          'e',
+          EventTagValue(e.id,
+              relayUrl: relayUrl, marker: marker, pubkey: pubkey));
+    }
   }
 
-  void unlinkEvent(Event e) => internal.removeTagWithValue('e', e.internal.id);
+  void unlinkEvent(Event e) {
+    if (e is ReplaceableEvent) {
+      internal.removeTagWithValue('a', e.id);
+    } else {
+      internal.removeTagWithValue('e', e.id);
+    }
+  }
 
   void linkProfile(Profile p) => internal.setTagValue('p', p.pubkey);
   void unlinkProfile(Profile u) => internal.removeTagWithValue('p', u.pubkey);
-}
-
-sealed class PartialEvent<E extends Event<E>>
-    with Signable<E>, PartialEventBase<E> {
-  @override
-  final PartialInternalEvent internal = PartialInternalEvent<E>();
 
   @override
   Map<String, dynamic> toMap() {
@@ -144,132 +171,6 @@ sealed class PartialEvent<E extends Event<E>>
   @override
   String toString() {
     return jsonEncode(toMap());
-  }
-}
-
-// Internal events
-
-sealed class InternalEvent<E extends Event<E>> {
-  final int kind = Event.types[E.toString()]!.kind;
-  DateTime get createdAt;
-  String get content;
-  Map<String, Set<TagValue>> get tags;
-
-  String? getFirstTagValue(String key) {
-    return getFirstTag(key)?.value;
-  }
-
-  TagValue? getFirstTag(String key) {
-    return tags[key]?.firstOrNull;
-  }
-
-  Set<String> getTagSetValues(String key) =>
-      getTagSet(key).map((e) => e.value).toSet();
-
-  Set<TagValue> getTagSet(String key) => tags[key]?.toSet() ?? {};
-
-  bool containsTag(String key) => tags.containsKey(key);
-}
-
-final class ImmutableInternalEvent<E extends Event<E>>
-    extends InternalEvent<E> {
-  final String id;
-  @override
-  final DateTime createdAt;
-  final String pubkey;
-  @override
-  final String content;
-  @override
-  final Map<String, Set<TagValue>> tags;
-  // Signature is nullable as it may be removed as optimization
-  final String? signature;
-
-  ImmutableInternalEvent(Map<String, dynamic> map)
-      : id = map['id'],
-        content = map['content'],
-        pubkey = map['pubkey'],
-        createdAt = (map['created_at'] as int).toDate(),
-        tags = TagValue.deserialize(map['tags']),
-        signature = map['sig'];
-
-  String get nevent => bech32Encode('nevent', id);
-
-  String get addressableId => switch (this) {
-        ImmutableReplaceableInternalEvent() =>
-          (this as ImmutableReplaceableInternalEvent)
-              .getReplaceableEventLink()
-              .formatted,
-        _ => id,
-      };
-
-  Map<String, Set<String>> get addressableIdTagMap => switch (this) {
-        ImmutableReplaceableInternalEvent() => {
-            '#a': {
-              (this as ImmutableReplaceableInternalEvent)
-                  .getReplaceableEventLink()
-                  .formatted
-            }
-          },
-        _ => {
-            '#e': {id}
-          },
-      };
-}
-
-final class ImmutableReplaceableInternalEvent<E extends Event<E>>
-    extends ImmutableInternalEvent<E> {
-  ImmutableReplaceableInternalEvent(super.map);
-
-  ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
-      (kind, pubkey ?? this.pubkey, null);
-}
-
-final class ImmutableParameterizableReplaceableInternalEvent<E extends Event<E>>
-    extends ImmutableReplaceableInternalEvent<E> {
-  ImmutableParameterizableReplaceableInternalEvent(super.map);
-
-  String get identifier => getFirstTagValue('d')!;
-
-  @override
-  ReplaceableEventLink getReplaceableEventLink({String? pubkey}) =>
-      (kind, pubkey ?? this.pubkey, identifier);
-}
-
-final class PartialInternalEvent<E extends Event<E>> extends InternalEvent<E> {
-  // No ID, pubkey or signature
-  // Kind is inherited
-  @override
-  String content = '';
-  @override
-  DateTime createdAt = DateTime.now();
-  @override
-  Map<String, Set<TagValue>> tags = {};
-
-  void addTagValue(String key, String? value) {
-    if (value != null) {
-      tags[key] ??= {};
-      tags[key]!.add(TagValue([value]));
-    }
-  }
-
-  void addTag(String key, TagValue tag) {
-    tags[key] ??= {};
-    tags[key]!.add(tag);
-  }
-
-  void removeTagWithValue(String key, [String? value]) {
-    if (value != null) {
-      tags[key]?.removeWhere((t) => t.value == value);
-    } else {
-      tags.remove(key);
-    }
-  }
-
-  void setTagValue(String key, String? value) {
-    if (value != null) {
-      removeTagWithValue(key);
-      addTagValue(key, value);
-    }
   }
 }
 
@@ -304,8 +205,6 @@ abstract class ReplaceableEvent<E extends Event<E>> extends Event<E> {
 
 abstract class ReplaceablePartialEvent<E extends Event<E>> = PartialEvent<E>
     with _EmptyMixin;
-
-//
 
 abstract class ParameterizableReplaceableEvent<E extends Event<E>>
     extends ReplaceableEvent<E> {

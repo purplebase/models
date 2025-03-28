@@ -118,12 +118,13 @@ void main() async {
     });
 
     test('profile', () async {
-      final p1 = await PartialProfile(
+      final niel = await PartialProfile(
         name: 'Niel Liesmons',
         pictureUrl:
             'https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png',
-      ).by('niel');
-      expect(p1.internal.content,
+      ).by('a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be');
+
+      expect(niel.internal.content,
           '{"name":"Niel Liesmons","nip05":null,"picture":"https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png"}');
     });
 
@@ -138,12 +139,9 @@ void main() async {
       expect(app.description, 'test app');
       expect(app.id,
           '32267:f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1:w');
-      expect(app.internal.getReplaceableEventLink(), (
-        32267,
-        'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1',
-        'w'
-      ));
-      // expect(app.internal.nevent, 'bla');
+      expect(app.internal.id, hasLength(64));
+      expect(app.internal.shareableId,
+          'naddr1qqqhwq3q7dh35fe8k74s9clkaxvyrnftfkt9t7x05xzt6ntg7njvwtdcuhqsxpqqqplqknw8nmm');
       expect(App.fromMap(app.toMap(), container.read(refProvider)), app);
     });
   });

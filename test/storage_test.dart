@@ -128,7 +128,11 @@ void main() async {
           container.testerFor(query(kinds: {1}, authors: {'a', 'b'}, limit: 2));
       // First state is existing in storage
       await tester.expectModels(isEmpty);
-      // As query hits relays and dummy creates fake ones, they come in via storage
+
+      await container
+          .read(storageNotifierProvider.notifier)
+          .generateDummyFor(pubkey: 'a', kind: 1, amount: 4);
+
       final nModels = 4; // limit * number of authors
       await tester.expectModels(hasLength(nModels));
     });
