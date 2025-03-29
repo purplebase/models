@@ -1,4 +1,5 @@
 import 'package:models/models.dart';
+import 'package:models/src/storage/dummy_notifier.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
@@ -77,7 +78,7 @@ void main() async {
       g = await PartialNote('Note G').by('verbiricha');
       profile = await PartialProfile(name: 'neil').by('niel');
 
-      container.read(dummyDataProvider.notifier).state = [
+      container.read(seedDummyDataProvider.notifier).state = [
         a,
         b,
         c,
@@ -103,7 +104,9 @@ void main() async {
         ..linkEvent(c, marker: EventMarker.root);
       final replyToReplyNote = await replyToReplyPartialNote.by('bar');
 
-      await container.read(storageProvider).save({replyNote, replyToReplyNote});
+      await container
+          .read(storageNotifierProvider.notifier)
+          .save({replyNote, replyToReplyNote});
       expect(c.replies.toList(), {replyNote});
       expect(c.allReplies.toList(), {replyNote, replyToReplyNote});
 

@@ -1,4 +1,5 @@
 import 'package:models/models.dart';
+import 'package:models/src/storage/dummy_notifier.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
@@ -7,15 +8,18 @@ import 'helpers.dart';
 void main() async {
   late ProviderContainer container;
   late StorageNotifierTester tester;
+  late DummyStorageNotifier storage;
 
   setUpAll(() async {
     container = ProviderContainer();
     await container.read(initializationProvider.future);
+    storage = container.read(storageNotifierProvider.notifier)
+        as DummyStorageNotifier;
   });
 
   tearDownAll(() async {
     tester.dispose();
-    await container.read(storageProvider).clear();
+    await storage.clear();
   });
 
   group('storage filters', () {
@@ -35,7 +39,7 @@ void main() async {
       g = await PartialNote('Note G').by('verbiricha');
       profile = await PartialProfile(name: 'neil').by('niel');
 
-      container.read(dummyDataProvider.notifier).state = [
+      container.read(seedDummyDataProvider.notifier).state = [
         a,
         b,
         c,
@@ -129,9 +133,8 @@ void main() async {
       // First state is existing in storage
       await tester.expectModels(isEmpty);
 
-      await container
-          .read(storageNotifierProvider.notifier)
-          .generateDummyFor(pubkey: 'a', kind: 1, amount: 4);
+      await storage.generateDummyFor(pubkey: 'a', kind: 1, amount: 4);
+      await tester.expect(isA<StorageLoading>());
 
       final nModels = 4; // limit * number of authors
       await tester.expectModels(hasLength(nModels));

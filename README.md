@@ -84,10 +84,10 @@ A storage is very close to a relay but has some key differences, it:
 
  - [x] Relay, request and other basic interfaces
  - [x] Storage API and in-memory implementation
- - [ ] Popular nostr models, at least those used in Zaplab
+ - [x] Popular nostr models, at least those used in Zaplab
  - [ ] Remote relay configuration
  - [ ] Smart querying using `since` based on local data
- - [ ] Model relationships
+ - [x] Model relationships
  - [ ] Ability for a watcher to watch a particular subscription (instead of a regular filter)
  - [ ] Allow typed queries `ref.watch(nostr<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
  - [ ] Allow multiple filters

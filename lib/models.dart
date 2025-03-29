@@ -1,7 +1,6 @@
 library;
 
-export 'src/storage/state.dart';
-export 'src/storage/notifiers.dart';
+export 'src/storage/notifier.dart';
 export 'src/core/event.dart';
 export 'src/core/signer.dart';
 export 'src/core/tags.dart';

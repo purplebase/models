@@ -5,28 +5,20 @@ import 'package:models/src/core/extensions.dart';
 import 'package:riverpod/riverpod.dart';
 
 import '../core/event.dart';
-import 'dummy.dart';
-import 'state.dart';
+import 'dummy_notifier.dart';
 
-abstract class Storage {
-  Future<List<Event>> queryAsync(RequestFilter req, {bool applyLimit = true});
-  List<Event> query(RequestFilter req, {bool applyLimit = true});
+mixin Storage {
+  Future<List<Event>> queryAsync(RequestFilter req,
+      {bool applyLimit = true, Iterable<Event>? onModels});
+  List<Event> query(RequestFilter req,
+      {bool applyLimit = true, Iterable<Event>? onModels});
   Future<void> save(Iterable<Event> events);
   Future<void> clear([RequestFilter? req]);
 }
 
-final storageProvider = Provider((ref) => DummyStorage(ref));
-
-//
-
-abstract class StorageNotifier extends StateNotifier<StorageSignal> {
+abstract class StorageNotifier extends StateNotifier<StorageSignal>
+    with Storage {
   StorageNotifier() : super(StorageSignal());
-  Future<void> save(List<Event> events);
-  Future<void> generateDummyFor(
-      {required String pubkey,
-      required int kind,
-      int amount = 10,
-      bool stream = false});
 }
 
 final storageNotifierProvider =
@@ -39,13 +31,54 @@ final storageNotifierProvider =
   },
 );
 
-//
-
 abstract class RequestNotifier extends StateNotifier<StorageState> {
-  RequestNotifier() : super(StorageLoading([]));
+  final RequestFilter req;
+  final Ref ref;
+  final StorageNotifier storage;
+  var applyLimit = true;
+
+  RequestNotifier(this.ref, this.req)
+      : storage = ref.read(storageNotifierProvider.notifier),
+        super(StorageLoading([])) {
+    // If no filters were provided, do nothing
+    if (req.toMap().isEmpty) {
+      return;
+    }
+    // Execute query and notify
+    storage.queryAsync(req, applyLimit: applyLimit).then((events) {
+      // print('setting initial state, ${events.length}');
+      state = StorageData(events);
+      applyLimit = false;
+      if (!req.storageOnly) {
+        // Send request filter to relays
+        send(req);
+      }
+    });
+
+    final sub = ref.listen(storageNotifierProvider, (_, signal) async {
+      state = StorageLoading(state.models);
+      // Signal gives us the newly saved models, *if* we pass it through
+      // the `onModels` callback we get them filtered to the supplied `req`,
+      // otherwise it applies `req` to all stored models
+      final events = await storage.queryAsync(req,
+          applyLimit: applyLimit, onModels: signal.events);
+      state = StorageData([...state.models, ...events]);
+    });
+
+    ref.onDispose(() {
+      sub.close();
+    });
+  }
+
+  Future<void> save(List<Event> events) async {
+    await storage.save(events);
+  }
+
   void send(RequestFilter req);
 }
 
+/// Family of notifier providers, one per request.
+/// Meant to be overridden, defaults to dummy implementation
 final requestNotifierProvider = StateNotifierProvider.autoDispose
     .family<RequestNotifier, StorageState, RequestFilter>(
   (ref, req) {
@@ -56,6 +89,7 @@ final requestNotifierProvider = StateNotifierProvider.autoDispose
   },
 );
 
+/// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query(
     {Set<int>? kinds,
     Set<String>? ids,
@@ -79,7 +113,33 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query(
   return requestNotifierProvider(req);
 }
 
-final dummyDataProvider = StateProvider<List<Event>>((_) => []);
+// State
+
+sealed class StorageState {
+  final List<Event> models;
+  const StorageState(this.models);
+}
+
+final class StorageLoading extends StorageState {
+  StorageLoading(super.models);
+}
+
+final class StorageData extends StorageState {
+  StorageData(super.models);
+}
+
+final class StorageError extends StorageState {
+  final Exception exception;
+  final StackTrace? stackTrace;
+  StorageError(super.models, {required this.exception, this.stackTrace});
+}
+
+class StorageSignal {
+  final Iterable<Event>? events;
+  StorageSignal([this.events]);
+}
+
+// Request filter
 
 class RequestFilter extends Equatable {
   static final _random = Random();
@@ -118,6 +178,7 @@ class RequestFilter extends Equatable {
         authors = authors ?? const {},
         kinds = kinds ?? const {},
         tags = tags ?? const {} {
+    // TODO: Validate ids, authors have proper format, auto-convert from npub if needed
     this.subscriptionId = subscriptionId ?? 'sub-${_random.nextInt(999999)}';
   }
 
