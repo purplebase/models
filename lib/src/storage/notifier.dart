@@ -9,10 +9,10 @@ import 'dummy_notifier.dart';
 
 mixin Storage {
   Future<List<Event>> queryAsync(RequestFilter req,
-      {bool applyLimit = true, Iterable<Event>? onModels});
+      {bool applyLimit = true, Set<Event>? applyTo});
   List<Event> query(RequestFilter req,
-      {bool applyLimit = true, Iterable<Event>? onModels});
-  Future<void> save(Iterable<Event> events);
+      {bool applyLimit = true, Set<Event>? applyTo});
+  Future<void> save(Set<Event> events);
   Future<void> clear([RequestFilter? req]);
 }
 
@@ -61,7 +61,7 @@ abstract class RequestNotifier extends StateNotifier<StorageState> {
       // the `onModels` callback we get them filtered to the supplied `req`,
       // otherwise it applies `req` to all stored models
       final events = await storage.queryAsync(req,
-          applyLimit: applyLimit, onModels: signal.events);
+          applyLimit: applyLimit, applyTo: signal.events);
       state = StorageData([...state.models, ...events]);
     });
 
@@ -70,7 +70,7 @@ abstract class RequestNotifier extends StateNotifier<StorageState> {
     });
   }
 
-  Future<void> save(List<Event> events) async {
+  Future<void> save(Set<Event> events) async {
     await storage.save(events);
   }
 
@@ -135,7 +135,7 @@ final class StorageError extends StorageState {
 }
 
 class StorageSignal {
-  final Iterable<Event>? events;
+  final Set<Event>? events;
   StorageSignal([this.events]);
 }
 

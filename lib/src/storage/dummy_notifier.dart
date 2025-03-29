@@ -9,7 +9,7 @@ final _dummySigner = DummySigner();
 /// Reactive storage with dummy data, singleton
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
-  final List<Event> _events = [];
+  final Set<Event> _events = {};
   var applyLimit = true;
 
   static DummyStorageNotifier? _instance;
@@ -18,14 +18,10 @@ class DummyStorageNotifier extends StorageNotifier {
     return _instance ??= DummyStorageNotifier._internal(ref);
   }
 
-  DummyStorageNotifier._internal(this.ref) {
-    // Pre-populate database from provider,
-    // happens once as this is a singleton
-    save(ref.read(seedDummyDataProvider));
-  }
+  DummyStorageNotifier._internal(this.ref);
 
   @override
-  Future<void> save(Iterable<Event> events) async {
+  Future<void> save(Set<Event> events) async {
     for (final event in events) {
       _events.add(event);
     }
@@ -34,21 +30,21 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<List<Event>> queryAsync(RequestFilter req,
-      {bool applyLimit = true, Iterable<Event>? onModels}) async {
+      {bool applyLimit = true, Set<Event>? applyTo}) async {
     return query(req, applyLimit: applyLimit);
   }
 
   @override
   List<Event> query(RequestFilter req,
-      {bool applyLimit = true, Iterable<Event>? onModels}) {
+      {bool applyLimit = true, Set<Event>? applyTo}) {
     List<Event> results;
-    // If `onModels` present then apply req on those, otherwise on all stored ones
-    final models = onModels?.toList() ?? _events;
+    // If applyTo present then apply req on those, otherwise on all stored ones
+    final models = applyTo?.toList() ?? _events;
 
     if (req.ids.isNotEmpty) {
       results = models.where((e) => req.ids.contains(e.id)).toList();
     } else {
-      results = models;
+      results = models.toList();
     }
 
     if (req.authors.isNotEmpty) {
@@ -132,11 +128,11 @@ class DummyStorageNotifier extends StorageNotifier {
             pictureUrl: faker.internet.httpsUrl())
         .signWith(_dummySigner, withPubkey: pubkey);
 
-    final models = [
+    final models = {
       for (final _ in List.generate(amount, (_) {}))
         await PartialNote(faker.lorem.sentence())
             .signWith(_dummySigner, withPubkey: profile.pubkey),
-    ];
+    };
     await save(models);
 
     Timer.periodic(Duration(seconds: 3), (t) async {
@@ -149,10 +145,10 @@ class DummyStorageNotifier extends StorageNotifier {
           // );
           t.cancel();
         } else {
-          final models = [
+          final models = {
             await PartialNote(faker.conference.name())
                 .signWith(_dummySigner, withPubkey: profile!.pubkey),
-          ];
+          };
           await save(models);
         }
       } else {
@@ -170,5 +166,3 @@ class DummyRequestNotifier extends RequestNotifier {
     // no-op as dummy storage does not hit relays
   }
 }
-
-final seedDummyDataProvider = StateProvider<List<Event>>((_) => []);

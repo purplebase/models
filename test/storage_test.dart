@@ -39,16 +39,7 @@ void main() async {
       g = await PartialNote('Note G').by('verbiricha');
       profile = await PartialProfile(name: 'neil').by('niel');
 
-      container.read(seedDummyDataProvider.notifier).state = [
-        a,
-        b,
-        c,
-        d,
-        e,
-        f,
-        g,
-        profile
-      ];
+      await storage.save({a, b, c, d, e, f, g, profile});
     });
 
     test('ids', () async {

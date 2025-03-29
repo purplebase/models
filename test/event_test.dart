@@ -64,8 +64,11 @@ void main() async {
   group('models', () {
     late Note a, b, c, d, e, f, g;
     late Profile profile;
+    late DummyStorageNotifier storage;
 
     setUpAll(() async {
+      storage = container.read(storageNotifierProvider.notifier)
+          as DummyStorageNotifier;
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
@@ -78,16 +81,7 @@ void main() async {
       g = await PartialNote('Note G').by('verbiricha');
       profile = await PartialProfile(name: 'neil').by('niel');
 
-      container.read(seedDummyDataProvider.notifier).state = [
-        a,
-        b,
-        c,
-        d,
-        e,
-        f,
-        g,
-        profile
-      ];
+      storage.save({a, b, c, d, e, f, g, profile});
     });
 
     test('note and relationships', () async {
