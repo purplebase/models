@@ -26,7 +26,7 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> save(Set<Event> events) async {
+  Future<void> save(Set<Event> events, {bool skipVerify = false}) async {
     _events.addAll(events);
     state = StorageSignal({for (final e in events) e.id});
   }

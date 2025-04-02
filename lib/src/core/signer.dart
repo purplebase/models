@@ -12,10 +12,11 @@ mixin Signable<E extends Event<E>> {
 
 final class Config extends Equatable {
   final String? databasePath;
-  const Config({this.databasePath});
+  final bool keepSignatures;
+  const Config({this.databasePath, this.keepSignatures = false});
 
   @override
-  List<Object?> get props => [databasePath];
+  List<Object?> get props => [databasePath, keepSignatures];
 }
 
 final initializationProvider =

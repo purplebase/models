@@ -10,14 +10,23 @@ import 'dummy_notifier.dart';
 
 abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   StorageNotifier() : super(StorageSignal());
+
   Future<void> initialize(Config config);
+
   Future<List<Event>> query(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds});
+
+  /// Ideally to be used for must-have sync interfaces such relationships
+  /// upon widget first load, and tests. Prefer [query] otherwise.
   List<Event> querySync(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds});
-  Future<void> save(Set<Event> events);
+
+  Future<void> save(Set<Event> events, {bool skipVerify = false});
+
   Future<void> send(RequestFilter req);
+
   Future<void> clear([RequestFilter? req]);
+
   Future<void> close();
 }
 
