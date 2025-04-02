@@ -18,7 +18,7 @@ final class TagValue with EquatableMixin {
         acc[name] ??= {};
         if (name == 'e') {
           acc[name]!.add(EventTagValue(rest.first,
-              relayUrl: rest[1],
+              relayUrl: rest.length > 1 ? rest[1] : null,
               marker:
                   rest.length > 2 ? EventMarker.fromString(rest[2]) : null));
         } else {

@@ -9,7 +9,7 @@ void main() async {
   late ProviderContainer container;
   setUpAll(() async {
     container = ProviderContainer();
-    await container.read(initializationProvider.future);
+    await container.read(initializationProvider(Config()).future);
   });
 
   group('event', () {

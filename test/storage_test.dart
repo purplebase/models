@@ -12,7 +12,7 @@ void main() async {
 
   setUpAll(() async {
     container = ProviderContainer();
-    await container.read(initializationProvider.future);
+    await container.read(initializationProvider(Config()).future);
     storage = container.read(storageNotifierProvider.notifier)
         as DummyStorageNotifier;
   });
@@ -138,5 +138,13 @@ void main() async {
       //     await PartialNote('yo').signWith(DummySigner(), withPubkey: 'a');
       // relay.publish(note);
     });
+  });
+
+  test('request filter', () {
+    tester = container.testerFor(query()); // no-op
+    final r1 = RequestFilter(kinds: {1}, authors: {'a'});
+    final r2 = RequestFilter(authors: {'a'}, kinds: {1});
+    expect(r1, r2);
+    expect(r1.toMap(), r2.toMap());
   });
 }

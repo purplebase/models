@@ -1,5 +1,6 @@
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:convert/convert.dart';
+import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 
@@ -9,9 +10,19 @@ mixin Signable<E extends Event<E>> {
   }
 }
 
-final initializationProvider = FutureProvider<bool>((ref) async {
+final class Config extends Equatable {
+  final String? databasePath;
+  const Config({this.databasePath});
+
+  @override
+  List<Object?> get props => [databasePath];
+}
+
+final initializationProvider =
+    FutureProvider.family<bool, Config>((ref, config) async {
   // Initialize a private ref exclusive for signers
   Signer._ref = ref;
+  await ref.read(storageNotifierProvider.notifier).initialize(config);
   return true;
 });
 

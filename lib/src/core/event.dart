@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
@@ -112,6 +113,10 @@ You can do so by calling: Event.types['$E'] = (kind, $E.fromMap);
 ''');
     }
     return constructor;
+  }
+
+  static EventConstructor<Event<dynamic>>? getConstructorForKind(int kind) {
+    return types.values.firstWhereOrNull((v) => v.kind == kind)?.constructor;
   }
 }
 

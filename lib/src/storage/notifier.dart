@@ -1,37 +1,31 @@
 import 'dart:math';
 
+import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
+import 'package:models/models.dart';
 import 'package:models/src/core/extensions.dart';
 import 'package:riverpod/riverpod.dart';
 
-import '../core/event.dart';
 import 'dummy_notifier.dart';
 
-mixin Storage {
-  Future<List<Event>> queryAsync(RequestFilter req,
-      {bool applyLimit = true, Set<Event>? applyTo});
-  List<Event> query(RequestFilter req,
-      {bool applyLimit = true, Set<Event>? applyTo});
-  Future<void> save(Set<Event> events);
-  Future<void> clear([RequestFilter? req]);
-}
-
-abstract class StorageNotifier extends StateNotifier<StorageSignal>
-    with Storage {
+abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   StorageNotifier() : super(StorageSignal());
+  Future<void> initialize(Config config);
+  Future<List<Event>> query(RequestFilter req,
+      {bool applyLimit = true, Set<String>? onIds});
+  List<Event> querySync(RequestFilter req,
+      {bool applyLimit = true, Set<String>? onIds});
+  Future<void> save(Set<Event> events);
+  Future<void> send(RequestFilter req);
+  Future<void> clear([RequestFilter? req]);
+  Future<void> close();
 }
 
 final storageNotifierProvider =
-    StateNotifierProvider.autoDispose<StorageNotifier, StorageSignal>(
-  (ref) {
-    // TODO: Using keepAlive to make tests work, isn't it contradictory to auto-dispose?
-    ref.keepAlive();
-    ref.onDispose(() => print('disposing provider'));
-    return DummyStorageNotifier(ref);
-  },
-);
+    StateNotifierProvider<StorageNotifier, StorageSignal>(
+        DummyStorageNotifier.new);
 
-abstract class RequestNotifier extends StateNotifier<StorageState> {
+class RequestNotifier extends StateNotifier<StorageState> {
   final RequestFilter req;
   final Ref ref;
   final StorageNotifier storage;
@@ -45,13 +39,13 @@ abstract class RequestNotifier extends StateNotifier<StorageState> {
       return;
     }
     // Execute query and notify
-    storage.queryAsync(req, applyLimit: applyLimit).then((events) {
+    storage.query(req, applyLimit: applyLimit).then((events) {
       // print('setting initial state, ${events.length}');
       state = StorageData(events);
       applyLimit = false;
       if (!req.storageOnly) {
         // Send request filter to relays
-        send(req);
+        storage.send(req);
       }
     });
 
@@ -60,9 +54,10 @@ abstract class RequestNotifier extends StateNotifier<StorageState> {
       // Signal gives us the newly saved models, *if* we pass it through
       // the `onModels` callback we get them filtered to the supplied `req`,
       // otherwise it applies `req` to all stored models
-      final events = await storage.queryAsync(req,
-          applyLimit: applyLimit, applyTo: signal.events);
-      state = StorageData([...state.models, ...events]);
+      final events = await storage.query(req,
+          applyLimit: applyLimit, onIds: signal.eventIds);
+      state = StorageData({...state.models, ...events}.sortedByCompare(
+          (m) => m.createdAt.millisecondsSinceEpoch, (a, b) => b.compareTo(a)));
     });
 
     ref.onDispose(() {
@@ -73,8 +68,6 @@ abstract class RequestNotifier extends StateNotifier<StorageState> {
   Future<void> save(Set<Event> events) async {
     await storage.save(events);
   }
-
-  void send(RequestFilter req);
 }
 
 /// Family of notifier providers, one per request.
@@ -85,7 +78,7 @@ final requestNotifierProvider = StateNotifierProvider.autoDispose
     // TODO: Using keepAlive to make tests work, isn't it contradictory to auto-dispose?
     ref.keepAlive();
     ref.onDispose(() => print('disposing provider'));
-    return DummyRequestNotifier(ref, req);
+    return RequestNotifier(ref, req);
   },
 );
 
@@ -113,6 +106,14 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query(
   return requestNotifierProvider(req);
 }
 
+/// Syntax sugar for watching one model
+AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> model(
+    Event model,
+    {bool storageOnly = false}) {
+  final req = RequestFilter(ids: {model.id}, storageOnly: storageOnly);
+  return requestNotifierProvider(req);
+}
+
 // State
 
 sealed class StorageState {
@@ -135,8 +136,8 @@ final class StorageError extends StorageState {
 }
 
 class StorageSignal {
-  final Set<Event>? events;
-  StorageSignal([this.events]);
+  final Set<String>? eventIds;
+  StorageSignal([this.eventIds]);
 }
 
 // Request filter
@@ -196,9 +197,9 @@ class RequestFilter extends Equatable {
     };
   }
 
-  RequestFilter copyWith({int? limit, bool? storageOnly}) {
+  RequestFilter copyWith({Set<String>? ids, int? limit, bool? storageOnly}) {
     return RequestFilter(
-        ids: ids,
+        ids: ids ?? this.ids,
         authors: authors,
         kinds: kinds,
         tags: tags,

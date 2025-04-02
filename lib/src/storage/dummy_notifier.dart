@@ -21,30 +21,35 @@ class DummyStorageNotifier extends StorageNotifier {
   DummyStorageNotifier._internal(this.ref);
 
   @override
+  Future<void> initialize(Config config) async {
+    // no-op
+  }
+
+  @override
   Future<void> save(Set<Event> events) async {
-    for (final event in events) {
-      _events.add(event);
-    }
-    state = StorageSignal(events);
+    _events.addAll(events);
+    state = StorageSignal({for (final e in events) e.id});
   }
 
   @override
-  Future<List<Event>> queryAsync(RequestFilter req,
-      {bool applyLimit = true, Set<Event>? applyTo}) async {
-    return query(req, applyLimit: applyLimit);
+  Future<List<Event>> query(RequestFilter req,
+      {bool applyLimit = true, Set<String>? onIds}) async {
+    return querySync(req, applyLimit: applyLimit);
   }
 
   @override
-  List<Event> query(RequestFilter req,
-      {bool applyLimit = true, Set<Event>? applyTo}) {
+  List<Event> querySync(RequestFilter req,
+      {bool applyLimit = true, Set<String>? onIds}) {
     List<Event> results;
-    // If applyTo present then apply req on those, otherwise on all stored ones
-    final models = applyTo?.toList() ?? _events;
+    // If onIds present then restrict req to those
+    if (onIds != null) {
+      req = req.copyWith(ids: onIds);
+    }
 
     if (req.ids.isNotEmpty) {
-      results = models.where((e) => req.ids.contains(e.id)).toList();
+      results = _events.where((e) => req.ids.contains(e.id)).toList();
     } else {
-      results = models.toList();
+      results = _events.toList();
     }
 
     if (req.authors.isNotEmpty) {
@@ -107,7 +112,7 @@ class DummyStorageNotifier extends StorageNotifier {
       _events.clear();
       return;
     }
-    final events = await queryAsync(req);
+    final events = await query(req);
     _events.removeWhere((e) => events.contains(e));
   }
 
@@ -118,7 +123,7 @@ class DummyStorageNotifier extends StorageNotifier {
       bool stream = false}) async {
     await Future.delayed(Duration(seconds: 1));
 
-    var profile = query(RequestFilter(authors: {pubkey}, kinds: {0}))
+    var profile = querySync(RequestFilter(authors: {pubkey}, kinds: {0}))
         .cast<Profile>()
         .firstOrNull;
 
@@ -156,13 +161,14 @@ class DummyStorageNotifier extends StorageNotifier {
       }
     });
   }
-}
-
-class DummyRequestNotifier extends RequestNotifier {
-  DummyRequestNotifier(super.ref, super.req);
 
   @override
-  void send(RequestFilter req) async {
+  Future<void> send(RequestFilter req) async {
     // no-op as dummy storage does not hit relays
+  }
+
+  @override
+  Future<void> close() async {
+    // no-op
   }
 }
