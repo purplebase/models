@@ -1,7 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:models/models.dart';
 import 'package:models/src/core/encoding.dart';
-import 'package:models/src/core/extensions.dart';
 
 sealed class InternalEvent<E extends Event<E>> {
   final int kind = Event.types[E.toString()]!.kind;

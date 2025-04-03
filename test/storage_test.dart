@@ -12,7 +12,7 @@ void main() async {
 
   setUpAll(() async {
     container = ProviderContainer();
-    await container.read(initializationProvider(Config()).future);
+    await container.read(initializationProvider(StorageConfiguration()).future);
     storage = container.read(storageNotifierProvider.notifier)
         as DummyStorageNotifier;
   });
@@ -113,9 +113,38 @@ void main() async {
   group('storage relay interface', () {
     test('request filter', () {
       tester = container.testerFor(query()); // no-op
-      final r1 = RequestFilter(kinds: {7}, authors: {'a', 'b'});
-      final r2 = RequestFilter(kinds: {7}, authors: {'a', 'b'});
+      final r1 = RequestFilter(kinds: {
+        7
+      }, authors: {
+        'a',
+        'b'
+      }, tags: {
+        'foo': {'bar'},
+        '#t': {'nostr'}
+      });
+      final r2 = RequestFilter(kinds: {
+        7
+      }, authors: {
+        'b',
+        'a'
+      }, tags: {
+        '#t': {'nostr'},
+        'foo': {'bar'}
+      });
+      final r3 = RequestFilter(kinds: {
+        7
+      }, authors: {
+        'b',
+        'a'
+      }, tags: {
+        'foo': {'bar'}
+      });
       expect(r1, equals(r2));
+      expect(r1.toMap(), equals(r2.toMap()));
+      expect(r1.hash, equals(r2.hash));
+
+      expect(r1.toMap(), isNot(equals(r3.toMap())));
+      expect(r1.hash, isNot(equals(r3.hash)));
     });
 
     test('relay request should notify with events', () async {
@@ -138,13 +167,5 @@ void main() async {
       //     await PartialNote('yo').signWith(DummySigner(), withPubkey: 'a');
       // relay.publish(note);
     });
-  });
-
-  test('request filter', () {
-    tester = container.testerFor(query()); // no-op
-    final r1 = RequestFilter(kinds: {1}, authors: {'a'});
-    final r2 = RequestFilter(authors: {'a'}, kinds: {1});
-    expect(r1, r2);
-    expect(r1.toMap(), r2.toMap());
   });
 }

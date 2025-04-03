@@ -1,5 +1,4 @@
 import 'package:models/models.dart';
-import 'package:models/src/core/extensions.dart';
 
 class Article extends ParameterizableReplaceableEvent<Article> {
   Article.fromMap(super.map, super.ref) : super.fromMap();

@@ -5,7 +5,6 @@ import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
-import 'package:models/src/core/extensions.dart';
 import 'package:models/src/core/internal_event.dart';
 import 'package:riverpod/riverpod.dart';
 

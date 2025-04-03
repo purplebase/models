@@ -10,17 +10,21 @@ mixin Signable<E extends Event<E>> {
   }
 }
 
-final class Config extends Equatable {
+final class StorageConfiguration extends Equatable {
   final String? databasePath;
   final bool keepSignatures;
-  const Config({this.databasePath, this.keepSignatures = false});
+  final bool skipVerification;
+  const StorageConfiguration(
+      {this.databasePath,
+      this.keepSignatures = false,
+      this.skipVerification = false});
 
   @override
   List<Object?> get props => [databasePath, keepSignatures];
 }
 
 final initializationProvider =
-    FutureProvider.family<bool, Config>((ref, config) async {
+    FutureProvider.family<bool, StorageConfiguration>((ref, config) async {
   // Initialize a private ref exclusive for signers
   Signer._ref = ref;
   await ref.read(storageNotifierProvider.notifier).initialize(config);

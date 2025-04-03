@@ -3,15 +3,17 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
-import 'package:models/src/core/extensions.dart';
 import 'package:riverpod/riverpod.dart';
 
 import 'dummy_notifier.dart';
 
 abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   StorageNotifier() : super(StorageSignal());
+  late StorageConfiguration config;
 
-  Future<void> initialize(Config config);
+  Future<void> initialize(StorageConfiguration config) async {
+    this.config = config;
+  }
 
   Future<List<Event>> query(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds});
@@ -21,9 +23,9 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   List<Event> querySync(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds});
 
-  Future<void> save(Set<Event> events, {bool skipVerify = false});
+  Future<void> save(Set<Event> events);
 
-  Future<void> send(RequestFilter req);
+  Future<void> send(RequestFilter req, {Set<String>? relayUrls});
 
   Future<void> clear([RequestFilter? req]);
 
@@ -194,11 +196,11 @@ class RequestFilter extends Equatable {
 
   Map<String, dynamic> toMap() {
     return {
-      if (ids.isNotEmpty) 'ids': ids.toList(),
-      if (kinds.isNotEmpty) 'kinds': kinds.toList(),
-      if (authors.isNotEmpty) 'authors': authors.toList(),
-      for (final e in tags.entries)
-        if (e.value.isNotEmpty) e.key: e.value,
+      if (ids.isNotEmpty) 'ids': ids.sorted(),
+      if (kinds.isNotEmpty) 'kinds': kinds.sorted((i, j) => i.compareTo(j)),
+      if (authors.isNotEmpty) 'authors': authors.sorted(),
+      for (final e in tags.entries.sortedBy((e) => e.key))
+        if (e.value.isNotEmpty) e.key: e.value.sorted(),
       if (since != null) 'since': since!.toSeconds(),
       if (until != null) 'until': until!.toSeconds(),
       if (limit != null) 'limit': limit,
@@ -206,15 +208,24 @@ class RequestFilter extends Equatable {
     };
   }
 
-  RequestFilter copyWith({Set<String>? ids, int? limit, bool? storageOnly}) {
+  RequestFilter copyWith(
+      {Set<String>? ids,
+      Set<String>? authors,
+      Set<int>? kinds,
+      Map<String, Set<String>>? tags,
+      String? search,
+      DateTime? since,
+      DateTime? until,
+      int? limit,
+      bool? storageOnly}) {
     return RequestFilter(
         ids: ids ?? this.ids,
-        authors: authors,
-        kinds: kinds,
-        tags: tags,
-        search: search,
-        since: since,
-        until: until,
+        authors: authors ?? this.authors,
+        kinds: kinds ?? this.kinds,
+        tags: tags ?? this.tags,
+        search: search ?? this.search,
+        since: since ?? this.since,
+        until: until ?? this.until,
         limit: limit ?? this.limit,
         queryLimit: queryLimit,
         bufferUntilEose: bufferUntilEose,
@@ -223,6 +234,8 @@ class RequestFilter extends Equatable {
         subscriptionId: subscriptionId);
   }
 
+  int get hash => fastHashString(toString());
+
   @override
   List<Object?> get props => [toMap()];
 
@@ -230,4 +243,25 @@ class RequestFilter extends Equatable {
   String toString() {
     return toMap().toString();
   }
+}
+
+int fastHash(List<int> data, [int seed = 0]) {
+  // Initialize hash with the seed XOR the length of data.
+  int hash = seed ^ data.length;
+
+  // Process each byte in the input data.
+  for (var byte in data) {
+    // This is a simple hash mixing step:
+    // Multiply by 33 (via a left-shift of 5 added to the hash) and XOR with the current byte.
+    hash = ((hash << 5) + hash) ^ byte;
+  }
+
+  // Return the hash as an unsigned 32-bit integer.
+  return hash & 0xFFFFFFFF;
+}
+
+int fastHashString(String input, [int seed = 0]) {
+  // Convert the string to its code units (UTF-16 values) and hash.
+  final bytes = input.codeUnits;
+  return fastHash(bytes, seed);
 }

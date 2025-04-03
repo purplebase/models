@@ -86,11 +86,12 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Storage API and in-memory implementation
  - [x] Popular nostr models, at least those used in Zaplab
  - [x] Model relationships
- - [ ] Remote relay configuration
  - [ ] Smart querying using `since` based on local data
  - [ ] Buffered notifiers, with configurable duration
+ - [ ] Watchable relationships
+ - [ ] Allow typed queries `ref.watch(queryTyped<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
+ - [ ] Remote relay configuration
  - [ ] Ability for a watcher to watch a particular subscription (instead of a regular filter)
- - [ ] Allow typed queries `ref.watch(nostr<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
  - [ ] Allow multiple filters
  - [ ] Eviction policy API, allowing clients to manage the local database size
  - [ ] Add stream support, for those who do not like Riverpod

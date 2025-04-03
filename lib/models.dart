@@ -2,6 +2,7 @@ library;
 
 export 'src/storage/notifier.dart';
 export 'src/core/event.dart';
+export 'src/core/extensions.dart';
 export 'src/core/signer.dart';
 export 'src/core/tags.dart';
 export 'src/core/relationship.dart';

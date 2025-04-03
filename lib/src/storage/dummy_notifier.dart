@@ -21,12 +21,12 @@ class DummyStorageNotifier extends StorageNotifier {
   DummyStorageNotifier._internal(this.ref);
 
   @override
-  Future<void> initialize(Config config) async {
-    // no-op
+  Future<void> initialize(StorageConfiguration config) async {
+    await super.initialize(config);
   }
 
   @override
-  Future<void> save(Set<Event> events, {bool skipVerify = false}) async {
+  Future<void> save(Set<Event> events) async {
     _events.addAll(events);
     state = StorageSignal({for (final e in events) e.id});
   }
@@ -163,7 +163,7 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> send(RequestFilter req) async {
+  Future<void> send(RequestFilter req, {Set<String>? relayUrls}) async {
     // no-op as dummy storage does not hit relays
   }
 
