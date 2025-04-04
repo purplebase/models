@@ -149,9 +149,8 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
         int? limit,
         AndFunction<E> and,
         bool storageOnly = false}) {
-  final kind = Event.types[E.toString()]!.kind;
   final req = RequestFilter(
-      kinds: {kind},
+      kinds: {Event.kindFor<E>()},
       ids: ids,
       authors: authors,
       tags: tags,

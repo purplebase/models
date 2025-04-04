@@ -20,9 +20,8 @@ class PartialReaction extends RegularPartialEvent<Reaction> with EmojiMixin {
       {String? content,
       Event? reactedOn,
       Profile? reactedOnAuthor,
-      (String name, String url)? emojiTag}) {
-    if (emojiTag != null) {
-      final (name, url) = emojiTag;
+      (String, String)? emojiTag}) {
+    if (emojiTag case (final name, final url)) {
       internal.content = ':$name:';
       internal.addTag('emoji', TagValue([name, url]));
     } else {

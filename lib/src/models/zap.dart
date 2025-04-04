@@ -4,17 +4,27 @@ import 'package:models/models.dart';
 
 /// Zap is technically a kind 9735 Zap Receipt
 class Zap extends RegularEvent<Zap> {
-  Zap.fromMap(super.map, super.ref) : super.fromMap();
+  @override
+  BelongsTo<Profile> get author => BelongsTo(
+      ref,
+      RequestFilter(
+          kinds: {0},
+          authors: {internal.getFirstTagValue('P') ?? description['pubkey']}));
+  late final BelongsTo<Event> zappedEvent;
+  late final BelongsTo<Profile> recipient;
 
-  String get eventId => internal.getFirstTagValue('e')!;
-  String get receiverPubkey => internal.getFirstTagValue('p')!;
+  Zap.fromMap(super.map, super.ref) : super.fromMap() {
+    recipient = BelongsTo(ref,
+        RequestFilter(kinds: {0}, authors: {internal.getFirstTagValue('p')!}));
+    zappedEvent =
+        BelongsTo(ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
+  }
+
   Map<String, dynamic> get description =>
       internal.getFirstTagValue('description') != null
           ? Map<String, dynamic>.from(
               jsonDecode(internal.getFirstTagValue('description')!))
           : {};
-  String get senderPubkey =>
-      internal.getFirstTagValue('P') ?? description['pubkey'];
 
   /// Amount in sats
   int get amount {

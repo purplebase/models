@@ -49,7 +49,7 @@ sealed class Event<E extends Event<E>>
           'Kind ${internal.kind} does not match the type of event: regular, replaceable, etc. Check the model definition inherits the right one.');
     }
 
-    // General relationships
+    // Generic relationships
     author =
         BelongsTo(ref, RequestFilter(kinds: {0}, authors: {internal.pubkey}));
 
@@ -100,6 +100,8 @@ sealed class Event<E extends Event<E>>
     'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromMap),
     'App': (kind: 32267, constructor: App.fromMap)
   };
+
+  static int kindFor<E extends Event<E>>() => Event.types[E.toString()]!.kind;
 
   static EventConstructor<E>? getConstructor<E extends Event<E>>() {
     final constructor =

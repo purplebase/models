@@ -3,7 +3,7 @@ import 'package:models/models.dart';
 import 'package:models/src/core/encoding.dart';
 
 sealed class InternalEvent<E extends Event<E>> {
-  final int kind = Event.types[E.toString()]!.kind;
+  final int kind = Event.kindFor<E>();
   DateTime get createdAt;
   String get content;
   Map<String, Set<TagValue>> get tags;

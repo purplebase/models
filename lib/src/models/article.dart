@@ -2,7 +2,11 @@ import 'package:models/models.dart';
 
 class Article extends ParameterizableReplaceableEvent<Article> {
   Article.fromMap(super.map, super.ref) : super.fromMap();
-  String get title => internal.getFirstTagValue('title')!;
+  String? get title => internal.getFirstTagValue('title');
+  String? get imageUrl => internal.getFirstTagValue('image');
+  String? get summary => internal.getFirstTagValue('summary');
+  DateTime? get publishedAt =>
+      internal.getFirstTagValue('published_at')?.toInt()?.toDate();
 }
 
 class PartialArticle extends ParameterizableReplaceablePartialEvent<Article> {
