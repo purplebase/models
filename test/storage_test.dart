@@ -23,7 +23,7 @@ void main() async {
   });
 
   group('storage filters', () {
-    late Note a, b, c, d, e, f, g, reply;
+    late Note a, b, c, d, e, f, g, replyToA, replyToB;
     late Profile profile;
 
     setUpAll(() async {
@@ -38,11 +38,14 @@ void main() async {
       f = await PartialNote('Note F', tags: {'nostr'}).by('franzap');
       g = await PartialNote('Note G').by('verbiricha');
       profile = await PartialProfile(name: 'neil').by('niel');
-      final partialReply = PartialNote('reply')
+      final partialReplyToA = PartialNote('reply to a')
         ..linkEvent(a, marker: EventMarker.root);
-      reply = await partialReply.by(profile.pubkey);
+      final partialReplyToB = PartialNote('reply to b', createdAt: yesterday)
+        ..linkEvent(b, marker: EventMarker.root);
+      replyToA = await partialReplyToA.by(profile.pubkey);
+      replyToB = await partialReplyToB.by(profile.pubkey);
 
-      await storage.save({a, b, c, d, e, f, g, profile, reply});
+      await storage.save({a, b, c, d, e, f, g, profile, replyToA, replyToB});
     });
 
     test('ids', () async {
@@ -58,7 +61,7 @@ void main() async {
     test('kinds', () async {
       tester = container.testerFor(query(kinds: {1}));
       await tester.expectModels(allOf(
-        hasLength(7),
+        hasLength(9),
         everyElement((e) => e is Event && e.internal.kind == 1),
       ));
 
@@ -96,26 +99,32 @@ void main() async {
           kinds: {1},
           authors: {'niel'},
           until: DateTime.now().subtract(Duration(minutes: 1))));
-      await tester.expectModels(orderedEquals({a, b}));
+      await tester.expectModels(orderedEquals({a, b, replyToB}));
     });
 
     test('since', () async {
       tester = container.testerFor(query(
           authors: {'niel'},
           since: DateTime.now().subtract(Duration(minutes: 1))));
-      await tester.expectModels(orderedEquals({c, d, profile}));
+      await tester.expectModels(orderedEquals({c, d, profile, replyToA}));
     });
 
     test('limit and order', () async {
       tester =
           container.testerFor(query(kinds: {1}, authors: {'niel'}, limit: 3));
-      await tester.expectModels(orderedEquals({d, c, a}));
+      await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
-    test('relationships', () async {
-      tester = container.testerFor(
-          queryType<Note>(ids: {a.id}, and: (e) => {e.author, e.replies}));
-      await tester.expectModels(orderedEquals({a, profile, reply}));
+    test('relationships with model watcher', () async {
+      tester = container.testerFor(model(a, and: (note) => {note.author}));
+      await tester.expectModels(unorderedEquals({a, profile}));
+    });
+
+    test('multiple relationships', () async {
+      tester = container.testerFor(queryType<Note>(
+          ids: {a.id, b.id}, and: (note) => {note.author, note.replies}));
+      await tester
+          .expectModels(unorderedEquals({a, b, profile, replyToA, replyToB}));
     });
   });
 
@@ -165,7 +174,7 @@ void main() async {
       await storage.generateDummyFor(pubkey: 'a', kind: 1, amount: 4);
       await tester.expect(isA<StorageLoading>());
 
-      final nModels = 4; // limit * number of authors
+      final nModels = 5; // limit * number of authors
       await tester.expectModels(hasLength(nModels));
     });
 

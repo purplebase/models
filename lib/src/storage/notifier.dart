@@ -53,7 +53,6 @@ class RequestNotifier extends StateNotifier<StorageState> {
     // Execute query and notify
     Future<List<Event>> fn(RequestFilter req) async {
       final events = await storage.query(req, applyLimit: applyLimit);
-      // print('setting initial state, ${events.length}');
 
       applyLimit = false;
       if (!req.storageOnly) {
@@ -62,9 +61,12 @@ class RequestNotifier extends StateNotifier<StorageState> {
       }
 
       if (req.and != null) {
-        // final req2 = req.and!(events.first).map((r) => r.req).first;
-        final reqs = [for (final e in events) ...req.and!(e).map((r) => r.req)];
-
+        final reqs = {
+          for (final e in events)
+            ...req.and!(e)
+                .map((r) => r.req.copyWith(storageOnly: req.storageOnly))
+        };
+        // TODO: Optimize hard as these are sync reads
         final relEvents = await Future.wait(reqs.map(fn));
         events.addAll(relEvents.expand((e) => e));
       }
@@ -147,9 +149,9 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
         int? limit,
         AndFunction<E> and,
         bool storageOnly = false}) {
-  // final AndFunction fn = and;
+  final kind = Event.types[E.toString()]!.kind;
   final req = RequestFilter(
-      kinds: {1}, // TODO: Fetch right kind
+      kinds: {kind},
       ids: ids,
       authors: authors,
       tags: tags,
@@ -157,17 +159,22 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
       since: since,
       until: until,
       limit: limit,
-      and: and == null ? null : (e) => and(e as E),
+      and: _castAnd(and),
       storageOnly: storageOnly);
   return requestNotifierProvider(req);
 }
 
 /// Syntax sugar for watching one model
-AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> model(
-    Event model,
-    {bool storageOnly = false}) {
-  final req = RequestFilter(ids: {model.id}, storageOnly: storageOnly);
+AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
+    model<E extends Event<E>>(E model,
+        {AndFunction<E> and, bool storageOnly = false}) {
+  final req = RequestFilter(
+      ids: {model.id}, and: _castAnd(and), storageOnly: storageOnly);
   return requestNotifierProvider(req);
+}
+
+AndFunction _castAnd<E extends Event<E>>(AndFunction<E> andFn) {
+  return andFn == null ? null : (e) => andFn(e as E);
 }
 
 // Request filter
