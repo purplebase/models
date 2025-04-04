@@ -89,6 +89,7 @@ void main() async {
       expect(profile.notes.toList(), orderedEquals({a, b, c, d}));
       expect(profile.notes.toList(limit: 2), orderedEquals({c, d}));
 
+      // TODO: Replace all this with replyTo in PartialNote
       final replyPartialNote = PartialNote('replying')
         ..linkEvent(c, marker: EventMarker.root);
       final replyNote = await replyPartialNote.by('foo');

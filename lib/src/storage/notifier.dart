@@ -49,15 +49,31 @@ class RequestNotifier extends StateNotifier<StorageState> {
     if (req.toMap().isEmpty) {
       return;
     }
+
     // Execute query and notify
-    storage.query(req, applyLimit: applyLimit).then((events) {
+    Future<List<Event>> fn(RequestFilter req) async {
+      final events = await storage.query(req, applyLimit: applyLimit);
       // print('setting initial state, ${events.length}');
-      state = StorageData(events);
+
       applyLimit = false;
       if (!req.storageOnly) {
         // Send request filter to relays
         storage.send(req);
       }
+
+      if (req.and != null) {
+        // final req2 = req.and!(events.first).map((r) => r.req).first;
+        final reqs = [for (final e in events) ...req.and!(e).map((r) => r.req)];
+
+        final relEvents = await Future.wait(reqs.map(fn));
+        events.addAll(relEvents.expand((e) => e));
+      }
+
+      return events;
+    }
+
+    fn(req).then((events) {
+      state = StorageData(events);
     });
 
     final sub = ref.listen(storageNotifierProvider, (_, signal) async {
@@ -103,6 +119,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query(
     DateTime? since,
     DateTime? until,
     int? limit,
+    AndFunction and,
     bool storageOnly = false}) {
   final req = RequestFilter(
       kinds: kinds,
@@ -113,6 +130,34 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query(
       since: since,
       until: until,
       limit: limit,
+      and: and,
+      storageOnly: storageOnly);
+  return requestNotifierProvider(req);
+}
+
+/// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))` on one specific kind
+AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
+    queryType<E extends Event<E>>(
+        {Set<String>? ids,
+        Set<String>? authors,
+        Map<String, Set<String>>? tags,
+        String? search,
+        DateTime? since,
+        DateTime? until,
+        int? limit,
+        AndFunction<E> and,
+        bool storageOnly = false}) {
+  // final AndFunction fn = and;
+  final req = RequestFilter(
+      kinds: {1}, // TODO: Fetch right kind
+      ids: ids,
+      authors: authors,
+      tags: tags,
+      search: search,
+      since: since,
+      until: until,
+      limit: limit,
+      and: and == null ? null : (e) => and(e as E),
       storageOnly: storageOnly);
   return requestNotifierProvider(req);
 }
@@ -125,33 +170,10 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> model(
   return requestNotifierProvider(req);
 }
 
-// State
-
-sealed class StorageState {
-  final List<Event> models;
-  const StorageState(this.models);
-}
-
-final class StorageLoading extends StorageState {
-  StorageLoading(super.models);
-}
-
-final class StorageData extends StorageState {
-  StorageData(super.models);
-}
-
-final class StorageError extends StorageState {
-  final Exception exception;
-  final StackTrace? stackTrace;
-  StorageError(super.models, {required this.exception, this.stackTrace});
-}
-
-class StorageSignal {
-  final Set<String>? eventIds;
-  StorageSignal([this.eventIds]);
-}
-
 // Request filter
+
+typedef AndFunction<E extends Event<dynamic>> = Set<Relationship<Event>>
+    Function(E)?;
 
 class RequestFilter extends Equatable {
   static final _random = Random();
@@ -172,6 +194,8 @@ class RequestFilter extends Equatable {
   /// Used to provide additional filtering after the query, in Dart
   final bool Function(Event)? where;
 
+  final AndFunction and;
+
   RequestFilter({
     Set<String>? ids,
     Set<String>? authors,
@@ -185,6 +209,7 @@ class RequestFilter extends Equatable {
     this.bufferUntilEose = true,
     this.storageOnly = false,
     this.where,
+    this.and,
     String? subscriptionId,
   })  : ids = ids ?? const {},
         authors = authors ?? const {},
@@ -244,6 +269,34 @@ class RequestFilter extends Equatable {
     return toMap().toString();
   }
 }
+
+// State
+
+sealed class StorageState {
+  final List<Event> models;
+  const StorageState(this.models);
+}
+
+final class StorageLoading extends StorageState {
+  StorageLoading(super.models);
+}
+
+final class StorageData extends StorageState {
+  StorageData(super.models);
+}
+
+final class StorageError extends StorageState {
+  final Exception exception;
+  final StackTrace? stackTrace;
+  StorageError(super.models, {required this.exception, this.stackTrace});
+}
+
+class StorageSignal {
+  final Set<String>? eventIds;
+  StorageSignal([this.eventIds]);
+}
+
+// Fast hash
 
 int fastHash(List<int> data, [int seed = 0]) {
   // Initialize hash with the seed XOR the length of data.

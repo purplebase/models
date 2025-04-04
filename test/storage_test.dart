@@ -23,7 +23,7 @@ void main() async {
   });
 
   group('storage filters', () {
-    late Note a, b, c, d, e, f, g;
+    late Note a, b, c, d, e, f, g, reply;
     late Profile profile;
 
     setUpAll(() async {
@@ -38,8 +38,11 @@ void main() async {
       f = await PartialNote('Note F', tags: {'nostr'}).by('franzap');
       g = await PartialNote('Note G').by('verbiricha');
       profile = await PartialProfile(name: 'neil').by('niel');
+      final partialReply = PartialNote('reply')
+        ..linkEvent(a, marker: EventMarker.root);
+      reply = await partialReply.by(profile.pubkey);
 
-      await storage.save({a, b, c, d, e, f, g, profile});
+      await storage.save({a, b, c, d, e, f, g, profile, reply});
     });
 
     test('ids', () async {
@@ -107,6 +110,12 @@ void main() async {
       tester =
           container.testerFor(query(kinds: {1}, authors: {'niel'}, limit: 3));
       await tester.expectModels(orderedEquals({d, c, a}));
+    });
+
+    test('relationships', () async {
+      tester = container.testerFor(
+          queryType<Note>(ids: {a.id}, and: (e) => {e.author, e.replies}));
+      await tester.expectModels(orderedEquals({a, profile, reply}));
     });
   });
 
