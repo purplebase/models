@@ -44,11 +44,14 @@ class StorageNotifierTester {
 
 extension ProviderContainerExt on ProviderContainer {
   StorageNotifierTester testerFor(
-          AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
-              provider,
-          {bool fireImmediately = false}) =>
-      StorageNotifierTester(read(provider.notifier),
-          fireImmediately: fireImmediately);
+      AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> provider,
+      {bool fireImmediately = false}) {
+    // Keep the provider alive during the test
+    listen(provider, (_, __) {}).read();
+
+    return StorageNotifierTester(read(provider.notifier),
+        fireImmediately: fireImmediately);
+  }
 }
 
 extension PartialEventExt<E extends Event<E>> on PartialEvent<E> {
