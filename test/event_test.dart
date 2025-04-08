@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:models/models.dart';
-import 'package:models/src/storage/dummy_notifier.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
@@ -11,7 +10,8 @@ void main() async {
   late ProviderContainer container;
   setUpAll(() async {
     container = ProviderContainer();
-    await container.read(initializationProvider(StorageConfiguration()).future);
+    final config = StorageConfiguration.empty();
+    await container.read(initializationProvider(config).future);
   });
 
   group('event', () {
@@ -74,16 +74,16 @@ void main() async {
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
-      a = await PartialNote('Note A', createdAt: yesterday).by('niel');
-      b = await PartialNote('Note B', createdAt: lastMonth).by('niel');
-      c = await PartialNote('Note C').by('niel');
-      d = await PartialNote('Note D', tags: {'nostr'}).by('niel');
-      e = await PartialNote('Note E').by('franzap');
-      f = await PartialNote('Note F', tags: {'nostr'}).by('franzap');
-      g = await PartialNote('Note G').by('verbiricha');
-      profile = await PartialProfile(name: 'neil').by('niel');
+      a = PartialNote('Note A', createdAt: yesterday).by('niel');
+      b = PartialNote('Note B', createdAt: lastMonth).by('niel');
+      c = PartialNote('Note C').by('niel');
+      d = PartialNote('Note D', tags: {'nostr'}).by('niel');
+      e = PartialNote('Note E').by('franzap');
+      f = PartialNote('Note F', tags: {'nostr'}).by('franzap');
+      g = PartialNote('Note G').by('verbiricha');
+      profile = PartialProfile(name: 'neil').by('niel');
 
-      storage.save({a, b, c, d, e, f, g, profile});
+      await storage.save({a, b, c, d, e, f, g, profile});
     });
 
     test('note and relationships', () async {
@@ -94,12 +94,12 @@ void main() async {
       // TODO: Replace all this with replyTo in PartialNote
       final replyPartialNote = PartialNote('replying')
         ..linkEvent(c, marker: EventMarker.root);
-      final replyNote = await replyPartialNote.by('foo');
+      final replyNote = replyPartialNote.by('foo');
 
       final replyToReplyPartialNote = PartialNote('replying to reply')
         ..linkEvent(replyNote, marker: EventMarker.reply)
         ..linkEvent(c, marker: EventMarker.root);
-      final replyToReplyNote = await replyToReplyPartialNote.by('bar');
+      final replyToReplyNote = replyToReplyPartialNote.by('bar');
 
       await container
           .read(storageNotifierProvider.notifier)
@@ -108,7 +108,7 @@ void main() async {
       expect(c.allReplies.toList(), {replyNote, replyToReplyNote});
 
       final reaction =
-          await PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
+          PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
               .by('niel');
       expect(reaction.internal.getFirstTag('emoji'),
           equals(TagValue(['test', 'test://t'])));
@@ -118,7 +118,7 @@ void main() async {
     });
 
     test('profile', () async {
-      final niel = await PartialProfile(
+      final niel = PartialProfile(
         name: 'Niel Liesmons',
         pictureUrl:
             'https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png',
@@ -133,7 +133,7 @@ void main() async {
       final partialApp = PartialApp()
         ..identifier = 'w'
         ..description = 'test app';
-      final app = await partialApp.by(
+      final app = partialApp.by(
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
 
       expect(app.internal.kind, 32267);
@@ -148,7 +148,7 @@ void main() async {
 
     test('zaps', () async {
       final ref = container.read(refProvider);
-      final author = await PartialProfile().by(
+      final author = PartialProfile().by(
           'd3f94b353542a632962062f3c914638d0deeba64af1f980d93907ee1b3e0d4f9');
       final zap = Zap.fromMap(jsonDecode(zapJson), ref);
       final event = Note.fromMap(jsonDecode(zappedEventJson), ref);

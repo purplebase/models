@@ -21,13 +21,14 @@ typedef EventConstructor<E extends Event<E>> = E Function(
 sealed class Event<E extends Event<E>>
     with EquatableMixin
     implements EventBase<E> {
+  final Ref ref;
   @override
   final ImmutableInternalEvent internal;
-  final Ref ref;
 
   late final BelongsTo<Profile> author;
   late final HasMany<Reaction> reactions;
   late final HasMany<Zap> zaps;
+  // TODO: Make a HasMany<Relay> work somehow (probably in the context of NIP-11)
 
   Event._internal(this.ref, this.internal);
 

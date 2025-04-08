@@ -11,13 +11,23 @@ mixin Signable<E extends Event<E>> {
 }
 
 final class StorageConfiguration extends Equatable {
-  final String? databasePath;
+  final String databasePath;
   final bool keepSignatures;
   final bool skipVerification;
-  const StorageConfiguration(
-      {this.databasePath,
-      this.keepSignatures = false,
-      this.skipVerification = false});
+  final Map<String, Set<String>> relayGroups;
+  final String defaultRelayGroup;
+  const StorageConfiguration({
+    required this.databasePath,
+    this.keepSignatures = false,
+    this.skipVerification = false,
+    required this.relayGroups,
+    required this.defaultRelayGroup,
+  });
+
+  factory StorageConfiguration.empty() {
+    return StorageConfiguration(
+        databasePath: '', relayGroups: {}, defaultRelayGroup: '');
+  }
 
   @override
   List<Object?> get props => [databasePath, keepSignatures];
@@ -68,7 +78,6 @@ class Bip340PrivateKeySigner extends Signer {
       {String? withPubkey}) async {
     final pubkey = Profile.getPublicKey(privateKey);
     final id = partialEvent.getEventId(pubkey);
-    // TODO: Should aux be random? random.nextInt(256)
     final aux = hex.encode(List<int>.generate(32, (i) => 1));
     final signature = bip340.sign(privateKey, id.toString(), aux);
     final map = _prepare(partialEvent.toMap(), id, pubkey, signature);

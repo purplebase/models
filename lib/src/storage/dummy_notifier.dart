@@ -28,7 +28,10 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<void> save(Set<Event> events) async {
     _events.addAll(events);
-    state = StorageSignal({for (final e in events) e.id});
+    state = StorageSignal((
+      {for (final e in events) e.id},
+      ResponseMetadata(subscriptionIds: {'test'}, relayUrls: {'wss://test'})
+    ));
   }
 
   @override
@@ -103,7 +106,7 @@ class DummyStorageNotifier extends StorageNotifier {
       results = results.where(req.where!).toList();
     }
 
-    return results;
+    return results.toList();
   }
 
   @override
@@ -121,8 +124,6 @@ class DummyStorageNotifier extends StorageNotifier {
       required int kind,
       int amount = 10,
       bool stream = false}) async {
-    await Future.delayed(Duration(seconds: 1));
-
     var profile = querySync(RequestFilter(authors: {pubkey}, kinds: {0}))
         .cast<Profile>()
         .firstOrNull;
@@ -138,7 +139,10 @@ class DummyStorageNotifier extends StorageNotifier {
         await PartialNote(faker.lorem.sentence())
             .signWith(_dummySigner, withPubkey: profile.pubkey),
     };
+    print('saving ${models.length}');
     await save(models);
+
+    if (!stream) return;
 
     Timer.periodic(Duration(seconds: 3), (t) async {
       if (mounted) {

@@ -1,5 +1,4 @@
 import 'package:models/models.dart';
-import 'package:models/src/storage/dummy_notifier.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
@@ -12,7 +11,13 @@ void main() async {
 
   setUpAll(() async {
     container = ProviderContainer();
-    await container.read(initializationProvider(StorageConfiguration()).future);
+    final config = StorageConfiguration(
+        databasePath: '',
+        relayGroups: {
+          'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'}
+        },
+        defaultRelayGroup: 'big-relays');
+    await container.read(initializationProvider(config).future);
     storage = container.read(storageNotifierProvider.notifier)
         as DummyStorageNotifier;
   });
@@ -30,20 +35,20 @@ void main() async {
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
-      a = await PartialNote('Note A', createdAt: yesterday).by('niel');
-      b = await PartialNote('Note B', createdAt: lastMonth).by('niel');
-      c = await PartialNote('Note C').by('niel');
-      d = await PartialNote('Note D', tags: {'nostr'}).by('niel');
-      e = await PartialNote('Note E').by('franzap');
-      f = await PartialNote('Note F', tags: {'nostr'}).by('franzap');
-      g = await PartialNote('Note G').by('verbiricha');
-      profile = await PartialProfile(name: 'neil').by('niel');
+      a = PartialNote('Note A', createdAt: yesterday).by('niel');
+      b = PartialNote('Note B', createdAt: lastMonth).by('niel');
+      c = PartialNote('Note C').by('niel');
+      d = PartialNote('Note D', tags: {'nostr'}).by('niel');
+      e = PartialNote('Note E').by('franzap');
+      f = PartialNote('Note F', tags: {'nostr'}).by('franzap');
+      g = PartialNote('Note G').by('verbiricha');
+      profile = PartialProfile(name: 'neil').by('niel');
       final partialReplyToA = PartialNote('reply to a')
         ..linkEvent(a, marker: EventMarker.root);
       final partialReplyToB = PartialNote('reply to b', createdAt: yesterday)
         ..linkEvent(b, marker: EventMarker.root);
-      replyToA = await partialReplyToA.by(profile.pubkey);
-      replyToB = await partialReplyToB.by(profile.pubkey);
+      replyToA = partialReplyToA.by(profile.pubkey);
+      replyToB = partialReplyToB.by(profile.pubkey);
 
       await storage.save({a, b, c, d, e, f, g, profile, replyToA, replyToB});
     });
@@ -126,6 +131,13 @@ void main() async {
       await tester
           .expectModels(unorderedEquals({a, b, profile, replyToA, replyToB}));
     });
+
+    test('relay metadata', () async {
+      tester = container.testerFor(query(authors: {'franzap'}));
+      final r = ResponseMetadata(
+          subscriptionIds: {'test'}, relayUrls: {'wss://test'});
+      await tester.expectModels(contains(e));
+    });
   });
 
   group('storage relay interface', () {
@@ -168,22 +180,11 @@ void main() async {
     test('relay request should notify with events', () async {
       tester =
           container.testerFor(query(kinds: {1}, authors: {'a', 'b'}, limit: 2));
-      // First state is existing in storage
       await tester.expectModels(isEmpty);
 
       await storage.generateDummyFor(pubkey: 'a', kind: 1, amount: 4);
       await tester.expect(isA<StorageLoading>());
-
-      final nModels = 5; // limit * number of authors
-      await tester.expectModels(hasLength(nModels));
-    });
-
-    test('', () {
-      // tester.notifier.send(RequestFilter(authors: {'a'}));
-
-      // final note =
-      //     await PartialNote('yo').signWith(DummySigner(), withPubkey: 'a');
-      // relay.publish(note);
+      await tester.expectModels(hasLength(4));
     });
   });
 }

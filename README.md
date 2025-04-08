@@ -19,7 +19,7 @@ Storage with a nostr relay API is at the core of this approach. Querying is done
 Example:
 
 ```dart
-ref.watch(nostr(authors: {'a1b2c3'}, kinds: {1}, since: DateTime.now().subtract(Duration(seconds: 5))));
+ref.watch(query(authors: {'a1b2c3'}, kinds: {1}, since: DateTime.now().subtract(Duration(seconds: 5))));
 ```
 
 Every single event coming through this watcher comes from local storage and never from a relay directly. 
@@ -33,8 +33,8 @@ To prevent local storage bloat, an eviction policy callback will be made availab
 The modelling layer intends to abstract away NIP jargon and be as domain language as possible. It will include a powerful relationship API, such that the following can be performed:
 
 ```dart
-final note = await storage.findOne<Note>(authors: {'a'});
-final Reply reply = await PartialNote('this is cool', replyTo: note).signWith(signer);
+final note = await storage.query(kinds: {1}, authors: {'a'});
+final Note reply = await PartialNote('this is cool', replyTo: note).signWith(signer);
 print(note.replies.toList());
 // And maybe:
 await storage.publish(reply, to: {'big-relays'});
@@ -46,15 +46,15 @@ final note = signedInProfile.notes.first;
 And then:
 
 ```dart
-final state = ref.watch(query(authors: {'a1b2c3'}, kinds: {1}, and: (_) => {_.replies}));
+final state = ref.watch(queryType<Note>(authors: {'a1b2c3'}, and: (note) => {note.replies}));
 
 // ...
 children: [
  if (state case StorageData(:final models))
-  for (final model in models.cast<Note>())
-    for (final reply in model.replies)
+  for (final note in models)
+    for (final reply in note.replies)
       ListTile(
-        title: Text('Note ${model.content} has reply: ${reply}'),
+        title: Text('Note ${note.content} has reply: ${reply}'),
       )
 ]
 ```
@@ -65,7 +65,7 @@ Lastly, watching replaceable events will also be a thing:
 
 ```dart
 final Profile signedInProfile = ref.watch(signedInProfileProvider);
-final state = ref.watch(query(signedInProfile, and: (_) => {_.following}));
+final state = ref.watch(query(signedInProfile, and: (note) => {note.following}));
 ```
 
 Relays can be configured in pools, e.g. `storage.configure('big-relays', {'wss://relay.damus.io', 'wss://relay.primal.net'})` and then addressed by label throughout the application; when no relay pools are supplied it is inferred that the outbox model must be utilized.
@@ -86,12 +86,12 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Storage API and in-memory implementation
  - [x] Popular nostr models, at least those used in Zaplab
  - [x] Model relationships
- - [ ] Smart querying using `since` based on local data
  - [x] Buffered relay pool, with configurable duration
  - [x] Watchable relationships
- - [ ] Allow typed queries `ref.watch(queryTyped<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
- - [ ] Remote relay configuration
+ - [x] Allow typed queries `ref.watch(queryTyped<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
+ - [x] Remote relay configuration
+ - [x] Relay metadata in response
+ - [ ] Event metadata
  - [ ] Ability for a watcher to watch a particular subscription (instead of a regular filter)
  - [ ] Allow multiple filters
  - [ ] Eviction policy API, allowing clients to manage the local database size
- - [ ] Add stream support, for those who do not like Riverpod

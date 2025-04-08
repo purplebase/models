@@ -5,11 +5,12 @@ import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 
-import 'dummy_notifier.dart';
-
 abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   StorageNotifier() : super(StorageSignal());
   late StorageConfiguration config;
+
+  // TODO: Remove and only leave in config at initialize
+  Map<String, Set<String>> relayGroups = {};
 
   Future<void> initialize(StorageConfiguration config) async {
     this.config = config;
@@ -37,18 +38,24 @@ final storageNotifierProvider =
         DummyStorageNotifier.new);
 
 class RequestNotifier extends StateNotifier<StorageState> {
-  final RequestFilter req;
   final Ref ref;
+  final RequestFilter req;
+  Set<String>? _relayUrls;
   final StorageNotifier storage;
   var applyLimit = true;
 
-  RequestNotifier(this.ref, this.req)
+  RequestNotifier(this.ref, this.req, String? relayGroup)
       : storage = ref.read(storageNotifierProvider.notifier),
         super(StorageLoading([])) {
     // If no filters were provided, do nothing
     if (req.toMap().isEmpty) {
       return;
     }
+
+    _relayUrls =
+        storage.relayGroups[relayGroup ?? storage.config.defaultRelayGroup] ??
+            storage.config
+                .relayGroups[relayGroup ?? storage.config.defaultRelayGroup];
 
     // Execute query and notify
     Future<List<Event>> fn(RequestFilter req) async {
@@ -57,7 +64,7 @@ class RequestNotifier extends StateNotifier<StorageState> {
       applyLimit = false;
       if (!req.storageOnly) {
         // Send request filter to relays
-        storage.send(req);
+        storage.send(req, relayUrls: _relayUrls);
       }
 
       if (req.and != null) {
@@ -68,7 +75,11 @@ class RequestNotifier extends StateNotifier<StorageState> {
         };
         // TODO: Optimize hard as these are sync reads
         final relEvents = await Future.wait(reqs.map(fn));
-        events.addAll(relEvents.expand((e) => e));
+        for (final list in relEvents) {
+          for (final e in list) {
+            events.add(e);
+          }
+        }
       }
 
       return events;
@@ -81,12 +92,16 @@ class RequestNotifier extends StateNotifier<StorageState> {
     final sub = ref.listen(storageNotifierProvider, (_, signal) async {
       state = StorageLoading(state.models);
       // Signal gives us the newly saved models, *if* we pass it through
-      // the `onModels` callback we get them filtered to the supplied `req`,
+      // the `onIds` callback we get them filtered to the supplied `req`,
       // otherwise it applies `req` to all stored models
       final events = await storage.query(req,
-          applyLimit: applyLimit, onIds: signal.eventIds);
-      state = StorageData({...state.models, ...events}.sortedByCompare(
-          (m) => m.createdAt.millisecondsSinceEpoch, (a, b) => b.compareTo(a)));
+          applyLimit: applyLimit, onIds: signal.record?.$1);
+
+      // TODO: Need to query for relationships here too
+
+      final sortedModels = {...state.models, ...events}.sortedByCompare(
+          (m) => m.createdAt.millisecondsSinceEpoch, (a, b) => b.compareTo(a));
+      state = StorageData(sortedModels);
     });
 
     ref.onDispose(() {
@@ -101,13 +116,12 @@ class RequestNotifier extends StateNotifier<StorageState> {
 
 /// Family of notifier providers, one per request.
 /// Meant to be overridden, defaults to dummy implementation
-final requestNotifierProvider = StateNotifierProvider.autoDispose
-    .family<RequestNotifier, StorageState, RequestFilter>(
-  (ref, req) {
-    // TODO: Using keepAlive to make tests work, isn't it contradictory to auto-dispose?
-    ref.keepAlive();
+final requestNotifierProvider = StateNotifierProvider.autoDispose.family<
+    RequestNotifier, StorageState, (RequestFilter req, String? relayGroup)>(
+  (ref, arg) {
+    final (req, relayGroup) = arg;
     ref.onDispose(() => print('disposing provider'));
-    return RequestNotifier(ref, req);
+    return RequestNotifier(ref, req, relayGroup);
   },
 );
 
@@ -122,7 +136,8 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query(
     DateTime? until,
     int? limit,
     AndFunction and,
-    bool storageOnly = false}) {
+    bool storageOnly = false,
+    String? on}) {
   final req = RequestFilter(
       kinds: kinds,
       ids: ids,
@@ -134,7 +149,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query(
       limit: limit,
       and: and,
       storageOnly: storageOnly);
-  return requestNotifierProvider(req);
+  return requestNotifierProvider((req, on));
 }
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))` on one specific kind
@@ -148,7 +163,8 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
         DateTime? until,
         int? limit,
         AndFunction<E> and,
-        bool storageOnly = false}) {
+        bool storageOnly = false,
+        String? on}) {
   final req = RequestFilter(
       kinds: {Event.kindFor<E>()},
       ids: ids,
@@ -160,16 +176,16 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
       limit: limit,
       and: _castAnd(and),
       storageOnly: storageOnly);
-  return requestNotifierProvider(req);
+  return requestNotifierProvider((req, on));
 }
 
 /// Syntax sugar for watching one model
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
     model<E extends Event<E>>(E model,
-        {AndFunction<E> and, bool storageOnly = false}) {
+        {AndFunction<E> and, bool storageOnly = false, String? on}) {
   final req = RequestFilter(
       ids: {model.id}, and: _castAnd(and), storageOnly: storageOnly);
-  return requestNotifierProvider(req);
+  return requestNotifierProvider((req, on));
 }
 
 AndFunction _castAnd<E extends Event<E>>(AndFunction<E> andFn) {
@@ -177,9 +193,6 @@ AndFunction _castAnd<E extends Event<E>>(AndFunction<E> andFn) {
 }
 
 // Request filter
-
-typedef AndFunction<E extends Event<dynamic>> = Set<Relationship<Event>>
-    Function(E)?;
 
 class RequestFilter extends Equatable {
   static final _random = Random();
@@ -197,7 +210,7 @@ class RequestFilter extends Equatable {
   final bool bufferUntilEose;
   final bool storageOnly;
 
-  /// Used to provide additional filtering after the query, in Dart
+  /// Used to provide additional post-query filtering in Dart
   final bool Function(Event)? where;
 
   final AndFunction and;
@@ -276,11 +289,41 @@ class RequestFilter extends Equatable {
   }
 }
 
+typedef AndFunction<E extends Event<dynamic>> = Set<Relationship<Event>>
+    Function(E)?;
+
+// Response metadata
+
+class ResponseMetadata with EquatableMixin {
+  final Set<String> subscriptionIds;
+  final Set<String> relayUrls;
+  ResponseMetadata({required this.subscriptionIds, required this.relayUrls});
+
+  ResponseMetadata copyWith(
+      Set<String>? subscriptionIds, Set<String>? relayUrls) {
+    return ResponseMetadata(
+      subscriptionIds: subscriptionIds ?? this.subscriptionIds,
+      relayUrls: relayUrls ?? this.relayUrls,
+    );
+  }
+
+  @override
+  List<Object?> get props => [subscriptionIds, relayUrls];
+}
+
 // State
 
-sealed class StorageState {
+sealed class StorageState with EquatableMixin {
   final List<Event> models;
   const StorageState(this.models);
+
+  @override
+  List<Object?> get props => [models];
+
+  @override
+  String toString() {
+    return '[$runtimeType] $models';
+  }
 }
 
 final class StorageLoading extends StorageState {
@@ -294,12 +337,13 @@ final class StorageData extends StorageState {
 final class StorageError extends StorageState {
   final Exception exception;
   final StackTrace? stackTrace;
-  StorageError(super.models, {required this.exception, this.stackTrace});
+  StorageError(super.modelsWithMetadata,
+      {required this.exception, this.stackTrace});
 }
 
 class StorageSignal {
-  final Set<String>? eventIds;
-  StorageSignal([this.eventIds]);
+  final (Set<String>, ResponseMetadata)? record;
+  StorageSignal([this.record]);
 }
 
 // Fast hash
