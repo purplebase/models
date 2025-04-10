@@ -11,13 +11,11 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
     this.config = config;
   }
 
-  Future<List<Event>> query(RequestFilter req,
-      {bool applyLimit = true, Set<String>? onIds});
+  Future<List<Event>> query(RequestFilter req, {bool applyLimit = true});
 
   /// Ideally to be used for must-have sync interfaces such relationships
   /// upon widget first load, and tests. Prefer [query] otherwise.
-  List<Event> querySync(RequestFilter req,
-      {bool applyLimit = true, Set<String>? onIds});
+  List<Event> querySync(RequestFilter req, {bool applyLimit = true});
 
   Future<void> save(Set<Event> events, {String? relayGroup});
 
@@ -91,11 +89,9 @@ class RequestNotifier extends StateNotifier<StorageState> {
           return;
         }
 
-        // Signal gives us the newly saved models, *if* we pass it through
-        // the `onIds` callback we get them filtered to the supplied `req`,
-        // otherwise it applies `req` to all stored models
-        final events =
-            await storage.query(req, applyLimit: applyLimit, onIds: ids);
+        // Restrict req to *only* the updated IDs
+        final updatedReq = req.copyWith(ids: ids);
+        final events = await storage.query(updatedReq, applyLimit: applyLimit);
 
         // TODO: Need to query for relationships here too
 
