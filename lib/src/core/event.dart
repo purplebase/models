@@ -28,7 +28,6 @@ sealed class Event<E extends Event<E>>
   late final BelongsTo<Profile> author;
   late final HasMany<Reaction> reactions;
   late final HasMany<Zap> zaps;
-  // TODO: Make a HasMany<Relay> work somehow (probably in the context of NIP-11)
 
   Event._internal(this.ref, this.internal);
 
@@ -45,6 +44,7 @@ sealed class Event<E extends Event<E>>
       >= 30000 && < 40000 => this is ParameterizableReplaceableEvent,
       _ => this is RegularEvent,
     };
+
     if (!kindCheck) {
       throw Exception(
           'Kind ${internal.kind} does not match the type of event: regular, replaceable, etc. Check the model definition inherits the right one.');
@@ -99,7 +99,7 @@ sealed class Event<E extends Event<E>>
     'Article': (kind: 30023, constructor: Article.fromMap),
     'Release': (kind: 30063, constructor: Release.fromMap),
     'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromMap),
-    'App': (kind: 32267, constructor: App.fromMap)
+    'App': (kind: 32267, constructor: App.fromMap),
   };
 
   static int kindFor<E extends Event<E>>() => Event.types[E.toString()]!.kind;
@@ -119,6 +119,31 @@ You can do so by calling: Event.types['$E'] = (kind, $E.fromMap);
 
   static EventConstructor<Event<dynamic>>? getConstructorForKind(int kind) {
     return types.values.firstWhereOrNull((v) => v.kind == kind)?.constructor;
+  }
+
+  static bool isReplaceable(Map<String, dynamic> map) {
+    return switch (map['kind']) {
+      0 || 3 || >= 10000 && < 20000 || >= 30000 && < 40000 => true,
+      _ => false,
+    };
+  }
+
+  /// Returns addressable ID from a map, based on event type
+  static String addressableId(Map<String, dynamic> map) {
+    final (kind, id, pubkey, identifier) = (
+      map['kind'],
+      map['id'],
+      map['pubkey'],
+      (map['tags'] as Iterable).firstWhereOrNull((i) => i[0] == 'd')?[1] ?? ''
+    );
+    return switch (kind) {
+      0 ||
+      3 ||
+      >= 10000 && < 20000 ||
+      >= 30000 && < 40000 =>
+        '$kind:$pubkey:$identifier',
+      _ => id,
+    };
   }
 }
 

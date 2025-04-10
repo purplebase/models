@@ -9,9 +9,6 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   StorageNotifier() : super(StorageSignal());
   late StorageConfiguration config;
 
-  // TODO: Remove and only leave in config at initialize
-  Map<String, Set<String>> relayGroups = {};
-
   Future<void> initialize(StorageConfiguration config) async {
     this.config = config;
   }
@@ -24,13 +21,11 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   List<Event> querySync(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds});
 
-  Future<void> save(Set<Event> events);
+  Future<void> save(Set<Event> events, {String? relayGroup});
 
-  Future<void> send(RequestFilter req, {Set<String>? relayUrls});
+  Future<void> send(RequestFilter req, {String? relayGroup});
 
   Future<void> clear([RequestFilter? req]);
-
-  Future<void> close();
 }
 
 final storageNotifierProvider =
@@ -40,7 +35,6 @@ final storageNotifierProvider =
 class RequestNotifier extends StateNotifier<StorageState> {
   final Ref ref;
   final RequestFilter req;
-  Set<String>? _relayUrls;
   final StorageNotifier storage;
   var applyLimit = true;
 
@@ -52,11 +46,6 @@ class RequestNotifier extends StateNotifier<StorageState> {
       return;
     }
 
-    _relayUrls =
-        storage.relayGroups[relayGroup ?? storage.config.defaultRelayGroup] ??
-            storage.config
-                .relayGroups[relayGroup ?? storage.config.defaultRelayGroup];
-
     // Execute query and notify
     Future<List<Event>> fn(RequestFilter req) async {
       final events = await storage.query(req, applyLimit: applyLimit);
@@ -64,7 +53,7 @@ class RequestNotifier extends StateNotifier<StorageState> {
       applyLimit = false;
       if (!req.storageOnly) {
         // Send request filter to relays
-        storage.send(req, relayUrls: _relayUrls);
+        storage.send(req, relayGroup: relayGroup);
       }
 
       if (req.and != null) {
@@ -90,18 +79,22 @@ class RequestNotifier extends StateNotifier<StorageState> {
     });
 
     final sub = ref.listen(storageNotifierProvider, (_, signal) async {
-      state = StorageLoading(state.models);
-      // Signal gives us the newly saved models, *if* we pass it through
-      // the `onIds` callback we get them filtered to the supplied `req`,
-      // otherwise it applies `req` to all stored models
-      final events = await storage.query(req,
-          applyLimit: applyLimit, onIds: signal.record?.$1);
+      if (signal.record case (final ids, _)) {
+        // TODO: metadata can be used here to restrict by relay or sub
 
-      // TODO: Need to query for relationships here too
+        // Signal gives us the newly saved models, *if* we pass it through
+        // the `onIds` callback we get them filtered to the supplied `req`,
+        // otherwise it applies `req` to all stored models
+        final events =
+            await storage.query(req, applyLimit: applyLimit, onIds: ids);
 
-      final sortedModels = {...state.models, ...events}.sortedByCompare(
-          (m) => m.createdAt.millisecondsSinceEpoch, (a, b) => b.compareTo(a));
-      state = StorageData(sortedModels);
+        // TODO: Need to query for relationships here too
+
+        final sortedModels = {...state.models, ...events}.sortedByCompare(
+            (m) => m.createdAt.millisecondsSinceEpoch,
+            (a, b) => b.compareTo(a));
+        state = StorageData(sortedModels);
+      }
     });
 
     ref.onDispose(() {
@@ -209,6 +202,7 @@ class RequestFilter extends Equatable {
   final int? queryLimit; // Total limit including streaming
   final bool bufferUntilEose;
   final bool storageOnly;
+  final Set<String> relays;
 
   /// Used to provide additional post-query filtering in Dart
   final bool Function(Event)? where;
@@ -229,11 +223,13 @@ class RequestFilter extends Equatable {
     this.storageOnly = false,
     this.where,
     this.and,
+    Set<String>? relays,
     String? subscriptionId,
   })  : ids = ids ?? const {},
         authors = authors ?? const {},
         kinds = kinds ?? const {},
-        tags = tags ?? const {} {
+        tags = tags ?? const {},
+        relays = relays ?? const {} {
     // TODO: Validate ids, authors have proper format, auto-convert from npub if needed
     this.subscriptionId = subscriptionId ?? 'sub-${_random.nextInt(999999)}';
   }
@@ -295,20 +291,19 @@ typedef AndFunction<E extends Event<dynamic>> = Set<Relationship<Event>>
 // Response metadata
 
 class ResponseMetadata with EquatableMixin {
-  final Set<String> subscriptionIds;
+  final String? subscriptionId;
   final Set<String> relayUrls;
-  ResponseMetadata({required this.subscriptionIds, required this.relayUrls});
+  ResponseMetadata({this.subscriptionId, required this.relayUrls});
 
-  ResponseMetadata copyWith(
-      Set<String>? subscriptionIds, Set<String>? relayUrls) {
+  ResponseMetadata copyWith(String? subscriptionId, Set<String>? relayUrls) {
     return ResponseMetadata(
-      subscriptionIds: subscriptionIds ?? this.subscriptionIds,
+      subscriptionId: subscriptionId ?? this.subscriptionId,
       relayUrls: relayUrls ?? this.relayUrls,
     );
   }
 
   @override
-  List<Object?> get props => [subscriptionIds, relayUrls];
+  List<Object?> get props => [subscriptionId, relayUrls];
 }
 
 // State

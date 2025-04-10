@@ -135,6 +135,7 @@ void main() async {
         ..description = 'test app';
       final app = partialApp.by(
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
+      print(app.toMap());
 
       expect(app.internal.kind, 32267);
       expect(app.description, 'test app');

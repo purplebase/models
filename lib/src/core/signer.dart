@@ -1,6 +1,5 @@
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:convert/convert.dart';
-import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 
@@ -10,29 +9,7 @@ mixin Signable<E extends Event<E>> {
   }
 }
 
-final class StorageConfiguration extends Equatable {
-  final String databasePath;
-  final bool keepSignatures;
-  final bool skipVerification;
-  final Map<String, Set<String>> relayGroups;
-  final String defaultRelayGroup;
-  const StorageConfiguration({
-    required this.databasePath,
-    this.keepSignatures = false,
-    this.skipVerification = false,
-    required this.relayGroups,
-    required this.defaultRelayGroup,
-  });
-
-  factory StorageConfiguration.empty() {
-    return StorageConfiguration(
-        databasePath: '', relayGroups: {}, defaultRelayGroup: '');
-  }
-
-  @override
-  List<Object?> get props => [databasePath, keepSignatures];
-}
-
+// Needs to be here because of Signer._ref
 final initializationProvider =
     FutureProvider.family<bool, StorageConfiguration>((ref, config) async {
   // Initialize a private ref exclusive for signers

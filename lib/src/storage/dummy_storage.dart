@@ -26,11 +26,13 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> save(Set<Event> events) async {
+  Future<void> save(Set<Event> events, {String? relayGroup}) async {
     _events.addAll(events);
+    final relayUrls =
+        config.relayGroups[relayGroup ?? config.defaultRelayGroup];
     state = StorageSignal((
       {for (final e in events) e.id},
-      ResponseMetadata(subscriptionIds: {'test'}, relayUrls: {'wss://test'})
+      ResponseMetadata(relayUrls: relayUrls ?? {})
     ));
   }
 
@@ -167,12 +169,7 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> send(RequestFilter req, {Set<String>? relayUrls}) async {
+  Future<void> send(RequestFilter req, {String? relayGroup}) async {
     // no-op as dummy storage does not hit relays
-  }
-
-  @override
-  Future<void> close() async {
-    // no-op
   }
 }

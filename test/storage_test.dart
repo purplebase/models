@@ -133,9 +133,10 @@ void main() async {
     });
 
     test('relay metadata', () async {
-      tester = container.testerFor(query(authors: {'franzap'}));
-      final r = ResponseMetadata(
-          subscriptionIds: {'test'}, relayUrls: {'wss://test'});
+      tester = container.testerFor(query(
+        authors: {'franzap'},
+      ));
+      // TODO: Finish
       await tester.expectModels(contains(e));
     });
   });

@@ -34,6 +34,7 @@ final class ImmutableInternalEvent<E extends Event<E>>
   final String content;
   @override
   final Map<String, Set<TagValue>> tags;
+  final Set<String> relays;
   // Signature is nullable as it may be removed as optimization
   final String? signature;
 
@@ -43,7 +44,17 @@ final class ImmutableInternalEvent<E extends Event<E>>
         pubkey = map['pubkey'],
         createdAt = (map['created_at'] as int).toDate(),
         tags = TagValue.deserialize(map['tags']),
-        signature = map['sig'];
+        signature = map['sig'],
+        relays = <String>{...?map['relays']};
+
+  String get addressableId {
+    return switch (this) {
+      ImmutableParameterizableReplaceableInternalEvent(:final identifier) =>
+        '$kind:$pubkey:$identifier',
+      ImmutableReplaceableInternalEvent() => '$kind:$pubkey:',
+      ImmutableInternalEvent() => id
+    };
+  }
 
   String get shareableId {
     switch (this) {
@@ -75,17 +86,8 @@ final class ImmutableInternalEvent<E extends Event<E>>
     }
   }
 
-  String get addressableId {
-    return switch (this) {
-      ImmutableParameterizableReplaceableInternalEvent(:final identifier) =>
-        '$kind:$pubkey:$identifier',
-      ImmutableReplaceableInternalEvent() => '$kind:$pubkey:',
-      ImmutableInternalEvent() => id
-    };
-  }
-
   Map<String, Set<String>> get addressableIdTagMap => {
-        this is ImmutableReplaceableInternalEvent ? '#a' : '#e': {addressableId}
+        this is ImmutableReplaceableInternalEvent ? '#a' : '#e': {id}
       };
 }
 
