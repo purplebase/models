@@ -81,7 +81,8 @@ class RequestNotifier extends StateNotifier<StorageState> {
           return;
         }
 
-        final relayUrls = storage.config.getRelays(req.on, false);
+        final relayUrls =
+            storage.config.getRelays(relayGroup: req.on, useDefault: false);
 
         // If none of the relayUrls are in the incoming IDs, skip
         if (req.restrictToRelays &&

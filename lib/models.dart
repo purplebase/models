@@ -5,7 +5,7 @@ export 'src/storage/request.dart';
 export 'src/storage/dummy_storage.dart';
 export 'src/core/event.dart';
 export 'src/core/extensions.dart';
-export 'src/core/initialization.dart';
+export 'src/core/config.dart';
 export 'src/core/signer.dart';
 export 'src/core/tags.dart';
 export 'src/core/relationship.dart';

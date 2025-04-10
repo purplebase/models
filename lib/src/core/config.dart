@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-final class StorageConfiguration extends Equatable {
+class StorageConfiguration extends Equatable {
   final String databasePath;
   final bool keepSignatures;
   final bool skipVerification;
@@ -19,12 +19,17 @@ final class StorageConfiguration extends Equatable {
         databasePath: '', relayGroups: {}, defaultRelayGroup: '');
   }
 
-  // TODO: Improve this shit API
-  Set<String> getRelays([String? relayGroup, bool useDefault = true]) {
+  Set<String> getRelays({String? relayGroup, bool useDefault = true}) {
     final k = useDefault ? (relayGroup ?? defaultRelayGroup) : relayGroup;
     return relayGroups[k] ?? {};
   }
 
   @override
-  List<Object?> get props => [databasePath, keepSignatures];
+  List<Object?> get props => [
+        databasePath,
+        keepSignatures,
+        skipVerification,
+        relayGroups,
+        defaultRelayGroup
+      ];
 }
