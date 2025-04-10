@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 
 import 'helpers.dart';
 
-void main() async {
+void main() {
   late ProviderContainer container;
   setUpAll(() async {
     container = ProviderContainer();
@@ -117,7 +117,7 @@ void main() async {
       expect(reaction.author.value, profile);
     });
 
-    test('profile', () async {
+    test('profile', () {
       final niel = PartialProfile(
         name: 'Niel Liesmons',
         pictureUrl:
@@ -130,7 +130,7 @@ void main() async {
       print(niel.internal.shareableId);
     });
 
-    test('app', () async {
+    test('app', () {
       final partialApp = PartialApp()
         ..identifier = 'w'
         ..description = 'test app';
@@ -157,6 +157,30 @@ void main() async {
       await storage.save({event, zap, author});
       expect(zap.zappedEvent.value, event);
       expect(zap.author.value, author);
+    });
+
+    test('community', () {
+      final community = PartialCommunity(
+        name: 'communikey',
+        createdAt: DateTime.parse('2025-04-10'),
+        description: 'Some cool shit',
+        relayUrls: {'wss://communi.key'},
+        blossomUrls: {'https://cdn.communi.key'},
+        contentSections: {
+          CommunityContentSection(content: 'Chat', kinds: {9}),
+          CommunityContentSection(
+              content: 'Post', kinds: {1, 11}, feeInSats: 10),
+          CommunityContentSection(
+              content: 'Article', kinds: {30023, 30040}, feeInSats: 21),
+        },
+        termsOfService: 'https://tos',
+      ).dummySign();
+
+      final community2 =
+          Community.fromMap(community.toMap(), container.read(refProvider));
+
+      expect(jsonDecode(communityJson), community2.toMap());
+      // print(community);
     });
   });
 }
@@ -213,4 +237,79 @@ final zappedEventJson = '''
             ]
         ]
     }
+''';
+
+final communityJson = '''
+{
+	"id": "0684bb712e98efa2588f74ec7d1d5d6ef53afcc1aeea2802392a655831355f64",
+	"content": "",
+	"created_at": 1744254000,
+	"pubkey": "8f1536c05fa9c3f441f1a369b661f3cb1072f418a876d153edf3fc6eec41794c",
+	"kind": 10222,
+	"tags": [
+		[
+			"name",
+			"communikey"
+		],
+		[
+			"r",
+			"wss://communi.key"
+		],
+		[
+			"description",
+			"Some cool shit"
+		],
+		[
+			"content",
+			"Chat"
+		],
+		[
+			"k",
+			"9"
+		],
+    [
+			"content",
+			"Post"
+		],
+		[
+			"k",
+			"1"
+		],
+		[
+			"k",
+			"11"
+		],
+    [
+			"fee",
+			"10",
+			"sat"
+		],
+    [
+			"content",
+			"Article"
+		],
+		[
+			"k",
+			"30023"
+		],
+		[
+			"k",
+			"30040"
+		],
+		[
+			"fee",
+			"21",
+			"sat"
+		],
+		[
+			"blossom",
+			"https://cdn.communi.key"
+		],
+		[
+			"tos",
+			"https://tos"
+		]
+	],
+	"sig": null
+}
 ''';

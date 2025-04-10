@@ -46,17 +46,13 @@ class Profile extends ReplaceableEvent<Profile> {
 }
 
 class PartialProfile extends ReplaceablePartialEvent<Profile> {
-  PartialProfile({this.name, this.nip05, this.pictureUrl, this.lud16});
+  PartialProfile({this.name, this.nip05, this.pictureUrl, this.lud16}) {
+    internal.content =
+        jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
+  }
 
   String? name;
   String? nip05;
   String? pictureUrl;
   String? lud16;
-
-  @override
-  Future<Profile> signWith(Signer signer, {String? withPubkey}) {
-    internal.content =
-        jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
-    return super.signWith(signer, withPubkey: withPubkey);
-  }
 }

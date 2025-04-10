@@ -96,6 +96,7 @@ sealed class Event<E extends Event<E>>
     'FileMetadata': (kind: 1063, constructor: FileMetadata.fromMap),
     'ZapRequest': (kind: 9734, constructor: ZapRequest.fromMap),
     'Zap': (kind: 9735, constructor: Zap.fromMap),
+    'Community': (kind: 10222, constructor: Community.fromMap),
     'Article': (kind: 30023, constructor: Article.fromMap),
     'Release': (kind: 30063, constructor: Release.fromMap),
     'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromMap),
