@@ -93,5 +93,6 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Relay metadata in response
  - [ ] Event metadata
  - [ ] Ability for a watcher to watch a particular subscription (instead of a regular filter)
+ - [ ] Publish events
  - [ ] Allow multiple filters
  - [ ] Eviction policy API, allowing clients to manage the local database size

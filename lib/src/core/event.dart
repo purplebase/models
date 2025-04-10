@@ -120,31 +120,6 @@ You can do so by calling: Event.types['$E'] = (kind, $E.fromMap);
   static EventConstructor<Event<dynamic>>? getConstructorForKind(int kind) {
     return types.values.firstWhereOrNull((v) => v.kind == kind)?.constructor;
   }
-
-  static bool isReplaceable(Map<String, dynamic> map) {
-    return switch (map['kind']) {
-      0 || 3 || >= 10000 && < 20000 || >= 30000 && < 40000 => true,
-      _ => false,
-    };
-  }
-
-  /// Returns addressable ID from a map, based on event type
-  static String addressableId(Map<String, dynamic> map) {
-    final (kind, id, pubkey, identifier) = (
-      map['kind'],
-      map['id'],
-      map['pubkey'],
-      (map['tags'] as Iterable).firstWhereOrNull((i) => i[0] == 'd')?[1] ?? ''
-    );
-    return switch (kind) {
-      0 ||
-      3 ||
-      >= 10000 && < 20000 ||
-      >= 30000 && < 40000 =>
-        '$kind:$pubkey:$identifier',
-      _ => id,
-    };
-  }
 }
 
 sealed class PartialEvent<E extends Event<E>>

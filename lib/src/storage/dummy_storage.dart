@@ -169,7 +169,7 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> send(RequestFilter req, {String? relayGroup}) async {
+  Future<void> send(RequestFilter req) async {
     // no-op as dummy storage does not hit relays
   }
 }

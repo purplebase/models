@@ -19,10 +19,10 @@ final class StorageConfiguration extends Equatable {
         databasePath: '', relayGroups: {}, defaultRelayGroup: '');
   }
 
-  Set<String> getRelays([String? relayGroup]) {
-    return relayGroups[relayGroup ?? defaultRelayGroup] ??
-        relayGroups.values.firstOrNull ??
-        {};
+  // TODO: Improve this shit API
+  Set<String> getRelays([String? relayGroup, bool useDefault = true]) {
+    final k = useDefault ? (relayGroup ?? defaultRelayGroup) : relayGroup;
+    return relayGroups[k] ?? {};
   }
 
   @override
