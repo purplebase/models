@@ -4,6 +4,12 @@ import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
+final niel = 'npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q';
+final verbiricha =
+    'npub107jk7htfv243u0x5ynn43scq9wrxtaasmrwwa8lfu2ydwag6cx2quqncxg';
+final franzap =
+    'npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9';
+
 class StorageNotifierTester {
   final RequestNotifier notifier;
 
@@ -51,63 +57,6 @@ extension ProviderContainerExt on ProviderContainer {
 
     return StorageNotifierTester(read(provider.notifier),
         fireImmediately: fireImmediately);
-  }
-}
-
-extension PartialEventExt<E extends Event<E>> on PartialEvent<E> {
-  E by(String pubkey) {
-    return runSync(() => signWith(dummySigner, withPubkey: pubkey));
-  }
-
-  T runSync<T>(Future<T> Function() asyncFunction) {
-    bool isDone = false;
-    T? result;
-    Object? error;
-    StackTrace? stackTrace;
-
-    // Create a special zone that executes microtasks immediately
-    final Zone zone = Zone.current.fork(
-      specification: ZoneSpecification(
-        scheduleMicrotask: (_, __, ___, microtask) {
-          // Execute microtasks synchronously instead of queuing them
-          microtask();
-        },
-        createTimer: (_, __, ___, duration, callback) {
-          // Execute timer callbacks immediately
-          if (duration == Duration.zero) {
-            callback();
-          }
-          // Return a dummy timer that does nothing
-          return Timer(Duration.zero, () {});
-        },
-      ),
-    );
-
-    // Run the async function in our special zone
-    zone.runGuarded(() {
-      asyncFunction().then((value) {
-        result = value;
-        isDone = true;
-      }).catchError((e, s) {
-        error = e;
-        stackTrace = s;
-        isDone = true;
-      });
-    });
-
-    // If we're still not done, that means the function has real asynchronicity
-    // that our zone tricks couldn't handle (like native operations)
-    if (!isDone) {
-      throw StateError(
-          'Could not synchronously execute the async function. It likely contains I/O or other operations that cannot be made synchronous.');
-    }
-
-    // If there was an error, rethrow it with the original stack trace
-    if (error != null) {
-      Error.throwWithStackTrace(error!, stackTrace!);
-    }
-
-    return result as T;
   }
 }
 

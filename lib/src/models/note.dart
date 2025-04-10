@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:models/models.dart';
 
 class Note extends RegularEvent<Note> {

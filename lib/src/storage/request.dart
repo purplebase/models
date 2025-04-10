@@ -67,7 +67,14 @@ class RequestFilter extends Equatable {
         authors = authors ?? const {},
         kinds = kinds ?? const {},
         tags = tags ?? const {} {
-    // TODO: Validate ids, authors have proper format, auto-convert from npub if needed
+    if (ids != null && ids.any((i) => i.length != 64)) {
+      throw UnsupportedError('Bad ids input: $ids');
+    }
+    final authorsHex =
+        authors?.map((a) => a.startsWith('npub') ? Profile.hexFromNpub(a) : a);
+    if (authorsHex != null && authorsHex.any((a) => a.length != 64)) {
+      throw UnsupportedError('Bad authors input: $authors');
+    }
     this.subscriptionId = subscriptionId ?? 'sub-${_random.nextInt(999999)}';
   }
 

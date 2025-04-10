@@ -74,14 +74,14 @@ void main() async {
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
-      a = PartialNote('Note A', createdAt: yesterday).by('niel');
-      b = PartialNote('Note B', createdAt: lastMonth).by('niel');
-      c = PartialNote('Note C').by('niel');
-      d = PartialNote('Note D', tags: {'nostr'}).by('niel');
-      e = PartialNote('Note E').by('franzap');
-      f = PartialNote('Note F', tags: {'nostr'}).by('franzap');
-      g = PartialNote('Note G').by('verbiricha');
-      profile = PartialProfile(name: 'neil').by('niel');
+      a = PartialNote('Note A', createdAt: yesterday).dummySign(niel);
+      b = PartialNote('Note B', createdAt: lastMonth).dummySign(niel);
+      c = PartialNote('Note C').dummySign(niel);
+      d = PartialNote('Note D', tags: {'nostr'}).dummySign(niel);
+      e = PartialNote('Note E').dummySign(franzap);
+      f = PartialNote('Note F', tags: {'nostr'}).dummySign(franzap);
+      g = PartialNote('Note G').dummySign(verbiricha);
+      profile = PartialProfile(name: 'neil').dummySign(niel);
 
       await storage.save({a, b, c, d, e, f, g, profile});
     });
@@ -91,10 +91,11 @@ void main() async {
       expect(profile.notes.toList(), orderedEquals({a, b, c, d}));
       expect(profile.notes.toList(limit: 2), orderedEquals({c, d}));
 
-      final replyNote = PartialNote('replying', replyTo: c).by('foo');
+      final replyNote = PartialNote('replying', replyTo: c).dummySign(franzap);
 
       final replyToReplyNote =
-          PartialNote('replying to reply', replyTo: replyNote).by('bar');
+          PartialNote('replying to reply', replyTo: replyNote)
+              .dummySign(verbiricha);
 
       await container
           .read(storageNotifierProvider.notifier)
@@ -108,7 +109,7 @@ void main() async {
 
       final reaction =
           PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
-              .by('niel');
+              .dummySign(niel);
       expect(reaction.internal.getFirstTag('emoji'),
           equals(TagValue(['test', 'test://t'])));
       expect(reaction.reactedOn.ids, {a.internal.id});
@@ -121,7 +122,8 @@ void main() async {
         name: 'Niel Liesmons',
         pictureUrl:
             'https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png',
-      ).by('a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be');
+      ).dummySign(
+          'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be');
 
       expect(niel.internal.content,
           '{"name":"Niel Liesmons","nip05":null,"picture":"https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png"}');
@@ -132,7 +134,7 @@ void main() async {
       final partialApp = PartialApp()
         ..identifier = 'w'
         ..description = 'test app';
-      final app = partialApp.by(
+      final app = partialApp.dummySign(
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
       print(app.toMap());
 
@@ -148,7 +150,7 @@ void main() async {
 
     test('zaps', () async {
       final ref = container.read(refProvider);
-      final author = PartialProfile().by(
+      final author = PartialProfile().dummySign(
           'd3f94b353542a632962062f3c914638d0deeba64af1f980d93907ee1b3e0d4f9');
       final zap = Zap.fromMap(jsonDecode(zapJson), ref);
       final event = Note.fromMap(jsonDecode(zappedEventJson), ref);

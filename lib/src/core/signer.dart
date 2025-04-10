@@ -7,6 +7,9 @@ mixin Signable<E extends Event<E>> {
   Future<E> signWith(Signer signer, {String? withPubkey}) {
     return signer.sign<E>(this as PartialEvent<E>, withPubkey: withPubkey);
   }
+
+  E dummySign([String? withPubkey]) =>
+      _dummySigner.signSync(this as PartialEvent<E>, withPubkey: withPubkey);
 }
 
 // Needs to be here because of Signer._ref
@@ -76,9 +79,8 @@ class DummySigner extends Signer {
     return this;
   }
 
-  @override
-  Future<E> sign<E extends Event<E>>(PartialEvent<E> partialEvent,
-      {String? withPubkey}) async {
+  E signSync<E extends Event<E>>(PartialEvent<E> partialEvent,
+      {String? withPubkey}) {
     return Event.getConstructor<E>()!.call({
       'id': partialEvent.getEventId(withPubkey ?? _pubkey),
       'pubkey': withPubkey ?? _pubkey,
@@ -86,4 +88,12 @@ class DummySigner extends Signer {
       ...partialEvent.toMap(),
     }, Signer._ref);
   }
+
+  @override
+  Future<E> sign<E extends Event<E>>(PartialEvent<E> partialEvent,
+      {String? withPubkey}) async {
+    return signSync(partialEvent);
+  }
 }
+
+final _dummySigner = DummySigner();

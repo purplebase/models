@@ -128,7 +128,9 @@ String bech32Encode(String prefix, String hexData, {int? maxLength}) {
 // }
 
 String bech32Decode(String bech32Data, {int? maxLength}) {
-  final decodedData = bech32.decode(bech32Data, maxLength);
+  final decodedData = maxLength != null
+      ? bech32.decode(bech32Data, maxLength)
+      : bech32.decode(bech32Data);
   final convertedData = convertBits(decodedData.data, 5, 8, false);
   return hex.encode(convertedData);
 }

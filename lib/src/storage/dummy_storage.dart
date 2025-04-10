@@ -4,8 +4,6 @@ import 'package:faker/faker.dart';
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 
-final _dummySigner = DummySigner();
-
 /// Reactive storage with dummy data, singleton
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
@@ -130,16 +128,15 @@ class DummyStorageNotifier extends StorageNotifier {
         .cast<Profile>()
         .firstOrNull;
 
-    profile ??= await PartialProfile(
+    profile ??= PartialProfile(
             name: faker.person.name(),
             nip05: faker.internet.freeEmail(),
             pictureUrl: faker.internet.httpsUrl())
-        .signWith(_dummySigner, withPubkey: pubkey);
+        .dummySign(pubkey);
 
     final models = {
       for (final _ in List.generate(amount, (_) {}))
-        await PartialNote(faker.lorem.sentence())
-            .signWith(_dummySigner, withPubkey: profile.pubkey),
+        PartialNote(faker.lorem.sentence()).dummySign(profile.pubkey),
     };
     print('saving ${models.length}');
     await save(models);
@@ -157,8 +154,7 @@ class DummyStorageNotifier extends StorageNotifier {
           t.cancel();
         } else {
           final models = {
-            await PartialNote(faker.conference.name())
-                .signWith(_dummySigner, withPubkey: profile!.pubkey),
+            PartialNote(faker.conference.name()).dummySign(profile!.pubkey),
           };
           await save(models);
         }

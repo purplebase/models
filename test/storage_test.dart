@@ -29,28 +29,27 @@ void main() async {
 
   group('storage filters', () {
     late Note a, b, c, d, e, f, g, replyToA, replyToB;
-    late Profile profile;
+    late Profile nielProfile;
 
     setUpAll(() async {
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
-      a = PartialNote('Note A', createdAt: yesterday).by('niel');
-      b = PartialNote('Note B', createdAt: lastMonth).by('niel');
-      c = PartialNote('Note C').by('niel');
-      d = PartialNote('Note D', tags: {'nostr'}).by('niel');
-      e = PartialNote('Note E').by('franzap');
-      f = PartialNote('Note F', tags: {'nostr'}).by('franzap');
-      g = PartialNote('Note G').by('verbiricha');
-      profile = PartialProfile(name: 'neil').by('niel');
-      final partialReplyToA = PartialNote('reply to a')
-        ..linkEvent(a, marker: EventMarker.root);
-      final partialReplyToB = PartialNote('reply to b', createdAt: yesterday)
-        ..linkEvent(b, marker: EventMarker.root);
-      replyToA = partialReplyToA.by(profile.pubkey);
-      replyToB = partialReplyToB.by(profile.pubkey);
+      a = PartialNote('Note A', createdAt: yesterday).dummySign(niel);
+      b = PartialNote('Note B', createdAt: lastMonth).dummySign(niel);
+      c = PartialNote('Note C').dummySign(niel);
+      d = PartialNote('Note D', tags: {'nostr'}).dummySign(niel);
+      e = PartialNote('Note E').dummySign(franzap);
+      f = PartialNote('Note F', tags: {'nostr'}).dummySign(franzap);
+      g = PartialNote('Note G').dummySign(verbiricha);
+      nielProfile = PartialProfile(name: 'neil').dummySign(niel);
+      replyToA =
+          PartialNote('reply to a', replyTo: a).dummySign(nielProfile.pubkey);
+      replyToB = PartialNote('reply to b', createdAt: yesterday, replyTo: b)
+          .dummySign(nielProfile.pubkey);
 
-      await storage.save({a, b, c, d, e, f, g, profile, replyToA, replyToB});
+      await storage.save({a, b, c, d, e, f, g, replyToA, replyToB});
+      await storage.save({nielProfile}, relayGroup: 'big-relays');
     });
 
     test('ids', () async {
@@ -59,7 +58,7 @@ void main() async {
     });
 
     test('authors', () async {
-      tester = container.testerFor(query(authors: {'franzap', 'verbiricha'}));
+      tester = container.testerFor(query(authors: {franzap, verbiricha}));
       await tester.expectModels(unorderedEquals({e, f, g}));
     });
 
@@ -76,7 +75,7 @@ void main() async {
 
     test('tags', () async {
       tester = container.testerFor(query(authors: {
-        'niel'
+        niel
       }, tags: {
         '#t': {'nostr'}
       }));
@@ -102,42 +101,40 @@ void main() async {
     test('until', () async {
       tester = container.testerFor(query(
           kinds: {1},
-          authors: {'niel'},
+          authors: {niel},
           until: DateTime.now().subtract(Duration(minutes: 1))));
       await tester.expectModels(orderedEquals({a, b, replyToB}));
     });
 
     test('since', () async {
       tester = container.testerFor(query(
-          authors: {'niel'},
+          authors: {niel},
           since: DateTime.now().subtract(Duration(minutes: 1))));
-      await tester.expectModels(orderedEquals({c, d, profile, replyToA}));
+      await tester.expectModels(orderedEquals({c, d, nielProfile, replyToA}));
     });
 
     test('limit and order', () async {
       tester =
-          container.testerFor(query(kinds: {1}, authors: {'niel'}, limit: 3));
+          container.testerFor(query(kinds: {1}, authors: {niel}, limit: 3));
       await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
     test('relationships with model watcher', () async {
       tester = container.testerFor(model(a, and: (note) => {note.author}));
-      await tester.expectModels(unorderedEquals({a, profile}));
+      await tester.expectModels(unorderedEquals({a, nielProfile}));
     });
 
     test('multiple relationships', () async {
       tester = container.testerFor(queryType<Note>(
           ids: {a.id, b.id}, and: (note) => {note.author, note.replies}));
-      await tester
-          .expectModels(unorderedEquals({a, b, profile, replyToA, replyToB}));
+      await tester.expectModels(
+          unorderedEquals({a, b, nielProfile, replyToA, replyToB}));
     });
 
     test('relay metadata', () async {
-      tester = container.testerFor(query(
-        authors: {'franzap'},
-      ));
-      // TODO: Finish
-      await tester.expectModels(contains(e));
+      tester = container.testerFor(queryType<Profile>(authors: {niel}));
+      await tester.expect(isA<StorageData>()
+          .having((s) => s.models.first.internal.relays, 'relays', <String>{}));
     });
   });
 
