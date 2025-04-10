@@ -91,19 +91,18 @@ void main() async {
       expect(profile.notes.toList(), orderedEquals({a, b, c, d}));
       expect(profile.notes.toList(limit: 2), orderedEquals({c, d}));
 
-      // TODO: Replace all this with replyTo in PartialNote
-      final replyPartialNote = PartialNote('replying')
-        ..linkEvent(c, marker: EventMarker.root);
-      final replyNote = replyPartialNote.by('foo');
+      final replyNote = PartialNote('replying', replyTo: c).by('foo');
 
-      final replyToReplyPartialNote = PartialNote('replying to reply')
-        ..linkEvent(replyNote, marker: EventMarker.reply)
-        ..linkEvent(c, marker: EventMarker.root);
-      final replyToReplyNote = replyToReplyPartialNote.by('bar');
+      final replyToReplyNote =
+          PartialNote('replying to reply', replyTo: replyNote).by('bar');
 
       await container
           .read(storageNotifierProvider.notifier)
           .save({replyNote, replyToReplyNote});
+
+      expect(c.root.value, isNull);
+      expect(replyNote.root.value, c);
+      expect(replyToReplyNote.root.value, c);
       expect(c.replies.toList(), {replyNote});
       expect(c.allReplies.toList(), {replyNote, replyToReplyNote});
 

@@ -56,7 +56,8 @@ class RequestNotifier extends StateNotifier<StorageState> {
         final reqs = {
           for (final e in events)
             ...req.and!(e)
-                .map((r) => r.req.copyWith(storageOnly: req.storageOnly))
+                .map((r) => r.req?.copyWith(storageOnly: req.storageOnly))
+                .nonNulls
         };
         // TODO: Optimize hard as these are sync reads
         final relEvents = await Future.wait(reqs.map(fn));
