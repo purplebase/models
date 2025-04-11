@@ -17,7 +17,8 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   /// upon widget first load, and tests. Prefer [query] otherwise.
   List<Event> querySync(RequestFilter req, {bool applyLimit = true});
 
-  Future<void> save(Set<Event> events, {String? relayGroup});
+  Future<void> save(Set<Event> events,
+      {String? relayGroup, bool publish = true});
 
   Future<void> send(RequestFilter req);
 
@@ -75,6 +76,7 @@ class RequestNotifier extends StateNotifier<StorageState> {
       state = StorageData(events);
     });
 
+    // Listen for storage updates
     final sub = ref.listen(storageNotifierProvider, (_, signal) async {
       if (signal.record case (final ids, final responseMetadata)) {
         if (req.restrictToSubscription &&

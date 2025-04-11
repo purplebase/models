@@ -24,14 +24,14 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> save(Set<Event> events, {String? relayGroup}) async {
+  Future<void> save(Set<Event> events,
+      {String? relayGroup, bool publish = true}) async {
     _events.addAll(events);
-    final relayUrls =
-        config.relayGroups[relayGroup ?? config.defaultRelayGroup];
-    state = StorageSignal((
-      {for (final e in events) e.id},
-      ResponseMetadata(relayUrls: relayUrls ?? {})
-    ));
+
+    // Empty response metadata as these events do not come from a relay
+    final responseMetadata = ResponseMetadata(relayUrls: {});
+
+    state = StorageSignal(({for (final e in events) e.id}, responseMetadata));
   }
 
   @override
@@ -145,11 +145,6 @@ class DummyStorageNotifier extends StorageNotifier {
     Timer.periodic(Duration(seconds: 3), (t) async {
       if (mounted) {
         if (t.tick > 3) {
-          // state = RelayError(
-          //   state.models,
-          //   message: 'Server error, closed',
-          //   subscriptionId: req.subscriptionId,
-          // );
           t.cancel();
         } else {
           final models = {
