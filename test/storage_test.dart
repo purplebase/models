@@ -93,7 +93,7 @@ void main() async {
 
       tester = container.testerFor(query(tags: {
         '#t': {'nostr'},
-        '#e': {'a1b2c3'}
+        '#e': {niel}
       }));
       await tester.expectModels(isEmpty);
     });
@@ -139,13 +139,15 @@ void main() async {
   });
 
   group('storage relay interface', () {
-    test('request filter', () {
+    setUpAll(() {
       tester = container.testerFor(query()); // no-op
+    });
+    test('request filter', () {
       final r1 = RequestFilter(kinds: {
         7
       }, authors: {
-        'a',
-        'b'
+        niel,
+        franzap
       }, tags: {
         'foo': {'bar'},
         '#t': {'nostr'}
@@ -153,8 +155,8 @@ void main() async {
       final r2 = RequestFilter(kinds: {
         7
       }, authors: {
-        'b',
-        'a'
+        franzap,
+        niel
       }, tags: {
         '#t': {'nostr'},
         'foo': {'bar'}
@@ -162,8 +164,8 @@ void main() async {
       final r3 = RequestFilter(kinds: {
         7
       }, authors: {
-        'b',
-        'a'
+        franzap,
+        niel
       }, tags: {
         'foo': {'bar'}
       });
@@ -176,11 +178,11 @@ void main() async {
     });
 
     test('relay request should notify with events', () async {
-      tester =
-          container.testerFor(query(kinds: {1}, authors: {'a', 'b'}, limit: 2));
+      tester = container
+          .testerFor(query(kinds: {1}, authors: {niel, franzap}, limit: 2));
       await tester.expectModels(isEmpty);
 
-      await storage.generateDummyFor(pubkey: 'a', kind: 1, amount: 4);
+      await storage.generateDummyFor(pubkey: niel, kind: 1, amount: 4);
       await tester.expect(isA<StorageLoading>());
       await tester.expectModels(hasLength(4));
     });

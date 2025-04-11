@@ -42,15 +42,14 @@ class RequestNotifier extends StateNotifier<StorageState> {
       return;
     }
 
-    // Execute query and notify
+    // Fetch events from local storage, fire request to relays
     Future<List<Event>> fn(RequestFilter req) async {
-      final events = await storage.query(req, applyLimit: applyLimit);
-
-      applyLimit = false;
       if (!req.storageOnly) {
         // Send request filter to relays
         storage.send(req);
       }
+
+      final events = await storage.query(req, applyLimit: false);
 
       if (req.and != null) {
         final reqs = {
@@ -59,6 +58,7 @@ class RequestNotifier extends StateNotifier<StorageState> {
                 .map((r) => r.req?.copyWith(storageOnly: req.storageOnly))
                 .nonNulls
         };
+        print(reqs);
         // TODO: Optimize hard as these are sync reads
         final relEvents = await Future.wait(reqs.map(fn));
         for (final list in relEvents) {
