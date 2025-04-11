@@ -45,7 +45,12 @@ final class ImmutableInternalEvent<E extends Event<E>>
         createdAt = (map['created_at'] as int).toDate(),
         tags = TagValue.deserialize(map['tags']),
         signature = map['sig'],
-        relays = <String>{...?map['relays']};
+        relays = <String>{...?map['relays']} {
+    if (map['kind'] != kind) {
+      throw Exception(
+          'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E ($kind)');
+    }
+  }
 
   String get addressableId {
     return switch (this) {

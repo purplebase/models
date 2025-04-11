@@ -29,15 +29,7 @@ sealed class Event<E extends Event<E>>
   late final HasMany<Reaction> reactions;
   late final HasMany<Zap> zaps;
 
-  Event._internal(this.ref, this.internal);
-
-  Event.fromMap(Map<String, dynamic> map, this.ref)
-      : internal = ImmutableInternalEvent<E>(map) {
-    if (map['kind'] != internal.kind) {
-      throw Exception(
-          'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E (${internal.kind})');
-    }
-
+  Event._internal(this.ref, this.internal) {
     final kindCheck = switch (internal.kind) {
       >= 10000 && < 20000 || 0 || 3 => this is ReplaceableEvent,
       >= 20000 && < 30000 => this is EphemeralEvent,
@@ -60,6 +52,9 @@ sealed class Event<E extends Event<E>>
     zaps = HasMany<Zap>(
         ref, RequestFilter(kinds: {9735}, tags: internal.addressableIdTagMap));
   }
+
+  Event.fromMap(Map<String, dynamic> map, Ref ref)
+      : this._internal(ref, ImmutableInternalEvent<E>(map));
 
   String get id => internal.addressableId;
 

@@ -75,8 +75,7 @@ class Community extends ReplaceableEvent<Community> {
   String? get termsOfService => internal.getFirstTagValue('tos');
 }
 
-class PartialCommunity
-    extends ParameterizableReplaceablePartialEvent<Community> {
+class PartialCommunity extends ReplaceablePartialEvent<Community> {
   PartialCommunity(
       {required String name,
       DateTime? createdAt,
