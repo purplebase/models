@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
 import 'package:models/src/core/internal_event.dart';
+import 'package:models/src/models/targeted_publication.dart';
 import 'package:riverpod/riverpod.dart';
 
 mixin EventBase<E extends Event<E>> {
@@ -28,6 +29,7 @@ sealed class Event<E extends Event<E>>
   late final BelongsTo<Profile> author;
   late final HasMany<Reaction> reactions;
   late final HasMany<Zap> zaps;
+  late final HasMany<TargetedPublication> targetedPublications;
 
   Event._internal(this.ref, this.internal) {
     final kindCheck = switch (internal.kind) {
@@ -51,6 +53,14 @@ sealed class Event<E extends Event<E>>
 
     zaps = HasMany<Zap>(
         ref, RequestFilter(kinds: {9735}, tags: internal.addressableIdTagMap));
+
+    targetedPublications = HasMany<TargetedPublication>(
+        ref,
+        RequestFilter(kinds: {
+          30222
+        }, tags: {
+          '#d': {id}
+        }));
   }
 
   Event.fromMap(Map<String, dynamic> map, Ref ref)
@@ -94,6 +104,10 @@ sealed class Event<E extends Event<E>>
     'Community': (kind: 10222, constructor: Community.fromMap),
     'Article': (kind: 30023, constructor: Article.fromMap),
     'Release': (kind: 30063, constructor: Release.fromMap),
+    'TargetedPublication': (
+      kind: 30222,
+      constructor: TargetedPublication.fromMap
+    ),
     'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromMap),
     'App': (kind: 32267, constructor: App.fromMap),
   };

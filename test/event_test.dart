@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:models/models.dart';
+import 'package:models/src/models/targeted_publication.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
@@ -159,7 +160,7 @@ void main() {
       expect(zap.author.value, author);
     });
 
-    test('community', () {
+    test('community', () async {
       final community = PartialCommunity(
         name: 'communikey',
         createdAt: DateTime.parse('2025-04-10'),
@@ -176,10 +177,23 @@ void main() {
         termsOfService: 'https://tos',
       ).dummySign();
 
-      final community2 =
-          Community.fromMap(community.toMap(), container.read(refProvider));
+      final note = PartialNote('test').dummySign();
+      final targetedPublication =
+          PartialTargetedPublication(note, communities: {community})
+              .dummySign();
+      await storage.save({community, note, targetedPublication});
 
-      expect(jsonDecode(communityJson), community2.toMap());
+      print(targetedPublication.toMap());
+      print('---');
+      print(targetedPublication.communities.toList().first.toMap());
+      print('---');
+      print(targetedPublication.event.value!.toMap());
+
+      print(note.targetedPublications.toList().first);
+
+      // final community2 =
+      //     Community.fromMap(community.toMap(), container.read(refProvider));
+      // expect(jsonDecode(communityJson), community2.toMap());
       // print(community);
     });
   });

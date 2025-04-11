@@ -78,6 +78,36 @@ class RequestFilter extends Equatable {
     this.subscriptionId = subscriptionId ?? 'sub-${_random.nextInt(999999)}';
   }
 
+  factory RequestFilter.fromReplaceableEvents(Set<String> addressableIds) {
+    RequestFilter? req;
+    for (final addressableId in addressableIds) {
+      final [kind, author, _] = addressableId.split(':');
+      if (req == null) {
+        req = RequestFilter(
+          kinds: {int.parse(kind)},
+          authors: {author},
+        );
+      } else {
+        req = req.merge(RequestFilter(
+          kinds: {int.parse(kind)},
+          authors: {author},
+        ))!;
+      }
+    }
+    return req ?? RequestFilter();
+  }
+
+  RequestFilter? merge(RequestFilter req) {
+    if (_equality.equals(kinds, req.kinds)) {
+      return RequestFilter(
+        authors: {...authors, ...req.authors},
+      );
+    }
+    return null;
+  }
+
+  static final _equality = DeepCollectionEquality();
+
   Map<String, dynamic> toMap() {
     return {
       if (ids.isNotEmpty) 'ids': ids.sorted(),

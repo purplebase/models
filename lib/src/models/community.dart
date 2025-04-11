@@ -6,19 +6,16 @@ class Community extends ReplaceableEvent<Community> {
   String get name => internal.getFirstTagValue('name')!;
   Set<String> get relayUrls => internal.getTagSetValues('r');
   String? get description => internal.getFirstTagValue('description');
+
+  // TODO: Need to rethink tags for this
   Set<CommunityContentSection> get contentSections {
     final sections = <CommunityContentSection>{};
     String? currentContent;
     Set<int> currentKinds = {};
     int? currentFeeInSats;
 
-    // Assuming internal.rawTags holds the List<List<String>>
     for (final tag in TagValue.serialize(internal.tags)) {
-      // Changed from internal.tags
-      if (tag.isEmpty) continue; // Skip empty tags
-
-      final key = tag[0];
-      final value = tag.length > 1 ? tag[1] : null;
+      final [key, value, ..._] = tag;
 
       if (key == 'content') {
         // Finalize previous section if one was being built
@@ -35,12 +32,12 @@ class Community extends ReplaceableEvent<Community> {
         currentFeeInSats = null; // Reset fee for the new section
       } else if (currentContent != null) {
         // Only process 'k' and 'fee' if we are inside a section
-        if (key == 'k' && value != null) {
+        if (key == 'k') {
           final kind = int.tryParse(value);
           if (kind != null) {
             currentKinds.add(kind);
           }
-        } else if (key == 'fee' && value != null) {
+        } else if (key == 'fee') {
           currentFeeInSats = int.tryParse(value);
         } else {
           // Found a tag not belonging to the current section, finalize the current section
