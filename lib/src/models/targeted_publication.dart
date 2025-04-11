@@ -11,6 +11,7 @@ class TargetedPublication
     communities = HasMany(ref,
         RequestFilter.fromReplaceableEvents(internal.getTagSetValues('p')));
   }
+
   int get targetedKind => int.parse(internal.getFirstTagValue('k')!);
   Set<String> get relayUrls => internal.getTagSetValues('r');
 }

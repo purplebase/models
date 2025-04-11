@@ -3,7 +3,7 @@ import 'package:models/src/core/extensions.dart';
 
 class FileMetadata extends RegularEvent<FileMetadata> {
   FileMetadata.fromMap(super.map, super.ref) : super.fromMap();
-  Set<String> get urls => internal.getTagSetValues('url');
+  Set<String> get urls => internal.getTagSetValues('url').toSet();
   String? get mimeType => internal.getFirstTagValue('m');
   String? get hash => internal.getFirstTagValue('x');
   int? get size => internal.getFirstTagValue('size').toInt();
@@ -11,7 +11,7 @@ class FileMetadata extends RegularEvent<FileMetadata> {
   int? get versionCode =>
       int.tryParse(internal.getFirstTagValue('version_code') ?? '');
   String? get repository => internal.getFirstTagValue('repository');
-  Set<String> get platforms => internal.getTagSetValues('f');
+  Set<String> get platforms => internal.getTagSetValues('f').toSet();
   String? get apkSignatureHash =>
       internal.getFirstTagValue('apk_signature_hash');
 }

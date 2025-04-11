@@ -6,22 +6,23 @@ sealed class InternalEvent<E extends Event<E>> {
   final int kind = Event.kindFor<E>();
   DateTime get createdAt;
   String get content;
-  Map<String, Set<TagValue>> get tags;
+  List<List<String>> get tags;
 
   String? getFirstTagValue(String key) {
-    return getFirstTag(key)?.value;
+    return getFirstTag(key)?[1];
   }
 
-  TagValue? getFirstTag(String key) {
-    return tags[key]?.firstOrNull;
+  List<String>? getFirstTag(String key) {
+    return tags.firstWhereOrNull((t) => t[0] == key);
   }
 
   Set<String> getTagSetValues(String key) =>
-      getTagSet(key).map((e) => e.value).toSet();
+      getTagSet(key).map((e) => e[1]).toSet();
 
-  Set<TagValue> getTagSet(String key) => tags[key]?.toSet() ?? {};
+  Set<List<String>> getTagSet(String key) =>
+      tags.where((e) => e[0] == key).toSet();
 
-  bool containsTag(String key) => tags.containsKey(key);
+  bool containsTag(String key) => tags.any((t) => t[0] == key);
 }
 
 final class ImmutableInternalEvent<E extends Event<E>>
@@ -33,7 +34,7 @@ final class ImmutableInternalEvent<E extends Event<E>>
   @override
   final String content;
   @override
-  final Map<String, Set<TagValue>> tags;
+  final List<List<String>> tags;
   final Set<String> relays;
   // Signature is nullable as it may be removed as optimization
   final String? signature;
@@ -43,7 +44,11 @@ final class ImmutableInternalEvent<E extends Event<E>>
         content = map['content'],
         pubkey = map['pubkey'],
         createdAt = (map['created_at'] as int).toDate(),
-        tags = TagValue.deserialize(map['tags']),
+        tags = [
+          for (final tag in map['tags'])
+            if (tag is Iterable && tag.length > 1)
+              [for (final e in tag) e.toString()]
+        ],
         signature = map['sig'],
         relays = <String>{...?map['relays']} {
     if (map['kind'] != kind) {
@@ -116,25 +121,23 @@ final class PartialInternalEvent<E extends Event<E>> extends InternalEvent<E> {
   @override
   DateTime createdAt = DateTime.now();
   @override
-  Map<String, Set<TagValue>> tags = {};
+  List<List<String>> tags = [];
 
   void addTagValue(String key, String? value) {
     if (value != null) {
-      tags[key] ??= {};
-      tags[key]!.add(TagValue([value]));
+      tags.add([key, value]);
     }
   }
 
-  void addTag(String key, TagValue tag) {
-    tags[key] ??= {};
-    tags[key]!.add(tag);
+  void addTag(String key, List<String> tag) {
+    tags.add([key, ...tag]);
   }
 
   void removeTagWithValue(String key, [String? value]) {
     if (value != null) {
-      tags[key]?.removeWhere((t) => t.value == value);
+      tags.removeWhere((t) => t[1] == value);
     } else {
-      tags.remove(key);
+      tags.removeWhere((t) => t.first == key);
     }
   }
 

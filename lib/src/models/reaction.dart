@@ -23,7 +23,7 @@ class PartialReaction extends RegularPartialEvent<Reaction> with EmojiMixin {
       (String, String)? emojiTag}) {
     if (emojiTag case (final name, final url)) {
       internal.content = ':$name:';
-      internal.addTag('emoji', TagValue([name, url]));
+      internal.addTag('emoji', [name, url]);
     } else {
       internal.content = content ?? "+";
     }
@@ -39,8 +39,8 @@ class PartialReaction extends RegularPartialEvent<Reaction> with EmojiMixin {
 mixin EmojiMixin on EventBase<Reaction> {
   (String name, String url)? get emojiTag {
     final tag = internal.getFirstTag('emoji');
-    if (tag != null && tag.values.length > 1) {
-      return (tag.value, tag.values[1]);
+    if (tag != null && tag.length > 1) {
+      return (tag[1], tag[2]);
     }
     return null;
   }

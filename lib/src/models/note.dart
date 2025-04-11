@@ -9,16 +9,15 @@ class Note extends RegularEvent<Note> {
   late final HasMany<Note> allReplies;
 
   Note.fromMap(super.map, super.ref) : super.fromMap() {
-    final tagsWithRoot = internal
-        .getTagSet('e')
-        .where((t) => t is EventTagValue && t.marker == EventMarker.root);
+    final tagsWithRoot =
+        internal.getTagSet('e').where((t) => t.length > 2 && t[2] == 'root');
     isRoot = tagsWithRoot.isEmpty;
 
     root = BelongsTo(
         ref,
         isRoot
             ? null
-            : RequestFilter(kinds: {1}, ids: {tagsWithRoot.first.value}));
+            : RequestFilter(kinds: {1}, ids: {tagsWithRoot.first[1]}));
 
     allReplies = HasMany(
       ref,
@@ -31,10 +30,8 @@ class Note extends RegularEvent<Note> {
           // Querying in-memory as nostr filters do not support this
           // Passes if its matching e tag with ID has a root marker
           final tags = e.internal.getTagSet('e');
-          return tags.any((e) =>
-              e is EventTagValue &&
-              e.marker == EventMarker.root &&
-              e.value == internal.id);
+          return tags.any(
+              (e) => e.length > 2 && e[1] == internal.id && e[2] == 'root');
         },
       ),
     );
@@ -50,8 +47,8 @@ class Note extends RegularEvent<Note> {
           // Only returns events with a single e tag with a root marker
           final tags = e.internal.getTagSet('e');
           return tags.length == 1 &&
-              tags.first is EventTagValue &&
-              (tags.first as EventTagValue).marker == EventMarker.root;
+              tags.first.length > 2 &&
+              tags.first[2] == 'root';
         },
       ),
     );
@@ -68,10 +65,10 @@ class PartialNote extends RegularPartialEvent<Note> {
     if (replyTo != null) {
       if (replyTo.isRoot) {
         // replyTo is the root (has no markers to root)
-        linkEvent(replyTo, marker: EventMarker.root);
+        linkEvent(replyTo, marker: 'root');
       } else {
-        linkEvent(replyTo.root.value!, marker: EventMarker.root);
-        linkEvent(replyTo, marker: EventMarker.reply);
+        linkEvent(replyTo.root.value!, marker: 'root');
+        linkEvent(replyTo, marker: 'reply');
       }
     }
     for (final tag in tags) {

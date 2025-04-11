@@ -7,14 +7,13 @@ class Community extends ReplaceableEvent<Community> {
   Set<String> get relayUrls => internal.getTagSetValues('r');
   String? get description => internal.getFirstTagValue('description');
 
-  // TODO: Need to rethink tags for this
   Set<CommunityContentSection> get contentSections {
     final sections = <CommunityContentSection>{};
     String? currentContent;
     Set<int> currentKinds = {};
     int? currentFeeInSats;
 
-    for (final tag in TagValue.serialize(internal.tags)) {
+    for (final tag in internal.tags) {
       final [key, value, ..._] = tag;
 
       if (key == 'content') {
@@ -97,8 +96,7 @@ class PartialCommunity extends ReplaceablePartialEvent<Community> {
           internal.addTagValue('k', k.toString());
         }
         if (section.feeInSats != null) {
-          internal.addTag(
-              'fee', TagValue([section.feeInSats!.toString(), 'sat']));
+          internal.addTag('fee', [section.feeInSats!.toString(), 'sat']);
         }
       }
     }

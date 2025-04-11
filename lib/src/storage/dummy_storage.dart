@@ -138,7 +138,6 @@ class DummyStorageNotifier extends StorageNotifier {
       for (final _ in List.generate(amount, (_) {}))
         PartialNote(faker.lorem.sentence()).dummySign(profile.pubkey),
     };
-    print('saving ${models.length}');
     await save(models);
 
     if (!stream) return;

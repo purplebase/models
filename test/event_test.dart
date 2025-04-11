@@ -21,46 +21,33 @@ void main() {
           'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
       final signer = Bip340PrivateKeySigner(pk);
 
-      final defaultEvent = PartialApp()
-        ..name = 'app'
-        ..identifier = 'w';
-      print(defaultEvent.toMap());
-      // expect(defaultEvent.isValid, isFalse);
-
       final t = DateTime.parse('2024-07-26');
       final signedEvent = await signer.sign(PartialApp()
         ..name = 'tr'
         ..internal.createdAt = t
         ..identifier = 's1');
-      // expect(signedEvent.isValid, isTrue);
-      print(signedEvent.toMap());
 
       final signedEvent2 = await signer.sign(PartialApp()
         ..name = 'tr'
         ..identifier = 's1'
         ..internal.createdAt = t);
-      // expect(signedEvent2.isValid, isTrue);
-      print(signedEvent2.toMap());
-      // Test equality
+
       expect(signedEvent, signedEvent2);
     });
 
     test('tags', () {
       final note = PartialNote('yo hello');
       note.internal.addTagValue('url', 'http://z');
-      note.internal
-          .addTag('e', EventTagValue('93893923', marker: EventMarker.mention));
+      note.internal.addTag('e', ['93893923', '', 'mention']);
       note.internal.addTagValue('e', 'ab9387');
-      note.internal.addTag('param', TagValue(['a', '1']));
-      note.internal.addTag('param', TagValue(['a', '2']));
-      note.internal.addTag('param', TagValue(['a', '3']));
+      note.internal.addTag('param', ['a', '1']);
+      note.internal.addTag('param', ['a', '2']);
+      note.internal.addTag('param', ['a', '3']);
 
-      print(note.toMap());
-      note.internal.addTag('param', TagValue(['b', '4']));
+      note.internal.addTag('param', ['b', '4']);
       note.internal.removeTagWithValue('e');
       expect(note.internal.containsTag('e'), isFalse);
       expect(note.internal.getFirstTagValue('url'), 'http://z');
-      print(note.toMap());
     });
   });
 
@@ -111,8 +98,7 @@ void main() {
       final reaction =
           PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
               .dummySign(niel);
-      expect(reaction.internal.getFirstTag('emoji'),
-          equals(TagValue(['test', 'test://t'])));
+      expect(reaction.emojiTag, equals(('test', 'test://t')));
       expect(reaction.reactedOn.ids, {a.internal.id});
       expect(reaction.reactedOn.value, a);
       expect(reaction.author.value, profile);
@@ -128,7 +114,8 @@ void main() {
 
       expect(niel.internal.content,
           '{"name":"Niel Liesmons","nip05":null,"picture":"https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png"}');
-      print(niel.internal.shareableId);
+      expect(niel.internal.shareableId,
+          'nprofile1qqs2js6wu9j76qdjs6lvlsnhrmchqhf4xlg9rvu89zyf3nqq6hygt0sty4s8y');
     });
 
     test('app', () {
@@ -137,7 +124,6 @@ void main() {
         ..description = 'test app';
       final app = partialApp.dummySign(
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
-      print(app.toMap());
 
       expect(app.internal.kind, 32267);
       expect(app.description, 'test app');
@@ -183,18 +169,9 @@ void main() {
               .dummySign();
       await storage.save({community, note, targetedPublication});
 
-      print(targetedPublication.toMap());
-      print('---');
-      print(targetedPublication.communities.toList().first.toMap());
-      print('---');
-      print(targetedPublication.event.value!.toMap());
-
-      print(note.targetedPublications.toList().first);
-
-      // final community2 =
-      //     Community.fromMap(community.toMap(), container.read(refProvider));
-      // expect(jsonDecode(communityJson), community2.toMap());
-      // print(community);
+      final community2 =
+          Community.fromMap(community.toMap(), container.read(refProvider));
+      expect(jsonDecode(communityJson), community2.toMap());
     });
   });
 }
@@ -255,7 +232,7 @@ final zappedEventJson = '''
 
 final communityJson = '''
 {
-	"id": "0684bb712e98efa2588f74ec7d1d5d6ef53afcc1aeea2802392a655831355f64",
+	"id": "a375c8cea6b6911d250da10e45854cc0e61a9f688c623757158d975b842db804",
 	"content": "",
 	"created_at": 1744254000,
 	"pubkey": "8f1536c05fa9c3f441f1a369b661f3cb1072f418a876d153edf3fc6eec41794c",

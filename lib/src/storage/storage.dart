@@ -49,7 +49,7 @@ class RequestNotifier extends StateNotifier<StorageState> {
         storage.send(req);
       }
 
-      final events = await storage.query(req, applyLimit: false);
+      final events = await storage.query(req);
 
       if (req.and != null) {
         final reqs = {
@@ -58,7 +58,7 @@ class RequestNotifier extends StateNotifier<StorageState> {
                 .map((r) => r.req?.copyWith(storageOnly: req.storageOnly))
                 .nonNulls
         };
-        print(reqs);
+        print(reqs.join('\n\n'));
         // TODO: Optimize hard as these are sync reads
         final relEvents = await Future.wait(reqs.map(fn));
         for (final list in relEvents) {

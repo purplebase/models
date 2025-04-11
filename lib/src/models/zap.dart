@@ -40,7 +40,7 @@ class PartialZapRequest extends RegularPartialEvent<ZapRequest> {
   set comment(String? value) => value != null ? internal.content = value : null;
   set amount(int value) => internal.setTagValue('amount', value.toString());
   set relays(Iterable<String> value) =>
-      internal.addTag('relays', TagValue(value.toList()));
+      internal.addTag('relays', value.toList());
   set lnurl(String value) => internal.setTagValue('lnurl', value);
 }
 

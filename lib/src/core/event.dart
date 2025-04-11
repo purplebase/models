@@ -78,7 +78,7 @@ sealed class Event<E extends Event<E>>
       'created_at': internal.createdAt.toSeconds(),
       'pubkey': internal.pubkey,
       'kind': internal.kind,
-      'tags': TagValue.serialize(internal.tags),
+      'tags': internal.tags,
       'sig': internal.signature,
     };
   }
@@ -144,7 +144,7 @@ sealed class PartialEvent<E extends Event<E>>
       pubkey.toLowerCase(),
       internal.createdAt.toSeconds(),
       internal.kind,
-      TagValue.serialize(internal.tags),
+      internal.tags,
       internal.content
     ];
     final digest =
@@ -152,24 +152,21 @@ sealed class PartialEvent<E extends Event<E>>
     return digest.toString();
   }
 
-  void linkEvent(Event e,
-      {String? relayUrl, EventMarker? marker, String? pubkey}) {
+  void linkEvent(Event e, {String? relayUrl, String? marker, String? pubkey}) {
     if (e is ReplaceableEvent) {
-      internal.addTag('a', TagValue([e.id]));
+      internal.addTag('a', [e.id]);
     } else {
-      internal.addTag(
-          'e',
-          EventTagValue(e.id,
-              relayUrl: relayUrl, marker: marker, pubkey: pubkey));
+      internal.addTag('e', [
+        e.id,
+        if (relayUrl != null) relayUrl,
+        if (marker != null) marker,
+        if (pubkey != null) pubkey
+      ]);
     }
   }
 
   void unlinkEvent(Event e) {
-    if (e is ReplaceableEvent) {
-      internal.removeTagWithValue('a', e.id);
-    } else {
-      internal.removeTagWithValue('e', e.id);
-    }
+    internal.removeTagWithValue(e is ReplaceableEvent ? 'a' : 'e', e.id);
   }
 
   void linkProfile(Profile p) => internal.setTagValue('p', p.pubkey);
@@ -181,7 +178,7 @@ sealed class PartialEvent<E extends Event<E>>
       'content': internal.content,
       'created_at': internal.createdAt.toSeconds(),
       'kind': internal.kind,
-      'tags': TagValue.serialize(internal.tags),
+      'tags': internal.tags,
     };
   }
 
