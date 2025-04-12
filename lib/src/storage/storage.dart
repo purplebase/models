@@ -128,28 +128,37 @@ final requestNotifierProvider = StateNotifierProvider.autoDispose
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
-  Set<int>? kinds,
   Set<String>? ids,
+  Set<int>? kinds,
   Set<String>? authors,
   Map<String, Set<String>>? tags,
   String? search,
   DateTime? since,
   DateTime? until,
   int? limit,
-  AndFunction and,
+  int? queryLimit,
   bool storageOnly = false,
+  String? on,
+  bool restrictToRelays = false,
+  bool restrictToSubscription = false,
+  AndFunction and,
 }) {
   final req = RequestFilter(
-      kinds: kinds,
-      ids: ids,
-      authors: authors,
-      tags: tags,
-      search: search,
-      since: since,
-      until: until,
-      limit: limit,
-      and: and,
-      storageOnly: storageOnly);
+    ids: ids,
+    kinds: kinds,
+    authors: authors,
+    tags: tags,
+    search: search,
+    since: since,
+    until: until,
+    limit: limit,
+    queryLimit: queryLimit,
+    storageOnly: storageOnly,
+    on: on,
+    restrictToRelays: restrictToRelays,
+    restrictToSubscription: restrictToSubscription,
+    and: and,
+  );
   return requestNotifierProvider(req);
 }
 
@@ -163,20 +172,29 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
   DateTime? since,
   DateTime? until,
   int? limit,
-  AndFunction<E> and,
+  int? queryLimit,
   bool storageOnly = false,
+  String? on,
+  bool restrictToRelays = false,
+  bool restrictToSubscription = false,
+  AndFunction<E> and,
 }) {
   final req = RequestFilter(
-      kinds: {Event.kindFor<E>()},
-      ids: ids,
-      authors: authors,
-      tags: tags,
-      search: search,
-      since: since,
-      until: until,
-      limit: limit,
-      and: _castAnd(and),
-      storageOnly: storageOnly);
+    ids: ids,
+    kinds: {Event.kindFor<E>()},
+    authors: authors,
+    tags: tags,
+    search: search,
+    since: since,
+    until: until,
+    limit: limit,
+    queryLimit: queryLimit,
+    storageOnly: storageOnly,
+    on: on,
+    restrictToRelays: restrictToRelays,
+    restrictToSubscription: restrictToSubscription,
+    and: _castAnd(and),
+  );
   return requestNotifierProvider(req);
 }
 

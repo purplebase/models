@@ -62,7 +62,6 @@ class RequestFilter extends Equatable {
     this.restrictToSubscription = false,
     this.where,
     this.and,
-    Set<String>? relays,
   })  : ids = ids ?? const {},
         authors = authors ?? const {},
         kinds = kinds ?? const {},
