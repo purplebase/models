@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:convert/convert.dart';
 import 'package:models/models.dart';
@@ -66,12 +68,9 @@ class Bip340PrivateKeySigner extends Signer {
 }
 
 class DummySigner extends Signer {
-  final _pubkey =
-      '8f1536c05fa9c3f441f1a369b661f3cb1072f418a876d153edf3fc6eec41794c';
-
   @override
   Future<String?> getPublicKey() async {
-    return _pubkey;
+    return null;
   }
 
   @override
@@ -81,9 +80,10 @@ class DummySigner extends Signer {
 
   E signSync<E extends Event<E>>(PartialEvent<E> partialEvent,
       {String? withPubkey}) {
+    final pubkey = withPubkey ?? generate64Hex();
     return Event.getConstructor<E>()!.call({
-      'id': partialEvent.getEventId(withPubkey ?? _pubkey),
-      'pubkey': withPubkey ?? _pubkey,
+      'id': partialEvent.getEventId(pubkey),
+      'pubkey': pubkey,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ...partialEvent.toMap(),
     }, Signer._ref);
@@ -94,6 +94,18 @@ class DummySigner extends Signer {
       {String? withPubkey}) async {
     return signSync(partialEvent);
   }
+}
+
+String generate64Hex() {
+  // Generate 32 random bytes; 32 bytes * 2 hex digits per byte = 64 hex characters
+  final random = Random.secure();
+  final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+
+  // Convert the bytes to a hex string, making sure each byte is represented with two digits
+  final hex =
+      bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join('');
+
+  return hex;
 }
 
 final _dummySigner = DummySigner();

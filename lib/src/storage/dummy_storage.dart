@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:faker/faker.dart';
 import 'package:models/models.dart';
@@ -18,6 +20,8 @@ class DummyStorageNotifier extends StorageNotifier {
 
   DummyStorageNotifier._internal(this.ref);
 
+  final Map<RequestFilter, Timer> _timers = {};
+
   @override
   Future<void> initialize(StorageConfiguration config) async {
     await super.initialize(config);
@@ -30,8 +34,9 @@ class DummyStorageNotifier extends StorageNotifier {
 
     // Empty response metadata as these events do not come from a relay
     final responseMetadata = ResponseMetadata(relayUrls: {});
-
-    state = StorageSignal(({for (final e in events) e.id}, responseMetadata));
+    if (mounted) {
+      state = StorageSignal(({for (final e in events) e.id}, responseMetadata));
+    }
   }
 
   @override
@@ -119,47 +124,147 @@ class DummyStorageNotifier extends StorageNotifier {
     _events.removeWhere((e) => events.contains(e));
   }
 
-  Future<void> generateDummyFor(
-      {required String pubkey,
-      required int kind,
-      int amount = 10,
-      bool stream = false}) async {
-    var profile = querySync(RequestFilter(authors: {pubkey}, kinds: {0}))
-        .cast<Profile>()
-        .firstOrNull;
+  final _random = Random();
 
-    profile ??= PartialProfile(
+  @override
+  Future<void> send(RequestFilter req) async {
+    if (req.kinds.first == 7) return;
+    final pubkey = req.authors.firstOrNull;
+    final profiles = pubkey != null
+        ? [generateProfile(pubkey)]
+        : List.generate(10, (i) => generateProfile());
+
+    final models = List.generate(req.queryLimit ?? 10, (i) {
+      return generateEvent(
+          kind: req.kinds.first,
+          pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
+          createdAt:
+              DateTime.now().subtract(Duration(minutes: _random.nextInt(10))));
+    }).nonNulls.toSet();
+    print('just generated ids: ${models.map((e) => e.id)} ');
+
+    final andModels = [
+      for (final m in models)
+        for (final r in req.and!(m))
+          ...List.generate(
+              _random.nextInt(20),
+              (i) => generateEvent(
+                    kind: r.req!.kinds.first,
+                    pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
+                    parentId: m.id,
+                  )).nonNulls.toSet()
+    ];
+    Future.microtask(() {
+      save({...profiles, ...models, ...andModels});
+    });
+
+    if (req.search == 'stream') {
+      // TODO: Move streamingWindow to Config here in models, and use below
+      _timers[req] = Timer.periodic(Duration(seconds: 2), (t) async {
+        if (mounted) {
+          if (t.tick > 5) {
+            t.cancel();
+            _timers.remove(req);
+          } else {
+            final models = List.generate(
+                3,
+                (i) => generateEvent(
+                    kind: req.kinds.first,
+                    pubkey: profiles[_random.nextInt(profiles.length)]
+                        .pubkey)).nonNulls.toSet();
+            final andModels = [
+              for (final m in models)
+                for (final r in req.and!(m))
+                  ...List.generate(
+                      _random.nextInt(10),
+                      (i) => generateEvent(
+                            kind: r.req!.kinds.first,
+                            pubkey: profiles[_random.nextInt(profiles.length)]
+                                .pubkey,
+                            parentId: m.id,
+                          )).nonNulls.toSet()
+            ];
+            Future.microtask(() {
+              save({...models, ...andModels});
+            });
+          }
+        } else {
+          t.cancel();
+          _timers.remove(req);
+        }
+      });
+    }
+  }
+
+  @override
+  Future<void> cancel(RequestFilter req) async {
+    _timers[req]?.cancel();
+  }
+
+  Profile generateProfile([String? pubkey]) {
+    return PartialProfile(
             name: faker.person.name(),
             nip05: faker.internet.freeEmail(),
             pictureUrl: faker.internet.httpsUrl())
         .dummySign(pubkey);
-
-    final models = {
-      for (final _ in List.generate(amount, (_) {}))
-        PartialNote(faker.lorem.sentence()).dummySign(profile.pubkey),
-    };
-    await save(models);
-
-    if (!stream) return;
-
-    Timer.periodic(Duration(seconds: 3), (t) async {
-      if (mounted) {
-        if (t.tick > 3) {
-          t.cancel();
-        } else {
-          final models = {
-            PartialNote(faker.conference.name()).dummySign(profile!.pubkey),
-          };
-          await save(models);
-        }
-      } else {
-        t.cancel();
-      }
-    });
   }
 
-  @override
-  Future<void> send(RequestFilter req) async {
-    // no-op as dummy storage does not hit relays
+  Event? generateEvent(
+      {required int kind,
+      String? parentId,
+      String? pubkey,
+      DateTime? createdAt}) {
+    return switch (kind) {
+      0 => generateProfile(),
+      1 => PartialNote(faker.lorem.sentence(), createdAt: createdAt)
+          .dummySign(pubkey),
+      7 => parentId == null
+          ? null
+          : (PartialReaction()..internal.addTag('e', [parentId])).dummySign(),
+      9 => PartialChatMessage(faker.lorem.sentence()).dummySign(pubkey),
+      9735 => pubkey != null && parentId != null
+          ? Zap.fromMap(
+              jsonDecode(
+                  _sampleBolt11(zapperPubkey: pubkey, eventId: parentId)),
+              ref)
+          : null,
+      _ => null,
+    };
   }
 }
+
+_sampleBolt11({required String zapperPubkey, required String eventId}) => '''
+{
+        "content": "✨",
+        "created_at": ${DateTime.now().millisecondsSinceEpoch ~/ 1000},
+        "id": "b4855a33de1d6f26b7ebd0cec337c0670aa4b673b23ac104b2d70e7702deb031",
+        "kind": 9735,
+        "pubkey": "79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432",
+        "tags": [
+            [
+                "p",
+                "20651ab8c2fb1febca56b80deba14630af452bdce64fe8f04a9f5f67e4a3c1cc"
+            ],
+            [
+                "e",
+                "$eventId"
+            ],
+            [
+                "P",
+                "$zapperPubkey"
+            ],
+            [
+                "bolt11",
+                "lnbc10n1pnl4yxhpp56tlc306yq6ffdt0t6a7klk9yw7r6u5yfn5xsdz88f0zqllwthmzshp5rxavcjsm5x3gfqwav779kxqaa8a8870kn8zf5q4s5hqc3k7tn23qcqzpgxqyz5vqsp5n5998hmtcwph78qfz9qypu5llxlpme425qedekyd34n4auwvk4ss9qxpqysgqxn4rl4kp366qxcg43lfndvkmw4ktryldrhq8xlntff2e2p9lny236gaqcqkqc4yhtjwzyhdxuzkr2rtt7mysvegteffxrz2zlny4k0qpuxalwm"
+            ],
+            [
+                "preimage",
+                "986393670e035a9c131353a796fc2a0fb9f09e6112ca3c89a4f00f9dd2356afb"
+            ],
+            [
+                "description",
+                "{\\"id\\":\\"50dd637e30455a6dd6e1c9159c58b2cba31c75df29a5806162b813b3d93fe13d\\",\\"sig\\":\\"b86c1e09139e0367d9ed985beb14995efb3025eb68c8a56045ce2a2a35639d8f4187acae78c022532801fb068cf3560dcab12497f6d2a9376978c9bde35b15cd\\",\\"pubkey\\":\\"97f848adcc4c6276685fe48426de5614887c8a51ada0468cec71fba938272911\\",\\"created_at\\":1744474327,\\"kind\\":9734,\\"tags\\":[[\\"relays\\",\\"wss://relay.primal.net\\",\\"wss://relay-nwc-dev.rizful.com/v1\\",\\"wss://relay.snort.social\\",\\"wss://relay.nostr.band\\",\\"wss://slick.mjex.me\\",\\"wss://nostr.wine\\",\\"wss://nfnitloop.com/nostr\\",\\"wss://relay.damus.io\\",\\"wss://eden.nostr.land\\",\\"wss://nos.lol\\",\\"wss://nostr.8777.ch\\",\\"wss://nostr.land\\",\\"ws://209.122.211.18:4848\\",\\"wss://unhostedwallet.com\\",\\"wss://filter.nostr.wine?global=all\\"],[\\"amount\\",\\"1000\\"],[\\"lnurl\\",\\"lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtm2v4nxj7n6d3jsyutkku\\"],[\\"p\\",\\"20651ab8c2fb1febca56b80deba14630af452bdce64fe8f04a9f5f67e4a3c1cc\\"],[\\"e\\",\\"7abbce7aa0c5cd430efd627bbe5b5908de48db5cec5742f694befe38b34bce9f\\"]],\\"content\\":\\"✨\\"}"
+            ]
+        ]
+    }
+''';
