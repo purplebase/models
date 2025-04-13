@@ -9,6 +9,7 @@ class RequestNotifier<E extends Event<dynamic>>
   final RequestFilter req;
   final StorageNotifier storage;
   var applyLimit = true;
+  final List<RequestFilter> andReqs = [];
 
   RequestNotifier(this.ref, this.req)
       : storage = ref.read(storageNotifierProvider.notifier),
@@ -34,23 +35,36 @@ class RequestNotifier<E extends Event<dynamic>>
                 .map((r) => r.req?.copyWith(storageOnly: req.storageOnly))
                 .nonNulls
         };
-        print(reqs.join('\n\n'));
-        // TODO: Optimize hard as these are sync reads
-        await Future.wait(reqs.map(fn));
+
+        // TODO: Merge reqs here; and allow querying multiple reqs
+        final mergedReqs = [];
+        for (final r in reqs) {
+          final events = await storage.query(r);
+          andReqs.add(r);
+          storage.requestCache[r] = events;
+        }
+        // Send request filters to relays
+        if (!req.storageOnly) {
+          for (final r in mergedReqs) {
+            storage.send(r);
+          }
+        }
       }
 
       return events;
     }
 
     fn(req).then((events) {
-      print('setting state events length ${events.length}');
-      state = StorageData([...state.models, ...events.cast<E>()]);
+      if (mounted) {
+        state = StorageData([...state.models, ...events.cast<E>()]);
+      }
     });
 
     // Listen for storage updates
     final sub = ref.listen(storageNotifierProvider, (_, signal) async {
       if (!mounted) return;
-      if (signal.record case (final ids, final responseMetadata)) {
+
+      if (signal case (final ids, final responseMetadata)) {
         if (req.restrictToSubscription &&
             responseMetadata.subscriptionId! != req.subscriptionId) {
           return;
@@ -66,34 +80,27 @@ class RequestNotifier<E extends Event<dynamic>>
           return;
         }
 
-        // Restrict req to *only* the updated IDs
-        final updatedReq = req.copyWith(ids: ids);
-        final events = await storage.query(updatedReq, applyLimit: applyLimit);
-
-        // TODO: Need to query for relationships here too
-        if (req.and != null) {
-          final reqs = {
-            for (final e in events)
-              ...req.and!(e)
-                  .map((r) => r.req?.copyWith(storageOnly: req.storageOnly))
-                  .nonNulls
-          };
-          print(reqs.join('\n\n'));
-          // TODO: Optimize hard as these are sync reads
-          await Future.wait(reqs.map(fn));
-        }
+        // Restrict req to *only* the updated IDs and only in local storage
+        final updatedReq = req.copyWith(ids: ids, storageOnly: true);
+        final events = await fn(updatedReq);
 
         final List<E> sortedModels = {...state.models, ...events.cast<E>()}
             .sortedByCompare((m) => m.createdAt.millisecondsSinceEpoch,
                 (a, b) => b.compareTo(a));
-        print('in listener, setting state ${sortedModels.length}');
-        state = StorageData(sortedModels);
+        if (mounted) {
+          state = StorageData(sortedModels);
+        }
       }
     });
 
     ref.onDispose(() {
-      sub.close();
+      for (final r in andReqs) {
+        // TODO: This removal could rug other request notifiers?
+        storage.requestCache.remove(r);
+      }
     });
+    ref.onDispose(() => sub.close());
+    ref.onDispose(() => storage.cancel(req));
   }
 
   Future<void> save(Set<Event> events) async {

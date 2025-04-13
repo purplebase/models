@@ -12,11 +12,13 @@ void main() async {
   setUpAll(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(
-        databasePath: '',
-        relayGroups: {
-          'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'}
-        },
-        defaultRelayGroup: 'big-relays');
+      databasePath: '',
+      relayGroups: {
+        'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'}
+      },
+      defaultRelayGroup: 'big-relays',
+      streamingBufferWindow: Duration.zero,
+    );
     await container.read(initializationProvider(config).future);
     storage = container.read(storageNotifierProvider.notifier)
         as DummyStorageNotifier;
@@ -53,23 +55,25 @@ void main() async {
     });
 
     test('ids', () async {
-      tester = container.testerFor(query(ids: {a.internal.id, e.internal.id}));
+      tester = container.testerFor(
+          query(ids: {a.internal.id, e.internal.id}, storageOnly: true));
       await tester.expectModels(unorderedEquals({a, e}));
     });
 
     test('authors', () async {
-      tester = container.testerFor(query(authors: {franzap, verbiricha}));
+      tester = container
+          .testerFor(query(authors: {franzap, verbiricha}, storageOnly: true));
       await tester.expectModels(unorderedEquals({e, f, g}));
     });
 
     test('kinds', () async {
-      tester = container.testerFor(query(kinds: {1}));
+      tester = container.testerFor(query(kinds: {1}, storageOnly: true));
       await tester.expectModels(allOf(
         hasLength(9),
         everyElement((e) => e is Event && e.internal.kind == 1),
       ));
 
-      tester = container.testerFor(query(kinds: {0}));
+      tester = container.testerFor(query(kinds: {0}, storageOnly: true));
       await tester.expectModels(hasLength(1));
     });
 
@@ -78,23 +82,23 @@ void main() async {
         niel
       }, tags: {
         '#t': {'nostr'}
-      }));
+      }, storageOnly: true));
       await tester.expectModels(equals({d}));
 
       tester = container.testerFor(query(tags: {
         '#t': {'nostr', 'test'}
-      }));
+      }, storageOnly: true));
       await tester.expectModels(unorderedEquals({d, f}));
 
       tester = container.testerFor(query(tags: {
         '#t': {'test'}
-      }));
+      }, storageOnly: true));
       await tester.expectModels(isEmpty);
 
       tester = container.testerFor(query(tags: {
         '#t': {'nostr'},
         '#e': {niel}
-      }));
+      }, storageOnly: true));
       await tester.expectModels(isEmpty);
     });
 
@@ -102,47 +106,55 @@ void main() async {
       tester = container.testerFor(query(
           kinds: {1},
           authors: {niel},
-          until: DateTime.now().subtract(Duration(minutes: 1))));
+          until: DateTime.now().subtract(Duration(minutes: 1)),
+          storageOnly: true));
       await tester.expectModels(orderedEquals({a, b, replyToB}));
     });
 
     test('since', () async {
       tester = container.testerFor(query(
           authors: {niel},
-          since: DateTime.now().subtract(Duration(minutes: 1))));
+          since: DateTime.now().subtract(Duration(minutes: 1)),
+          storageOnly: true));
       await tester.expectModels(orderedEquals({c, d, nielProfile, replyToA}));
     });
 
     test('limit and order', () async {
-      tester =
-          container.testerFor(query(kinds: {1}, authors: {niel}, limit: 3));
+      tester = container.testerFor(
+          query(kinds: {1}, authors: {niel}, limit: 3, storageOnly: true));
       await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
     test('relationships with model watcher', () async {
-      tester = container.testerFor(model(a, and: (note) => {note.author}));
+      tester = container
+          .testerFor(model(a, and: (note) => {note.author}, storageOnly: true));
       await tester.expectModels(unorderedEquals({a, nielProfile}));
     });
 
     test('multiple relationships', () async {
       tester = container.testerFor(queryType<Note>(
-          ids: {a.id, b.id}, and: (note) => {note.author, note.replies}));
+          ids: {a.id, b.id},
+          and: (note) => {note.author, note.replies},
+          storageOnly: true));
       await tester.expectModels(
           unorderedEquals({a, b, nielProfile, replyToA, replyToB}));
     });
 
     test('relay metadata', () async {
-      tester = container.testerFor(queryType<Profile>(authors: {niel}));
+      tester = container
+          .testerFor(queryType<Profile>(authors: {niel}, storageOnly: true));
       await tester.expect(isA<StorageData>()
           .having((s) => s.models.first.internal.relays, 'relays', <String>{}));
     });
   });
 
   group('storage relay interface', () {
-    setUpAll(() {
-      tester = container.testerFor(query()); // no-op
+    tearDownAll(() async {
+      tester.dispose();
+      await storage.clear();
     });
     test('request filter', () {
+      tester = container.testerFor(query()); // no-op
       final r1 = RequestFilter(kinds: {
         7
       }, authors: {
@@ -175,15 +187,37 @@ void main() async {
 
       expect(r1.toMap(), isNot(equals(r3.toMap())));
       expect(r1.hash, isNot(equals(r3.hash)));
+
+      // Filter with extra arguments
+      final r4 = RequestFilter(
+        kinds: {7},
+        authors: {niel, franzap},
+        tags: {
+          'foo': {'bar'},
+          '#t': {'nostr'}
+        },
+        storageOnly: true,
+        restrictToRelays: true,
+      );
+
+      expect(r1.hash, equals(r4.hash));
+      expect(r1, equals(r4));
     });
 
     test('relay request should notify with events', () async {
-      // TODO: Restore test
-      // tester = container
-      //     .testerFor(query(kinds: {1}, authors: {niel, franzap}, limit: 2));
-      // await tester.expectModels(isEmpty);
-      // await tester.expect(isA<StorageLoading>());
-      // await tester.expectModels(hasLength(4));
+      tester = container
+          .testerFor(query(kinds: {1}, authors: {niel, franzap}, limit: 2));
+      await tester.expectModels(isEmpty); // nothing was in local storage
+      await tester.expectModels(hasLength(2)); // limit
+    });
+
+    test('relay request should notify with events (streamed)', () async {
+      tester = container.testerFor(query(
+          kinds: {1}, authors: {niel, franzap}, limit: 5, search: 'stream'));
+      await tester.expectModels(isEmpty); // nothing was in local storage
+      await tester.expectModels(hasLength(5)); // limit
+      await tester.expectModels(hasLength(8)); // 3 more streamed
+      await tester.expectModels(hasLength(11)); // 3 more streamed
     });
   });
 }

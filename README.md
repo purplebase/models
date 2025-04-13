@@ -6,13 +6,18 @@ It includes a dummy data implementation that can be used in tests and prototypes
 
 [Purplebase](https://github.com/purplebase/purplebase) will be one such real implementation.
 
+## Design goals
+
+ - Leverage the Dart language to provide maximum type safety and beautiful interfaces that make sense
+ - Allow consuming nostr events using domain language and not NIP technicality
+ - Allow access to lower level interfaces
+ - Allow defining new classes in an intuitive way
+
 ## Design notes
 
 Built on Riverpod providers and StateNotifier notifiers.
 
 Aims to have as much test coverage as possible.
-
-Obviously, API is subject to wild changes at this stage!
 
 Storage with a nostr relay API is at the core of this approach. Querying is done via a family provider where the argument is a nostr filter.
 
@@ -91,6 +96,8 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Allow typed queries `ref.watch(queryTyped<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
  - [x] Remote relay configuration
  - [x] Relay metadata in response
+ - [x] Cache relationship req results, make relationships check it before hitting sync (remove sync query altogether?)
+ - [ ] Merge reqs for both local storage and relays
  - [ ] Event metadata
  - [ ] Ability for a watcher to watch a particular subscription (instead of a regular filter)
  - [ ] Publish events

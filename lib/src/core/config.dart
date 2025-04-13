@@ -6,12 +6,17 @@ class StorageConfiguration extends Equatable {
   final bool skipVerification;
   final Map<String, Set<String>> relayGroups;
   final String defaultRelayGroup;
+  final Duration idleTimeout;
+  final Duration streamingBufferWindow;
+
   const StorageConfiguration({
     required this.databasePath,
     this.keepSignatures = false,
     this.skipVerification = false,
     required this.relayGroups,
     required this.defaultRelayGroup,
+    this.idleTimeout = const Duration(minutes: 5),
+    this.streamingBufferWindow = const Duration(seconds: 2),
   });
 
   factory StorageConfiguration.empty() {

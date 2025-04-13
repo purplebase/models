@@ -155,7 +155,8 @@ class RequestFilter extends Equatable {
   int get hash => fastHashString(toString());
 
   @override
-  List<Object?> get props => [toMap()];
+  List<Object?> get props =>
+      [ids, kinds, authors, tags, search, since, until, limit];
 
   @override
   String toString() {

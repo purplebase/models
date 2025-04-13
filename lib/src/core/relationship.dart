@@ -12,10 +12,9 @@ sealed class Relationship<E extends Event<dynamic>> {
     if (req == null) {
       return [];
     }
-    final updatedReq = req!.copyWith(limit: limit, storageOnly: true);
-    final events =
-        ref.read(storageNotifierProvider.notifier).querySync(updatedReq);
-    return events.whereType<E>().toList();
+    final storage = ref.read(storageNotifierProvider.notifier);
+    final events = storage.requestCache[req]!;
+    return events.whereType<E>().take(limit ?? events.length).toList();
   }
 
   Future<List<E>> toListAsync({int? limit}) async {

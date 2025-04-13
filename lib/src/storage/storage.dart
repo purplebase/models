@@ -2,18 +2,18 @@ import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 
 abstract class StorageNotifier extends StateNotifier<StorageSignal> {
-  StorageNotifier() : super(StorageSignal());
+  StorageNotifier() : super(null);
   late StorageConfiguration config;
+
+  // Need to place this cache here as its accessed by
+  // both request notifiers and relationships
+  final Map<RequestFilter, List<Event>> requestCache = {};
 
   Future<void> initialize(StorageConfiguration config) async {
     this.config = config;
   }
 
   Future<List<Event>> query(RequestFilter req, {bool applyLimit = true});
-
-  /// Ideally to be used for must-have sync interfaces such relationships
-  /// upon widget first load, and tests. Prefer [query] otherwise.
-  List<Event> querySync(RequestFilter req, {bool applyLimit = true});
 
   Future<void> save(Set<Event> events,
       {String? relayGroup, bool publish = true});
@@ -30,7 +30,4 @@ final storageNotifierProvider =
     StateNotifierProvider<StorageNotifier, StorageSignal>(
         DummyStorageNotifier.new);
 
-class StorageSignal {
-  final (Set<String>, ResponseMetadata)? record;
-  StorageSignal([this.record]);
-}
+typedef StorageSignal = (Set<String>, ResponseMetadata)?;

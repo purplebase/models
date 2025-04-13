@@ -35,18 +35,17 @@ class DummyStorageNotifier extends StorageNotifier {
     // Empty response metadata as these events do not come from a relay
     final responseMetadata = ResponseMetadata(relayUrls: {});
     if (mounted) {
-      state = StorageSignal(({for (final e in events) e.id}, responseMetadata));
+      state = (({for (final e in events) e.id}, responseMetadata));
     }
   }
 
   @override
   Future<List<Event>> query(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds}) async {
-    return querySync(req, applyLimit: applyLimit);
+    return _querySync(req, applyLimit: applyLimit);
   }
 
-  @override
-  List<Event> querySync(RequestFilter req,
+  List<Event> _querySync(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds}) {
     List<Event> results;
     // If onIds present then restrict req to those
@@ -128,7 +127,9 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<void> send(RequestFilter req) async {
-    if (req.kinds.first == 7) return;
+    if (req.kinds.isEmpty || req.kinds.first == 7 || req.kinds.first == 9735) {
+      return;
+    }
     final pubkey = req.authors.firstOrNull;
     final profiles = pubkey != null
         ? [generateProfile(pubkey)]
@@ -141,31 +142,32 @@ class DummyStorageNotifier extends StorageNotifier {
           createdAt:
               DateTime.now().subtract(Duration(minutes: _random.nextInt(10))));
     }).nonNulls.toSet();
-    print('just generated ids: ${models.map((e) => e.id)} ');
+    // print('just generated ids: ${models.map((e) => e.id)} ');
 
     final andModels = [
-      for (final m in models)
-        for (final r in req.and!(m))
-          ...List.generate(
-              _random.nextInt(20),
-              (i) => generateEvent(
-                    kind: r.req!.kinds.first,
-                    pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
-                    parentId: m.id,
-                  )).nonNulls.toSet()
+      if (req.and != null)
+        for (final m in models)
+          for (final r in req.and!(m))
+            ...List.generate(
+                _random.nextInt(20),
+                (i) => generateEvent(
+                      kind: r.req!.kinds.first,
+                      pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
+                      parentId: m.id,
+                    )).nonNulls.toSet()
     ];
     Future.microtask(() {
       save({...profiles, ...models, ...andModels});
     });
 
     if (req.search == 'stream') {
-      // TODO: Move streamingWindow to Config here in models, and use below
-      _timers[req] = Timer.periodic(Duration(seconds: 2), (t) async {
+      _timers[req] = Timer.periodic(config.streamingBufferWindow, (t) async {
         if (mounted) {
           if (t.tick > 5) {
             t.cancel();
             _timers.remove(req);
           } else {
+            print('STILL TICKING AND EMITTING');
             final models = List.generate(
                 3,
                 (i) => generateEvent(
@@ -173,16 +175,17 @@ class DummyStorageNotifier extends StorageNotifier {
                     pubkey: profiles[_random.nextInt(profiles.length)]
                         .pubkey)).nonNulls.toSet();
             final andModels = [
-              for (final m in models)
-                for (final r in req.and!(m))
-                  ...List.generate(
-                      _random.nextInt(10),
-                      (i) => generateEvent(
-                            kind: r.req!.kinds.first,
-                            pubkey: profiles[_random.nextInt(profiles.length)]
-                                .pubkey,
-                            parentId: m.id,
-                          )).nonNulls.toSet()
+              if (req.and != null)
+                for (final m in models)
+                  for (final r in req.and!(m))
+                    ...List.generate(
+                        _random.nextInt(10),
+                        (i) => generateEvent(
+                              kind: r.req!.kinds.first,
+                              pubkey: profiles[_random.nextInt(profiles.length)]
+                                  .pubkey,
+                              parentId: m.id,
+                            )).nonNulls.toSet()
             ];
             Future.microtask(() {
               save({...models, ...andModels});

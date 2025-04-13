@@ -14,27 +14,23 @@ class StorageNotifierTester {
   final RequestNotifier notifier;
 
   final _disposeFns = [];
-  var completer = Completer();
+  final completers = <Completer>[Completer()];
   var initial = true;
+  var i = 0;
 
-  StorageNotifierTester(this.notifier, {bool fireImmediately = false}) {
+  StorageNotifierTester(this.notifier) {
     final dispose = notifier.addListener((state) {
-      if (fireImmediately && initial) {
-        Future.microtask(() {
-          completer.complete(state);
-          completer = Completer();
-          initial = false;
-        });
-      } else {
-        completer.complete(state);
-        completer = Completer();
-      }
-    }, fireImmediately: fireImmediately);
+      print('${state.runtimeType} ${state.models.length}');
+      completers.last.complete(state);
+      completers.add(Completer());
+    }, fireImmediately: false);
     _disposeFns.add(dispose);
   }
 
   Future<dynamic> expect(Matcher m) async {
-    return expectLater(completer.future, completion(m));
+    final result = await expectLater(completers[i].future, completion(m));
+    i++;
+    return result;
   }
 
   Future<dynamic> expectModels(Matcher m) async {
@@ -49,122 +45,15 @@ class StorageNotifierTester {
 }
 
 extension ProviderContainerExt on ProviderContainer {
+  /// Has fireImmediately set to false, so the
+  /// initial StorageLoading never gets fired
   StorageNotifierTester testerFor(
-      AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> provider,
-      {bool fireImmediately = false}) {
+      AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
+          provider) {
     // Keep the provider alive during the test
     listen(provider, (_, __) {}).read();
 
-    return StorageNotifierTester(read(provider.notifier),
-        fireImmediately: fireImmediately);
-  }
-}
-
-/// Runs code in a separate dimension that compresses time
-Zone getFastTimerZone() {
-  return Zone.current.fork(
-    specification: ZoneSpecification(
-      // Regular timers complete immediately
-      createTimer: (Zone self, ZoneDelegate parent, Zone zone,
-          Duration duration, void Function() f) {
-        return parent.createTimer(zone, Duration.zero, f);
-      },
-
-      // Periodic timers fire at 1ms intervals for speed while maintaining periodic behavior
-      createPeriodicTimer: (Zone self, ZoneDelegate parent, Zone zone,
-          Duration period, void Function(Timer) f) {
-        return parent.createPeriodicTimer(zone, Duration(milliseconds: 1), f);
-      },
-    ),
-  );
-}
-
-// Run
-
-T runSynchronously<T>(Future<T> Function() asyncFunction) {
-  final completer = Completer<T>();
-
-  // Create a synchronous zone
-  final zone = Zone.current.fork(
-      specification: ZoneSpecification(
-          // Intercept all scheduleMicrotask calls
-          scheduleMicrotask: (self, parent, zone, task) {
-    task(); // Execute the microtask immediately
-  },
-          // Handle Timer creation
-          createTimer: (self, parent, zone, duration, callback) {
-    if (duration == Duration.zero) {
-      callback(); // Execute immediately for zero-duration timers
-      return Timer(Duration.zero, () {}); // Return a dummy timer
-    }
-    return parent.createTimer(zone, duration, callback);
-  }));
-
-  // Run the async function in our custom zone
-  zone.runGuarded(() {
-    asyncFunction().then((value) {
-      completer.complete(value);
-    }).catchError((error, stackTrace) {
-      completer.completeError(error, stackTrace);
-    });
-
-    // Process all pending events in the event queue
-    _drainMicrotaskQueue();
-  });
-
-  // If the completer hasn't completed yet, it means we can't make this synchronous
-  if (!completer.isCompleted) {
-    throw UnsupportedError(
-        'Cannot run this async function synchronously as it likely uses I/O or other truly async operations');
-  }
-
-  return completer.future.sync();
-}
-
-// Helper function to drain the microtask queue
-void _drainMicrotaskQueue() {
-  // This technique forces processing of the microtask queue
-  // but will still fail for true async operations like I/O
-  scheduleMicrotask(() {});
-}
-
-// Extension on Future to get the result synchronously
-extension SyncFuture<T> on Future<T> {
-  T sync() {
-    T? result;
-    bool isDone = false;
-    bool hasError = false;
-    dynamic error;
-
-    whenComplete(() {
-      isDone = true;
-    });
-
-    then((value) {
-      result = value;
-    }).catchError((e) {
-      hasError = true;
-      error = e;
-      throw e;
-    });
-
-    // Wait for future to complete
-    while (!isDone) {
-      _drainMicrotaskQueue();
-    }
-
-    // If there was an error, throw it
-    if (hasError) {
-      throw error;
-    }
-
-    // Return the result, with null check
-    if (result == null && null is! T) {
-      throw StateError(
-          'Future completed with null when non-nullable type was expected');
-    }
-
-    return result as T;
+    return StorageNotifierTester(read(provider.notifier));
   }
 }
 
