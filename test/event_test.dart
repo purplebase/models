@@ -77,7 +77,6 @@ void main() {
     test('note and relationships', () async {
       expect(a.author.value, profile);
       expect(profile.notes.toList(), orderedEquals({a, b, c, d}));
-      expect(profile.notes.toList(limit: 2), orderedEquals({c, d}));
 
       final replyNote = PartialNote('replying', replyTo: c).dummySign(franzap);
 

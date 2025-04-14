@@ -70,7 +70,7 @@ class RequestNotifier<E extends Event<dynamic>>
           return;
         }
 
-        // TODO: Use defaults?
+        // TODO: Use defaults? Explain why
         final relayUrls =
             storage.config.getRelays(relayGroup: req.on, useDefault: false);
 

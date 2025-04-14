@@ -96,10 +96,10 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Allow typed queries `ref.watch(queryTyped<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
  - [x] Remote relay configuration
  - [x] Relay metadata in response
- - [x] Cache relationship req results, make relationships check it before hitting sync (remove sync query altogether?)
- - [ ] Merge reqs for both local storage and relays
- - [ ] Event metadata
- - [ ] Ability for a watcher to watch a particular subscription (instead of a regular filter)
+ - [x] Cache relationship req results, make relationships check it before hitting sync, remove sync query altogether?
  - [ ] Publish events
- - [ ] Allow multiple filters
+ - [ ] Event metadata
+ - [ ] Build a feed? Contact lists
+ - [ ] Restrict by subscription (ignores req filter, brings all events from that sub)
  - [ ] Eviction policy API, allowing clients to manage the local database size
+ - [ ] Merge reqs for both local storage and relays

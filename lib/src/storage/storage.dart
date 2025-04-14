@@ -7,6 +7,7 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
 
   // Need to place this cache here as its accessed by
   // both request notifiers and relationships
+  // Keep it as list and it will retain order from database query
   final Map<RequestFilter, List<Event>> requestCache = {};
 
   Future<void> initialize(StorageConfiguration config) async {

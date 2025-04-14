@@ -127,6 +127,9 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<void> send(RequestFilter req) async {
+    final preEoseAmount = req.limit ?? req.queryLimit ?? 10;
+    var streamAmount = (req.queryLimit ?? 10) - preEoseAmount;
+
     if (req.kinds.isEmpty || req.kinds.first == 7 || req.kinds.first == 9735) {
       return;
     }
@@ -135,57 +138,65 @@ class DummyStorageNotifier extends StorageNotifier {
         ? [generateProfile(pubkey)]
         : List.generate(10, (i) => generateProfile());
 
-    final models = List.generate(req.queryLimit ?? 10, (i) {
+    final models = List.generate(preEoseAmount, (i) {
       return generateEvent(
           kind: req.kinds.first,
           pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
           createdAt:
               DateTime.now().subtract(Duration(minutes: _random.nextInt(10))));
     }).nonNulls.toSet();
-    // print('just generated ids: ${models.map((e) => e.id)} ');
 
     final andModels = [
       if (req.and != null)
         for (final m in models)
           for (final r in req.and!(m))
             ...List.generate(
-                _random.nextInt(20),
-                (i) => generateEvent(
-                      kind: r.req!.kinds.first,
-                      pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
-                      parentId: m.id,
-                    )).nonNulls.toSet()
+              _random.nextInt(20),
+              (i) => generateEvent(
+                kind: r.req!.kinds.first,
+                pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
+                parentId: m.id,
+              ),
+            ).nonNulls.toSet()
     ];
     Future.microtask(() {
       save({...profiles, ...models, ...andModels});
     });
 
-    if (req.search == 'stream') {
+    if (streamAmount > 0) {
+      await Future.delayed(Duration(seconds: 2));
       _timers[req] = Timer.periodic(config.streamingBufferWindow, (t) async {
         if (mounted) {
-          if (t.tick > 5) {
+          print('in mounted tick');
+          if (streamAmount == 0) {
             t.cancel();
             _timers.remove(req);
           } else {
-            print('STILL TICKING AND EMITTING');
             final models = List.generate(
-                3,
-                (i) => generateEvent(
+              (streamAmount < 5 ? streamAmount : 5),
+              (i) {
+                streamAmount--;
+                return generateEvent(
                     kind: req.kinds.first,
-                    pubkey: profiles[_random.nextInt(profiles.length)]
-                        .pubkey)).nonNulls.toSet();
+                    pubkey: profiles[_random.nextInt(profiles.length)].pubkey);
+              },
+            ).nonNulls.toSet();
+
             final andModels = [
               if (req.and != null)
                 for (final m in models)
                   for (final r in req.and!(m))
                     ...List.generate(
-                        _random.nextInt(10),
-                        (i) => generateEvent(
-                              kind: r.req!.kinds.first,
-                              pubkey: profiles[_random.nextInt(profiles.length)]
-                                  .pubkey,
-                              parentId: m.id,
-                            )).nonNulls.toSet()
+                      _random.nextInt(20),
+                      (i) {
+                        return generateEvent(
+                          kind: r.req!.kinds.first,
+                          pubkey:
+                              profiles[_random.nextInt(profiles.length)].pubkey,
+                          parentId: m.id,
+                        );
+                      },
+                    ).nonNulls.toSet()
             ];
             Future.microtask(() {
               save({...models, ...andModels});
@@ -240,7 +251,7 @@ _sampleBolt11({required String zapperPubkey, required String eventId}) => '''
 {
         "content": "✨",
         "created_at": ${DateTime.now().millisecondsSinceEpoch ~/ 1000},
-        "id": "b4855a33de1d6f26b7ebd0cec337c0670aa4b673b23ac104b2d70e7702deb031",
+        "id": "${generate64Hex()}",
         "kind": 9735,
         "pubkey": "79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432",
         "tags": [
@@ -258,7 +269,7 @@ _sampleBolt11({required String zapperPubkey, required String eventId}) => '''
             ],
             [
                 "bolt11",
-                "lnbc10n1pnl4yxhpp56tlc306yq6ffdt0t6a7klk9yw7r6u5yfn5xsdz88f0zqllwthmzshp5rxavcjsm5x3gfqwav779kxqaa8a8870kn8zf5q4s5hqc3k7tn23qcqzpgxqyz5vqsp5n5998hmtcwph78qfz9qypu5llxlpme425qedekyd34n4auwvk4ss9qxpqysgqxn4rl4kp366qxcg43lfndvkmw4ktryldrhq8xlntff2e2p9lny236gaqcqkqc4yhtjwzyhdxuzkr2rtt7mysvegteffxrz2zlny4k0qpuxalwm"
+                "lnbc210n1pnl48jjxqrrsspqqsqqdpvta04q5jff4q5ch6ffe2y25jwg9x97j2w2e85js69ta0s29da748s3yt4frxt8t4z62h3l3g2dlu6tynlefsjffdhn45dr84h3my9h4t7ety4s7awnlkl89p26tkq4jkc3z54ufjmwg96ddjtk7spnl55zu"
             ],
             [
                 "preimage",
@@ -266,7 +277,7 @@ _sampleBolt11({required String zapperPubkey, required String eventId}) => '''
             ],
             [
                 "description",
-                "{\\"id\\":\\"50dd637e30455a6dd6e1c9159c58b2cba31c75df29a5806162b813b3d93fe13d\\",\\"sig\\":\\"b86c1e09139e0367d9ed985beb14995efb3025eb68c8a56045ce2a2a35639d8f4187acae78c022532801fb068cf3560dcab12497f6d2a9376978c9bde35b15cd\\",\\"pubkey\\":\\"97f848adcc4c6276685fe48426de5614887c8a51ada0468cec71fba938272911\\",\\"created_at\\":1744474327,\\"kind\\":9734,\\"tags\\":[[\\"relays\\",\\"wss://relay.primal.net\\",\\"wss://relay-nwc-dev.rizful.com/v1\\",\\"wss://relay.snort.social\\",\\"wss://relay.nostr.band\\",\\"wss://slick.mjex.me\\",\\"wss://nostr.wine\\",\\"wss://nfnitloop.com/nostr\\",\\"wss://relay.damus.io\\",\\"wss://eden.nostr.land\\",\\"wss://nos.lol\\",\\"wss://nostr.8777.ch\\",\\"wss://nostr.land\\",\\"ws://209.122.211.18:4848\\",\\"wss://unhostedwallet.com\\",\\"wss://filter.nostr.wine?global=all\\"],[\\"amount\\",\\"1000\\"],[\\"lnurl\\",\\"lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtm2v4nxj7n6d3jsyutkku\\"],[\\"p\\",\\"20651ab8c2fb1febca56b80deba14630af452bdce64fe8f04a9f5f67e4a3c1cc\\"],[\\"e\\",\\"7abbce7aa0c5cd430efd627bbe5b5908de48db5cec5742f694befe38b34bce9f\\"]],\\"content\\":\\"✨\\"}"
+                "{\\"id\\":\\"50dd637e30455a6dd6e1c9159c58b2cba31c75df29a5806162b813b3d93fe13d\\",\\"sig\\":\\"b86c1e09139e0367d9ed985beb14995efb3025eb68c8a56045ce2a2a35639d8f4187acae78c022532801fb068cf3560dcab12497f6d2a9376978c9bde35b15cd\\",\\"pubkey\\":\\"97f848adcc4c6276685fe48426de5614887c8a51ada0468cec71fba938272911\\",\\"created_at\\":1744474327,\\"kind\\":9734,\\"tags\\":[[\\"relays\\",\\"wss://relay.primal.net\\",\\"wss://relay-nwc-dev.rizful.com/v1\\",\\"wss://relay.snort.social\\",\\"wss://relay.nostr.band\\",\\"wss://slick.mjex.me\\",\\"wss://nostr.wine\\",\\"wss://nfnitloop.com/nostr\\",\\"wss://relay.damus.io\\",\\"wss://eden.nostr.land\\",\\"wss://nos.lol\\",\\"wss://nostr.8777.ch\\",\\"wss://nostr.land\\",\\"ws://209.122.211.18:4848\\",\\"wss://unhostedwallet.com\\",\\"wss://filter.nostr.wine?global=all\\"],[\\"amount\\",\\"21000\\"],[\\"lnurl\\",\\"lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtm2v4nxj7n6d3jsyutkku\\"],[\\"p\\",\\"20651ab8c2fb1febca56b80deba14630af452bdce64fe8f04a9f5f67e4a3c1cc\\"],[\\"e\\",\\"7abbce7aa0c5cd430efd627bbe5b5908de48db5cec5742f694befe38b34bce9f\\"]],\\"content\\":\\"✨\\"}"
             ]
         ]
     }
