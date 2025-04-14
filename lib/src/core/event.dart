@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
 import 'package:models/src/core/internal_event.dart';
+import 'package:models/src/models/contact_list.dart';
 import 'package:models/src/models/targeted_publication.dart';
 import 'package:riverpod/riverpod.dart';
 
@@ -95,6 +96,7 @@ sealed class Event<E extends Event<E>>
   static final Map<String, ({int kind, EventConstructor constructor})> types = {
     'Profile': (kind: 0, constructor: Profile.fromMap),
     'Note': (kind: 1, constructor: Note.fromMap),
+    'ContactList': (kind: 3, constructor: ContactList.fromMap),
     'DirectMessage': (kind: 4, constructor: DirectMessage.fromMap),
     'ChatMessage': (kind: 9, constructor: ChatMessage.fromMap),
     'Reaction': (kind: 7, constructor: Reaction.fromMap),

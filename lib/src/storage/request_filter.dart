@@ -66,12 +66,11 @@ class RequestFilter extends Equatable {
         authors = authors ?? const {},
         kinds = kinds ?? const {},
         tags = tags ?? const {} {
-    // TODO: Restore
+    // TODO: How about ids that are replaceable
     // if (ids != null && ids.any((i) => i.length != 64)) {
     //   throw UnsupportedError('Bad ids input: $ids');
     // }
-    final authorsHex =
-        authors?.map((a) => a.startsWith('npub') ? Profile.hexFromNpub(a) : a);
+    final authorsHex = authors?.map(Profile.hexFromNpub);
     if (authorsHex != null && authorsHex.any((a) => a.length != 64)) {
       throw UnsupportedError('Bad authors input: $authors');
     }
@@ -97,6 +96,7 @@ class RequestFilter extends Equatable {
     return req ?? RequestFilter();
   }
 
+  // TODO: Improve merge fn
   RequestFilter? merge(RequestFilter req) {
     if (_equality.equals(kinds, req.kinds)) {
       return RequestFilter(

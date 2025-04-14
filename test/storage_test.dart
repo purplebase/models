@@ -37,14 +37,14 @@ void main() async {
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
-      a = PartialNote('Note A', createdAt: yesterday).dummySign(niel);
-      b = PartialNote('Note B', createdAt: lastMonth).dummySign(niel);
-      c = PartialNote('Note C').dummySign(niel);
-      d = PartialNote('Note D', tags: {'nostr'}).dummySign(niel);
-      e = PartialNote('Note E').dummySign(franzap);
-      f = PartialNote('Note F', tags: {'nostr'}).dummySign(franzap);
-      g = PartialNote('Note G').dummySign(verbiricha);
-      nielProfile = PartialProfile(name: 'neil').dummySign(niel);
+      a = PartialNote('Note A', createdAt: yesterday).dummySign(nielPubkey);
+      b = PartialNote('Note B', createdAt: lastMonth).dummySign(nielPubkey);
+      c = PartialNote('Note C').dummySign(nielPubkey);
+      d = PartialNote('Note D', tags: {'nostr'}).dummySign(nielPubkey);
+      e = PartialNote('Note E').dummySign(franzapPubkey);
+      f = PartialNote('Note F', tags: {'nostr'}).dummySign(franzapPubkey);
+      g = PartialNote('Note G').dummySign(verbirichaPubkey);
+      nielProfile = PartialProfile(name: 'neil').dummySign(nielPubkey);
       replyToA =
           PartialNote('reply to a', replyTo: a).dummySign(nielProfile.pubkey);
       replyToB = PartialNote('reply to b', createdAt: yesterday, replyTo: b)
@@ -67,8 +67,8 @@ void main() async {
     });
 
     test('authors', () async {
-      tester = container
-          .testerFor(query(authors: {franzap, verbiricha}, storageOnly: true));
+      tester = container.testerFor(
+          query(authors: {franzapPubkey, verbirichaPubkey}, storageOnly: true));
       await tester.expectModels(unorderedEquals({e, f, g}));
     });
 
@@ -85,7 +85,7 @@ void main() async {
 
     test('tags', () async {
       tester = container.testerFor(query(authors: {
-        niel
+        nielPubkey
       }, tags: {
         '#t': {'nostr'}
       }, storageOnly: true));
@@ -103,7 +103,7 @@ void main() async {
 
       tester = container.testerFor(query(tags: {
         '#t': {'nostr'},
-        '#e': {niel}
+        '#e': {nielPubkey}
       }, storageOnly: true));
       await tester.expectModels(isEmpty);
     });
@@ -111,7 +111,7 @@ void main() async {
     test('until', () async {
       tester = container.testerFor(query(
           kinds: {1},
-          authors: {niel},
+          authors: {nielPubkey},
           until: DateTime.now().subtract(Duration(minutes: 1)),
           storageOnly: true));
       await tester.expectModels(orderedEquals({a, b, replyToB}));
@@ -119,15 +119,15 @@ void main() async {
 
     test('since', () async {
       tester = container.testerFor(query(
-          authors: {niel},
+          authors: {nielPubkey},
           since: DateTime.now().subtract(Duration(minutes: 1)),
           storageOnly: true));
       await tester.expectModels(orderedEquals({c, d, nielProfile, replyToA}));
     });
 
     test('limit and order', () async {
-      tester = container.testerFor(
-          query(kinds: {1}, authors: {niel}, limit: 3, storageOnly: true));
+      tester = container.testerFor(query(
+          kinds: {1}, authors: {nielPubkey}, limit: 3, storageOnly: true));
       await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
@@ -148,14 +148,13 @@ void main() async {
     });
 
     test('relay metadata', () async {
-      tester = container
-          .testerFor(queryType<Profile>(authors: {niel}, storageOnly: true));
+      tester = container.testerFor(
+          queryType<Profile>(authors: {nielPubkey}, storageOnly: true));
       await tester.expect(isA<StorageData>()
           .having((s) => s.models.first.internal.relays, 'relays', <String>{}));
     });
   });
 
-  // TODO: Fix tests
   group('storage relay interface', () {
     tearDown(() async {
       tester.dispose();
@@ -167,8 +166,8 @@ void main() async {
       final r1 = RequestFilter(kinds: {
         7
       }, authors: {
-        niel,
-        franzap
+        nielPubkey,
+        franzapPubkey
       }, tags: {
         'foo': {'bar'},
         '#t': {'nostr'}
@@ -176,8 +175,8 @@ void main() async {
       final r2 = RequestFilter(kinds: {
         7
       }, authors: {
-        franzap,
-        niel
+        franzapPubkey,
+        nielPubkey
       }, tags: {
         '#t': {'nostr'},
         'foo': {'bar'}
@@ -185,8 +184,8 @@ void main() async {
       final r3 = RequestFilter(kinds: {
         7
       }, authors: {
-        franzap,
-        niel
+        franzapPubkey,
+        nielPubkey
       }, tags: {
         'foo': {'bar'}
       });
@@ -200,7 +199,7 @@ void main() async {
       // Filter with extra arguments
       final r4 = RequestFilter(
         kinds: {7},
-        authors: {niel, franzap},
+        authors: {nielPubkey, franzapPubkey},
         tags: {
           'foo': {'bar'},
           '#t': {'nostr'}
@@ -214,15 +213,18 @@ void main() async {
     });
 
     test('relay request should notify with events', () async {
-      tester = container
-          .testerFor(query(kinds: {1}, authors: {niel, franzap}, limit: 2));
+      tester = container.testerFor(
+          query(kinds: {1}, authors: {nielPubkey, franzapPubkey}, limit: 2));
       await tester.expectModels(isEmpty); // nothing was in local storage
       await tester.expectModels(hasLength(2)); // limit
     });
 
     test('relay request should notify with events (streamed)', () async {
       tester = container.testerFor(query(
-          kinds: {1}, authors: {niel, franzap}, limit: 5, queryLimit: 11));
+          kinds: {1},
+          authors: {nielPubkey, franzapPubkey},
+          limit: 5,
+          queryLimit: 11));
       await tester.expectModels(isEmpty); // nothing was in local storage
       await tester.expectModels(hasLength(5)); // limit
       await tester.expectModels(hasLength(10)); // 5 more streamed

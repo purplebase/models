@@ -3,14 +3,23 @@ import 'dart:convert';
 import 'package:models/models.dart';
 import 'package:models/src/core/encoding.dart';
 import 'package:bip340/bip340.dart' as bip340;
+import 'package:models/src/models/contact_list.dart';
 
 class Profile extends ReplaceableEvent<Profile> {
   late final Map<String, dynamic> _content;
   late final HasMany<Note> notes;
+  late final BelongsTo<ContactList> contactList;
 
   Profile.fromMap(super.map, super.ref) : super.fromMap() {
     _content = internal.content.isNotEmpty ? jsonDecode(internal.content) : {};
-    notes = HasMany(ref, RequestFilter(kinds: {1}, authors: {internal.pubkey}));
+    notes = HasMany(
+        ref,
+        RequestFilter(
+            kinds: {Event.kindFor<Note>()}, authors: {internal.pubkey}));
+    contactList = BelongsTo(
+        ref,
+        RequestFilter(
+            kinds: {Event.kindFor<ContactList>()}, authors: {internal.pubkey}));
   }
 
   String get pubkey => internal.pubkey;
