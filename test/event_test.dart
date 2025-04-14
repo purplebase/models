@@ -146,8 +146,6 @@ void main() {
     });
 
     test('community', () async {
-      final pubkey =
-          '8f1536c05fa9c3f441f1a369b661f3cb1072f418a876d153edf3fc6eec41794c';
       final community = PartialCommunity(
         name: 'communikey',
         createdAt: DateTime.parse('2025-04-10'),
@@ -162,7 +160,9 @@ void main() {
               content: 'Article', kinds: {30023, 30040}, feeInSats: 21),
         },
         termsOfService: 'https://tos',
-      ).dummySign(pubkey);
+      ).dummySign(niel);
+
+      expect(community.author.value!.pubkey, niel);
 
       final community2 =
           Community.fromMap(community.toMap(), container.read(refProvider));
@@ -237,10 +237,10 @@ final zappedEventJson = '''
 
 final communityJson = '''
 {
-	"id": "a375c8cea6b6911d250da10e45854cc0e61a9f688c623757158d975b842db804",
+	"id": "26ac7e5ae58dc195f03272a0e5b66ba1d80806d31dc70e4c0cffa50a7594411c",
 	"content": "",
 	"created_at": 1744254000,
-	"pubkey": "8f1536c05fa9c3f441f1a369b661f3cb1072f418a876d153edf3fc6eec41794c",
+	"pubkey": "${Profile.hexFromNpub(niel)}",
 	"kind": 10222,
 	"tags": [
 		[

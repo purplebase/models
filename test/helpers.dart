@@ -4,11 +4,11 @@ import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-final niel = 'npub149p5act9a5qm9p47elp8w8h3wpwn2d7s2xecw2ygnrxqp4wgsklq9g722q';
+final niel = 'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
 final verbiricha =
-    'npub107jk7htfv243u0x5ynn43scq9wrxtaasmrwwa8lfu2ydwag6cx2quqncxg';
+    '7fa56f5d6962ab1e3cd424e758c3002b8665f7b0d8dcee9fe9e288d7751ac194';
 final franzap =
-    'npub1wf4pufsucer5va8g9p0rj5dnhvfeh6d8w0g6eayaep5dhps6rsgs43dgh9';
+    '726a1e261cc6474674e8285e3951b3bb139be9a773d1acf49dc868db861a1c11';
 
 class StorageNotifierTester {
   final RequestNotifier notifier;

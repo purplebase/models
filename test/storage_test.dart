@@ -151,7 +151,7 @@ void main() async {
 
   // TODO: Fix tests
   group('storage relay interface', () {
-    tearDownAll(() async {
+    tearDown(() async {
       tester.dispose();
       await storage.clear();
     });
@@ -215,11 +215,12 @@ void main() async {
 
     test('relay request should notify with events (streamed)', () async {
       tester = container.testerFor(query(
-          kinds: {1}, authors: {niel, franzap}, limit: 5, search: 'stream'));
+          kinds: {1}, authors: {niel, franzap}, limit: 5, queryLimit: 11));
       await tester.expectModels(isEmpty); // nothing was in local storage
       await tester.expectModels(hasLength(5)); // limit
-      await tester.expectModels(hasLength(8)); // 3 more streamed
-      await tester.expectModels(hasLength(11)); // 3 more streamed
+      await tester.expectModels(hasLength(10)); // 5 more streamed
+      await tester
+          .expectModels(hasLength(11)); // 1 more streamed to reach to 11
     });
   });
 }
