@@ -92,7 +92,7 @@ class DummySigner extends Signer {
   @override
   Future<E> sign<E extends Event<E>>(PartialEvent<E> partialEvent,
       {String? withPubkey}) async {
-    return signSync(partialEvent);
+    return signSync(partialEvent, withPubkey: withPubkey);
   }
 }
 
