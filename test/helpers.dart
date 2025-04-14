@@ -20,7 +20,7 @@ class StorageNotifierTester {
 
   StorageNotifierTester(this.notifier) {
     final dispose = notifier.addListener((state) {
-      print('${state.runtimeType} ${state.models.length}');
+      // print('${state.runtimeType} ${state.models.length}');
       completers.last.complete(state);
       completers.add(Completer());
     }, fireImmediately: false);

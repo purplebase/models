@@ -42,10 +42,11 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<List<Event>> query(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds}) async {
-    return _querySync(req, applyLimit: applyLimit);
+    return querySync(req, applyLimit: applyLimit);
   }
 
-  List<Event> _querySync(RequestFilter req,
+  @override
+  List<Event> querySync(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds}) {
     List<Event> results;
     // If onIds present then restrict req to those
@@ -127,6 +128,8 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<void> send(RequestFilter req) async {
+    if (req.storageOnly) return;
+
     final preEoseAmount = req.limit ?? req.queryLimit ?? 10;
     var streamAmount = (req.queryLimit ?? 10) - preEoseAmount;
 
@@ -167,7 +170,6 @@ class DummyStorageNotifier extends StorageNotifier {
       await Future.delayed(Duration(seconds: 2));
       _timers[req] = Timer.periodic(config.streamingBufferWindow, (t) async {
         if (mounted) {
-          print('in mounted tick');
           if (streamAmount == 0) {
             t.cancel();
             _timers.remove(req);

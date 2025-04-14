@@ -146,6 +146,8 @@ void main() {
     });
 
     test('community', () async {
+      final pubkey =
+          '8f1536c05fa9c3f441f1a369b661f3cb1072f418a876d153edf3fc6eec41794c';
       final community = PartialCommunity(
         name: 'communikey',
         createdAt: DateTime.parse('2025-04-10'),
@@ -160,7 +162,7 @@ void main() {
               content: 'Article', kinds: {30023, 30040}, feeInSats: 21),
         },
         termsOfService: 'https://tos',
-      ).dummySign();
+      ).dummySign(pubkey);
 
       final note = PartialNote('test').dummySign();
       final targetedPublication =
@@ -170,6 +172,7 @@ void main() {
 
       final community2 =
           Community.fromMap(community.toMap(), container.read(refProvider));
+      expect(community.toMap(), community2.toMap());
       expect(jsonDecode(communityJson), community2.toMap());
     });
   });

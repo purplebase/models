@@ -16,6 +16,8 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
 
   Future<List<Event>> query(RequestFilter req, {bool applyLimit = true});
 
+  List<Event> querySync(RequestFilter req, {bool applyLimit = true});
+
   Future<void> save(Set<Event> events,
       {String? relayGroup, bool publish = true});
 

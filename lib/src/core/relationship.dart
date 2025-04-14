@@ -10,7 +10,10 @@ sealed class Relationship<E extends Event<dynamic>> {
 
   Set<String> get ids => req?.ids ?? {};
 
-  List<E> get _events => (storage.requestCache[req] ?? []).cast();
+  List<E> get _events {
+    if (req == null) return [];
+    return storage.requestCache[req]?.cast() ?? storage.querySync(req!).cast();
+  }
 
   Future<List<E>> _eventsAsync({int? limit}) async {
     if (req == null) {
@@ -42,6 +45,8 @@ final class HasMany<E extends Event<dynamic>> extends Relationship<E> {
   HasMany(super.ref, super.req);
 
   List<E> toList() => _events;
+
+  Future<List<E>> toListAsync() => _eventsAsync();
 
   E? get firstOrNull => _events.firstOrNull;
   bool get isEmpty => _events.isEmpty;

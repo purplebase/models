@@ -66,6 +66,7 @@ class RequestFilter extends Equatable {
         authors = authors ?? const {},
         kinds = kinds ?? const {},
         tags = tags ?? const {} {
+    // TODO: Restore
     // if (ids != null && ids.any((i) => i.length != 64)) {
     //   throw UnsupportedError('Bad ids input: $ids');
     // }

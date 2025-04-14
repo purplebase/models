@@ -21,10 +21,8 @@ class RequestNotifier<E extends Event<dynamic>>
 
     // Fetch events from local storage, fire request to relays
     Future<List<Event>> fn(RequestFilter req) async {
-      if (!req.storageOnly) {
-        // Send request filter to relays
-        storage.send(req);
-      }
+      // Send request filter to relays
+      storage.send(req);
 
       final events = await storage.query(req);
 
@@ -44,10 +42,8 @@ class RequestNotifier<E extends Event<dynamic>>
           storage.requestCache[r] = events;
         }
         // Send request filters to relays
-        if (!req.storageOnly) {
-          for (final r in mergedReqs) {
-            storage.send(r);
-          }
+        for (final r in mergedReqs) {
+          storage.send(r);
         }
       }
 
