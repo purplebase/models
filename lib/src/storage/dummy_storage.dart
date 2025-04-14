@@ -42,7 +42,7 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<List<Event>> query(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds}) async {
-    return querySync(req, applyLimit: applyLimit);
+    return querySync(req, applyLimit: applyLimit, onIds: onIds);
   }
 
   @override
@@ -115,6 +115,11 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
+  Future<int> count() async {
+    return _events.length;
+  }
+
+  @override
   Future<void> clear([RequestFilter? req]) async {
     if (req == null) {
       _events.clear();
@@ -123,6 +128,18 @@ class DummyStorageNotifier extends StorageNotifier {
     final events = await query(req);
     _events.removeWhere((e) => events.contains(e));
   }
+
+  @override
+  Future<void> cancel([RequestFilter? req]) async {
+    if (req == null) {
+      for (final t in _timers.values) {
+        t.cancel();
+      }
+    }
+    _timers[req]?.cancel();
+  }
+
+  // Dummy event generation
 
   final _random = Random();
 
@@ -167,7 +184,6 @@ class DummyStorageNotifier extends StorageNotifier {
     });
 
     if (streamAmount > 0) {
-      await Future.delayed(Duration(seconds: 2));
       _timers[req] = Timer.periodic(config.streamingBufferWindow, (t) async {
         if (mounted) {
           if (streamAmount == 0) {
@@ -210,11 +226,6 @@ class DummyStorageNotifier extends StorageNotifier {
         }
       });
     }
-  }
-
-  @override
-  Future<void> cancel(RequestFilter req) async {
-    _timers[req]?.cancel();
   }
 
   Profile generateProfile([String? pubkey]) {

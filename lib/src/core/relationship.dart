@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 
@@ -12,13 +13,13 @@ sealed class Relationship<E extends Event<dynamic>> {
 
   List<E> get _events {
     if (req == null) return [];
-    return storage.requestCache[req]?.cast() ?? storage.querySync(req!).cast();
+    final cachedEvents = storage.requestCache.values
+        .firstWhereOrNull((m) => m.containsKey(req))?[req];
+    return (cachedEvents ?? storage.querySync(req!)).cast();
   }
 
   Future<List<E>> _eventsAsync({int? limit}) async {
-    if (req == null) {
-      return [];
-    }
+    if (req == null) return [];
     final updatedReq = req!.copyWith(limit: limit, storageOnly: true);
     final events =
         await ref.read(storageNotifierProvider.notifier).query(updatedReq);

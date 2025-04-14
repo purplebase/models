@@ -39,7 +39,8 @@ class RequestNotifier<E extends Event<dynamic>>
         for (final r in reqs) {
           final events = await storage.query(r);
           andReqs.add(r);
-          storage.requestCache[r] = events;
+          storage.requestCache[r.subscriptionId] ??= {};
+          storage.requestCache[r.subscriptionId]![r] = events;
         }
         // Send request filters to relays
         for (final r in mergedReqs) {
@@ -60,7 +61,7 @@ class RequestNotifier<E extends Event<dynamic>>
     final sub = ref.listen(storageNotifierProvider, (_, signal) async {
       if (!mounted) return;
 
-      if (signal case (final ids, final responseMetadata)) {
+      if (signal case (final incomingIds, final responseMetadata)) {
         if (req.restrictToSubscription &&
             responseMetadata.subscriptionId! != req.subscriptionId) {
           return;
@@ -76,9 +77,26 @@ class RequestNotifier<E extends Event<dynamic>>
           return;
         }
 
-        // Restrict req to *only* the updated IDs and only in local storage
-        final updatedReq = req.copyWith(ids: ids, storageOnly: true);
-        final events = await fn(updatedReq);
+        List<Event> events;
+
+        // Incoming are the IDs of *any* updated events in storage, if any
+        // of these apply restrict req to them and fetch the updated events
+        // (so restrict req to local storage only)
+        if (req.ids.isEmpty) {
+          final updatedReq = req.copyWith(ids: incomingIds, storageOnly: true);
+          events = await fn(updatedReq);
+        } else {
+          final applicableIds = req.ids.intersection(incomingIds);
+          if (applicableIds.isEmpty) {
+            // Nothing to do as none of the incoming IDs matches req.ids
+            return;
+          } else {
+            // Query for updated events of the incoming applicable IDs only
+            final updatedReq =
+                req.copyWith(ids: applicableIds, storageOnly: true);
+            events = await fn(updatedReq);
+          }
+        }
 
         final List<E> sortedModels = {...state.models, ...events.cast<E>()}
             .sortedByCompare((m) => m.createdAt.millisecondsSinceEpoch,
@@ -89,12 +107,7 @@ class RequestNotifier<E extends Event<dynamic>>
       }
     });
 
-    ref.onDispose(() {
-      for (final r in andReqs) {
-        // TODO: This removal could rug other request notifiers?
-        storage.requestCache.remove(r);
-      }
-    });
+    ref.onDispose(() => storage.requestCache.remove(req.subscriptionId));
     ref.onDispose(() => sub.close());
     ref.onDispose(() => storage.cancel(req));
   }
@@ -195,6 +208,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
     model<E extends Event<E>>(E model,
         {AndFunction<E> and, bool storageOnly = false}) {
+  // Note: does not need kind as it queries by ID
   final req = RequestFilter(
       ids: {model.id}, and: _castAnd(and), storageOnly: storageOnly);
   return requestNotifierProviderFactory(req);

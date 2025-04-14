@@ -54,6 +54,12 @@ void main() async {
       await storage.save({nielProfile}, relayGroup: 'big-relays');
     });
 
+    tearDownAll(() async {
+      tester.dispose();
+      await storage.cancel();
+      await storage.clear();
+    });
+
     test('ids', () async {
       tester = container.testerFor(
           query(ids: {a.internal.id, e.internal.id}, storageOnly: true));
@@ -153,6 +159,7 @@ void main() async {
   group('storage relay interface', () {
     tearDown(() async {
       tester.dispose();
+      await storage.cancel();
       await storage.clear();
     });
     test('request filter', () {
