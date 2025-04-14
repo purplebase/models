@@ -62,8 +62,7 @@ class Community extends ReplaceableEvent<Community> {
       ));
     }
 
-    // Return an unmodifiable set (assuming CommunityContentSection implements == and hashCode correctly)
-    return Set.unmodifiable(sections);
+    return sections.toSet();
   }
 
   Set<String> get blossomUrls => internal.getTagSetValues('blossom');

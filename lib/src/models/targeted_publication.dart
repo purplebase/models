@@ -6,8 +6,14 @@ class TargetedPublication
   late final HasMany<Community> communities;
 
   TargetedPublication.fromMap(super.map, super.ref) : super.fromMap() {
-    event =
-        BelongsTo(ref, RequestFilter(ids: {internal.getFirstTagValue('d')!}));
+    if (internal.getFirstTagValue('e') != null) {
+      event =
+          BelongsTo(ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
+    } else {
+      final addressableId = internal.getFirstTagValue('a')!;
+      event =
+          BelongsTo(ref, RequestFilter.fromReplaceableEvents({addressableId}));
+    }
     communities = HasMany(ref,
         RequestFilter.fromReplaceableEvents(internal.getTagSetValues('p')));
   }
@@ -20,7 +26,8 @@ class PartialTargetedPublication
     extends ParameterizableReplaceablePartialEvent<TargetedPublication> {
   PartialTargetedPublication(Event event,
       {required Set<Community> communities, Set<String>? relayUrls}) {
-    internal.addTagValue('d', event.id);
+    internal.addTagValue('d', generate64Hex());
+    internal.addTagValue(event is ReplaceableEvent ? 'a' : 'e', event.id);
     internal.addTagValue('k', event.internal.kind.toString());
     for (final community in communities) {
       internal.addTagValue('p', community.id);

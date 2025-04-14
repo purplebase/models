@@ -164,16 +164,19 @@ void main() {
         termsOfService: 'https://tos',
       ).dummySign(pubkey);
 
+      final community2 =
+          Community.fromMap(community.toMap(), container.read(refProvider));
+      expect(community.toMap(), community2.toMap());
+      expect(jsonDecode(communityJson), community2.toMap());
+
       final note = PartialNote('test').dummySign();
       final targetedPublication =
           PartialTargetedPublication(note, communities: {community})
               .dummySign();
       await storage.save({community, note, targetedPublication});
-
-      final community2 =
-          Community.fromMap(community.toMap(), container.read(refProvider));
-      expect(community.toMap(), community2.toMap());
-      expect(jsonDecode(communityJson), community2.toMap());
+      expect(targetedPublication.communities.firstOrNull, community);
+      expect(targetedPublication.event.value, note);
+      expect(targetedPublication.internal.identifier, hasLength(64));
     });
   });
 }
