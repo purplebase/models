@@ -1,8 +1,6 @@
 import 'dart:convert';
 
 import 'package:models/models.dart';
-import 'package:models/src/models/contact_list.dart';
-import 'package:models/src/models/targeted_publication.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
