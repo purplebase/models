@@ -11,6 +11,7 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   // - Format: {'subId': {RequestFilter(1): [events1], RequestFilter(2): [events2]}}
   // - It's necessary to keep it per subscription ID as request notifiers
   // remove caches when disposed, but should only be theirs
+  // TODO: Make this private
   final Map<String, Map<RequestFilter, List<Event>>> requestCache = {};
 
   Future<void> initialize(StorageConfiguration config) async {

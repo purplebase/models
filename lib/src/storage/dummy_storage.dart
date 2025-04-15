@@ -54,10 +54,23 @@ class DummyStorageNotifier extends StorageNotifier {
       req = req.copyWith(ids: onIds);
     }
 
-    if (req.ids.isNotEmpty) {
-      results = _events.where((e) => req.ids.contains(e.id)).toList();
+    final replaceableIds = req.ids.where(kReplaceableRegexp.hasMatch);
+    final regularIds = {...req.ids}..removeAll(replaceableIds);
+
+    if (regularIds.isNotEmpty) {
+      results = _events.where((e) => regularIds.contains(e.id)).toList();
     } else {
       results = _events.toList();
+    }
+
+    if (replaceableIds.isNotEmpty) {
+      results = [
+        ...results,
+        ...results.where((e) {
+          return e is ReplaceableEvent &&
+              replaceableIds.contains(e.internal.addressableId);
+        })
+      ];
     }
 
     if (req.authors.isNotEmpty) {

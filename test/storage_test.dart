@@ -24,8 +24,12 @@ void main() async {
         as DummyStorageNotifier;
   });
 
+  // NOTE: Having no tearDown with cancel() keeps some timers
+  // in memory, which help test how request notifiers handle unrelated IDs
+
   tearDownAll(() async {
     tester.dispose();
+    await storage.cancel();
     await storage.clear();
   });
 

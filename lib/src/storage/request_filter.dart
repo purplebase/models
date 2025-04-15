@@ -66,10 +66,11 @@ class RequestFilter extends Equatable {
         authors = authors ?? const {},
         kinds = kinds ?? const {},
         tags = tags ?? const {} {
-    // TODO: How about ids that are replaceable
-    // if (ids != null && ids.any((i) => i.length != 64)) {
-    //   throw UnsupportedError('Bad ids input: $ids');
-    // }
+    // IDs are either regular (64 character) or replaceable and match its regexp
+    if (ids != null &&
+        ids.any((i) => i.length != 64 && !kReplaceableRegexp.hasMatch(i))) {
+      throw UnsupportedError('Bad ids input: $ids');
+    }
     final authorsHex = authors?.map(Profile.hexFromNpub);
     if (authorsHex != null && authorsHex.any((a) => a.length != 64)) {
       throw UnsupportedError('Bad authors input: $authors');
@@ -182,6 +183,8 @@ class ResponseMetadata with EquatableMixin {
   @override
   List<Object?> get props => [subscriptionId, relayUrls];
 }
+
+final kReplaceableRegexp = RegExp(r'(\d+):([0-9a-f]{64}):(.*)');
 
 // Fast hash
 

@@ -79,24 +79,21 @@ class RequestNotifier<E extends Event<dynamic>>
 
         List<Event> events;
 
-        // Incoming are the IDs of *any* updated events in storage, if any
-        // of these apply restrict req to them and fetch the updated events
-        // (so restrict req to local storage only)
-        if (req.ids.isEmpty) {
-          final updatedReq = req.copyWith(ids: incomingIds, storageOnly: true);
-          events = await fn(updatedReq);
-        } else {
-          final applicableIds = req.ids.intersection(incomingIds);
-          if (applicableIds.isEmpty) {
-            // Nothing to do as none of the incoming IDs matches req.ids
-            return;
-          } else {
-            // Query for updated events of the incoming applicable IDs only
-            final updatedReq =
-                req.copyWith(ids: applicableIds, storageOnly: true);
-            events = await fn(updatedReq);
+        // Incoming are the IDs of *any* new events in local storage,
+        // so restrict req to them and check if they apply
+
+        final finalIncomingIds = incomingIds.where((id) {
+          // If replaceable incoming ID, only keep if in req.ids
+          if (kReplaceableRegexp.hasMatch(id)) {
+            return req.ids.contains(id);
           }
-        }
+          // If regular incoming ID, keep
+          return true;
+        }).toSet();
+
+        final updatedReq =
+            req.copyWith(ids: finalIncomingIds, storageOnly: true);
+        events = await fn(updatedReq);
 
         final List<E> sortedModels = {...state.models, ...events.cast<E>()}
             .sortedByCompare((m) => m.createdAt.millisecondsSinceEpoch,
