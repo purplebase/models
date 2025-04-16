@@ -1,5 +1,4 @@
-import 'package:models/src/core/event.dart';
-import 'package:models/src/core/extensions.dart';
+part of models;
 
 class FileMetadata extends RegularEvent<FileMetadata> {
   FileMetadata.fromMap(super.map, super.ref) : super.fromMap();

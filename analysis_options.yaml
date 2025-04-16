@@ -15,6 +15,8 @@ include: package:lints/recommended.yaml
 analyzer:
   errors:
     use_super_parameters: ignore
+    unnecessary_library_name: ignore
+    use_string_in_part_of_directives: ignore
 
 # Uncomment the following section to specify additional rules.
 

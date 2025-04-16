@@ -1,6 +1,4 @@
-import 'package:collection/collection.dart';
-import 'package:models/models.dart';
-import 'package:riverpod/riverpod.dart';
+part of models;
 
 sealed class Relationship<E extends Event<dynamic>> {
   final RequestFilter? req;

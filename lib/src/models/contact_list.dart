@@ -1,4 +1,4 @@
-import 'package:models/models.dart';
+part of models;
 
 class ContactList extends ReplaceableEvent<ContactList> {
   late final HasMany<Profile> following;

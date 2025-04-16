@@ -1,4 +1,4 @@
-import 'package:models/models.dart';
+part of models;
 
 class Note extends RegularEvent<Note> {
   String get content => internal.content;

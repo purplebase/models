@@ -1,10 +1,4 @@
-// Request filter
-
-import 'dart:math';
-
-import 'package:collection/collection.dart';
-import 'package:equatable/equatable.dart';
-import 'package:models/models.dart';
+part of models;
 
 class RequestFilter extends Equatable {
   static final _random = Random();

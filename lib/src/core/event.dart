@@ -1,12 +1,4 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:collection/collection.dart';
-import 'package:crypto/crypto.dart';
-import 'package:equatable/equatable.dart';
-import 'package:models/models.dart';
-import 'package:models/src/core/internal_event.dart';
-import 'package:riverpod/riverpod.dart';
+part of models;
 
 mixin EventBase<E extends Event<E>> {
   InternalEvent get internal;

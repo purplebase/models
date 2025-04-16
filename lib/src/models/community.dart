@@ -1,4 +1,4 @@
-import 'package:models/models.dart';
+part of models;
 
 class Community extends ReplaceableEvent<Community> {
   Community.fromMap(super.map, super.ref) : super.fromMap();

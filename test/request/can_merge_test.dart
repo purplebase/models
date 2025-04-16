@@ -1,4 +1,4 @@
-import 'package:models/src/request/merge.dart';
+import 'package:models/models.dart';
 import 'package:test/test.dart';
 
 void main() {

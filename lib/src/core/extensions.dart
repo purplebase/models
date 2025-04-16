@@ -1,3 +1,5 @@
+part of models;
+
 extension StringMaybeExt on String? {
   int? toInt() {
     return this == null ? null : int.tryParse(this!);

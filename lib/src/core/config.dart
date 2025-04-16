@@ -1,4 +1,4 @@
-import 'package:equatable/equatable.dart';
+part of models;
 
 class StorageConfiguration extends Equatable {
   final String databasePath;

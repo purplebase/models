@@ -1,7 +1,4 @@
-import 'package:collection/collection.dart';
-import 'dart:math';
-
-import 'package:models/models.dart';
+part of models;
 
 List<RequestFilter> merge(RequestFilter req1, RequestFilter req2) {
   return _merge(req1.toMap(), req2.toMap()).map(RequestFilter.fromMap).toList();

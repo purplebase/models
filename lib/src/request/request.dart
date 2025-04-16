@@ -1,8 +1,4 @@
-import 'package:collection/collection.dart';
-import 'package:equatable/equatable.dart';
-import 'package:models/models.dart';
-import 'package:models/src/request/merge.dart';
-import 'package:riverpod/riverpod.dart';
+part of models;
 
 class RequestNotifier<E extends Event<dynamic>>
     extends StateNotifier<StorageState<E>> {

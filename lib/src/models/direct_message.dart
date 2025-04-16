@@ -1,5 +1,4 @@
-import 'package:models/src/core/event.dart';
-import 'package:models/src/models/profile.dart';
+part of models;
 
 class DirectMessage extends RegularEvent<DirectMessage> {
   DirectMessage.fromMap(super.map, super.ref) : super.fromMap();

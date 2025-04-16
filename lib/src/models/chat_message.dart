@@ -1,4 +1,4 @@
-import 'package:models/models.dart';
+part of models;
 
 class ChatMessage extends RegularEvent<ChatMessage> {
   late final BelongsTo<ChatMessage> quotedMessage;

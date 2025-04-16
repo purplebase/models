@@ -1,9 +1,4 @@
-import 'dart:math';
-
-import 'package:bip340/bip340.dart' as bip340;
-import 'package:convert/convert.dart';
-import 'package:models/models.dart';
-import 'package:riverpod/riverpod.dart';
+part of models;
 
 mixin Signable<E extends Event<E>> {
   Future<E> signWith(Signer signer, {String? withPubkey}) {

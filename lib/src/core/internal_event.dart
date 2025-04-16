@@ -1,6 +1,4 @@
-import 'package:collection/collection.dart';
-import 'package:models/models.dart';
-import 'package:models/src/core/encoding.dart';
+part of models;
 
 sealed class InternalEvent<E extends Event<E>> {
   final int kind = Event.kindFor<E>();

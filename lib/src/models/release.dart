@@ -1,4 +1,4 @@
-import 'package:models/src/core/event.dart';
+part of models;
 
 class Release extends ParameterizableReplaceableEvent<Release> {
   Release.fromMap(super.map, super.ref) : super.fromMap();

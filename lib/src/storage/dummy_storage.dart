@@ -1,10 +1,4 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:faker/faker.dart';
-import 'package:models/models.dart';
-import 'package:riverpod/riverpod.dart';
+part of models;
 
 /// Reactive storage with dummy data, singleton
 class DummyStorageNotifier extends StorageNotifier {

@@ -1,5 +1,4 @@
 import 'package:models/models.dart';
-import 'package:models/src/request/merge.dart';
 import 'package:test/test.dart';
 
 import '../helpers.dart';

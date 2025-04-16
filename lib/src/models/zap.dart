@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import 'package:models/models.dart';
+part of models;
 
 /// Zap is technically a kind 9735 Zap Receipt
 class Zap extends RegularEvent<Zap> {

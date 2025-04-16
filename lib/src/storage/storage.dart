@@ -1,6 +1,4 @@
-import 'package:models/models.dart';
-import 'package:riverpod/riverpod.dart';
-import 'package:meta/meta.dart';
+part of models;
 
 abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   StorageNotifier() : super(null);
@@ -12,7 +10,7 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   // - Format: {'subId': {RequestFilter(1): [events1], RequestFilter(2): [events2]}}
   // - It's necessary to keep it per subscription ID as request notifiers
   // remove caches when disposed, but should only be theirs
-  // TODO: Make this private
+  @protected
   final Map<String, Map<RequestFilter, List<Event>>> requestCache = {};
 
   @mustCallSuper

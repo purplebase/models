@@ -1,7 +1,4 @@
-import 'dart:typed_data';
-
-import 'package:bech32/bech32.dart';
-import 'package:convert/convert.dart';
+part of models;
 
 /// Encode shareable identifiers (nprofile, nevent, naddr) as TLV data
 /// Credit: https://github.com/ethicnology/dart-nostr/blob/master/lib/src/nips/nip_019.dart

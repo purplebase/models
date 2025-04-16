@@ -1,4 +1,4 @@
-import 'package:models/src/core/event.dart';
+part of models;
 
 class AppCurationSet extends ParameterizableReplaceableEvent<AppCurationSet> {
   AppCurationSet.fromMap(super.map, super.ref) : super.fromMap();

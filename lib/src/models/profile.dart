@@ -1,8 +1,4 @@
-import 'dart:convert';
-
-import 'package:models/models.dart';
-import 'package:models/src/core/encoding.dart';
-import 'package:bip340/bip340.dart' as bip340;
+part of models;
 
 class Profile extends ReplaceableEvent<Profile> {
   late final Map<String, dynamic> _content;
