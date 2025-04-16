@@ -99,7 +99,6 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Cache relationship req results, make relationships check it before hitting sync, remove sync query altogether?
  - [ ] Publish events
  - [ ] Event metadata
- - [ ] Build a feed? Contact lists
+ - [ ] Merge reqs for both local storage and relays
  - [ ] Restrict by subscription (ignores req filter, brings all events from that sub)
  - [ ] Eviction policy API, allowing clients to manage the local database size
- - [ ] Merge reqs for both local storage and relays

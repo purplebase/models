@@ -22,7 +22,7 @@ class RequestNotifier<E extends Event<dynamic>>
     // Fetch events from local storage, fire request to relays
     Future<List<Event>> fn(RequestFilter req) async {
       // Send request filter to relays
-      storage.send(req);
+      storage.fetch(req);
 
       final events = await storage.query(req);
 
@@ -44,7 +44,7 @@ class RequestNotifier<E extends Event<dynamic>>
         }
         // Send request filters to relays
         for (final r in mergedReqs) {
-          storage.send(r);
+          storage.fetch(r);
         }
       }
 
@@ -118,9 +118,9 @@ final Map<RequestFilter,
         AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>>
     _typedProviderCache = {};
 
-/// Family of notifier providers, one per request.
-/// Meant to be overridden, defaults to dummy implementation
-requestNotifierProviderFactory<E extends Event<dynamic>>(RequestFilter req) =>
+/// Family of notifier providers, one per request
+/// Manually caching since a factory function is needed to pass the type
+requestNotifierProvider<E extends Event<dynamic>>(RequestFilter req) =>
     _typedProviderCache[req] ??= StateNotifierProvider.autoDispose
         .family<RequestNotifier<E>, StorageState<E>, RequestFilter>(
       (ref, req) {
@@ -162,7 +162,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
     restrictToSubscription: restrictToSubscription,
     and: and,
   );
-  return requestNotifierProviderFactory(req);
+  return requestNotifierProvider(req);
 }
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))` on one specific kind
@@ -198,7 +198,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     restrictToSubscription: restrictToSubscription,
     and: _castAnd(and),
   );
-  return requestNotifierProviderFactory<E>(req);
+  return requestNotifierProvider<E>(req);
 }
 
 /// Syntax sugar for watching one model
@@ -208,7 +208,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
   // Note: does not need kind as it queries by ID
   final req = RequestFilter(
       ids: {model.id}, and: _castAnd(and), storageOnly: storageOnly);
-  return requestNotifierProviderFactory(req);
+  return requestNotifierProvider(req);
 }
 
 AndFunction _castAnd<E extends Event<E>>(AndFunction<E> andFn) {

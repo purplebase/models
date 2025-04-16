@@ -29,7 +29,8 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
 
   Future<int> count();
 
-  Future<void> send(RequestFilter req);
+  /// Triggers a fetch on relays, returns pre-EOSE events
+  Future<Set<Event>> fetch(RequestFilter req);
 
   /// Cancels any subscriptions for [req]
   Future<void> cancel(RequestFilter req);

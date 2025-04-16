@@ -15,7 +15,8 @@ sealed class Relationship<E extends Event<dynamic>> {
     if (req == null) return [];
     final cachedEvents = storage.requestCache.values
         .firstWhereOrNull((m) => m.containsKey(req))?[req];
-    return (cachedEvents ?? storage.querySync(req!)).cast();
+    return (cachedEvents ?? storage.querySync(req!.copyWith(storageOnly: true)))
+        .cast();
   }
 
   Future<List<E>> _eventsAsync({int? limit}) async {

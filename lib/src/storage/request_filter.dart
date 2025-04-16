@@ -123,16 +123,18 @@ class RequestFilter extends Equatable {
     };
   }
 
-  RequestFilter copyWith(
-      {Set<String>? ids,
-      Set<int>? kinds,
-      Set<String>? authors,
-      Map<String, Set<String>>? tags,
-      DateTime? since,
-      DateTime? until,
-      int? limit,
-      String? search,
-      bool? storageOnly}) {
+  RequestFilter copyWith({
+    Set<String>? ids,
+    Set<String>? authors,
+    Set<int>? kinds,
+    Map<String, Set<String>>? tags,
+    String? search,
+    DateTime? since,
+    DateTime? until,
+    int? limit,
+    int? queryLimit,
+    bool? storageOnly,
+  }) {
     return RequestFilter(
       ids: ids ?? this.ids,
       authors: authors ?? this.authors,

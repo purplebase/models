@@ -45,10 +45,12 @@ class DummyStorageNotifier extends StorageNotifier {
     return querySync(req, applyLimit: applyLimit, onIds: onIds);
   }
 
+  /// [onEvents] is an extension in this implementation
+  /// that allows filtering req on a specific set of events (not _events)
   @override
   List<Event> querySync(RequestFilter req,
-      {bool applyLimit = true, Set<String>? onIds}) {
-    List<Event> results;
+      {bool applyLimit = true, Set<String>? onIds, Set<Event>? onEvents}) {
+    var results = (onEvents ?? _events).toList();
     // If onIds present then restrict req to those
     if (onIds != null) {
       req = req.copyWith(ids: onIds);
@@ -58,9 +60,7 @@ class DummyStorageNotifier extends StorageNotifier {
     final regularIds = {...req.ids}..removeAll(replaceableIds);
 
     if (regularIds.isNotEmpty) {
-      results = _events.where((e) => regularIds.contains(e.id)).toList();
-    } else {
-      results = _events.toList();
+      results = results.where((e) => regularIds.contains(e.id)).toList();
     }
 
     if (replaceableIds.isNotEmpty) {
@@ -124,7 +124,12 @@ class DummyStorageNotifier extends StorageNotifier {
       results = results.where(req.where!).toList();
     }
 
-    return results.toList();
+    // Skip fetchSync if there was an [onEvents]
+    // TODO: Disable streaming when calling fetchSync
+    final fetched = onEvents != null
+        ? <Event>{}
+        : fetchSync(req.copyWith(queryLimit: null));
+    return [...results, ...fetched];
   }
 
   @override
@@ -157,26 +162,37 @@ class DummyStorageNotifier extends StorageNotifier {
   final _random = Random();
 
   @override
-  Future<void> send(RequestFilter req) async {
-    if (req.storageOnly) return;
+  Future<Set<Event>> fetch(RequestFilter req) async {
+    return fetchSync(req);
+  }
+
+  Set<Event> fetchSync(RequestFilter req) {
+    if (req.storageOnly) return {};
 
     final preEoseAmount = req.limit ?? req.queryLimit ?? 10;
     var streamAmount = (req.queryLimit ?? 10) - preEoseAmount;
 
     if (req.kinds.isEmpty || req.kinds.first == 7 || req.kinds.first == 9735) {
-      return;
+      return {};
     }
     final pubkey = req.authors.firstOrNull;
     final profiles = pubkey != null
         ? [generateProfile(pubkey)]
         : List.generate(10, (i) => generateProfile());
 
+    final follows = <Profile>{};
+    if (req.kinds.contains(3)) {
+      follows.addAll([generateProfile(), generateProfile(), generateProfile()]);
+    }
+
     final models = List.generate(preEoseAmount, (i) {
       return generateEvent(
-          kind: req.kinds.first,
-          pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
-          createdAt:
-              DateTime.now().subtract(Duration(minutes: _random.nextInt(10))));
+        kind: req.kinds.first,
+        pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
+        createdAt:
+            DateTime.now().subtract(Duration(minutes: _random.nextInt(10))),
+        pTags: follows.map((e) => e.internal.pubkey).toList(),
+      );
     }).nonNulls.toSet();
 
     final andModels = [
@@ -192,53 +208,57 @@ class DummyStorageNotifier extends StorageNotifier {
               ),
             ).nonNulls.toSet()
     ];
-    Future.microtask(() {
-      save({...profiles, ...models, ...andModels});
-    });
+
+    final events = {...profiles, ...follows, ...models, ...andModels};
+    Future.microtask(() => save(events));
 
     if (streamAmount > 0) {
-      _timers[req] = Timer.periodic(config.streamingBufferWindow, (t) async {
-        if (mounted) {
-          if (streamAmount == 0) {
+      () {
+        _timers[req] = Timer.periodic(config.streamingBufferWindow, (t) async {
+          if (mounted) {
+            if (streamAmount == 0) {
+              t.cancel();
+              _timers.remove(req);
+            } else {
+              final models = List.generate(
+                (streamAmount < 5 ? streamAmount : 5),
+                (i) {
+                  streamAmount--;
+                  return generateEvent(
+                      kind: req.kinds.first,
+                      pubkey:
+                          profiles[_random.nextInt(profiles.length)].pubkey);
+                },
+              ).nonNulls.toSet();
+
+              final andModels = [
+                if (req.and != null)
+                  for (final m in models)
+                    for (final r in req.and!(m))
+                      ...List.generate(
+                        _random.nextInt(20),
+                        (i) {
+                          return generateEvent(
+                            kind: r.req!.kinds.first,
+                            pubkey: profiles[_random.nextInt(profiles.length)]
+                                .pubkey,
+                            parentId: m.id,
+                          );
+                        },
+                      ).nonNulls.toSet()
+              ];
+              Future.microtask(() {
+                save({...models, ...andModels});
+              });
+            }
+          } else {
             t.cancel();
             _timers.remove(req);
-          } else {
-            final models = List.generate(
-              (streamAmount < 5 ? streamAmount : 5),
-              (i) {
-                streamAmount--;
-                return generateEvent(
-                    kind: req.kinds.first,
-                    pubkey: profiles[_random.nextInt(profiles.length)].pubkey);
-              },
-            ).nonNulls.toSet();
-
-            final andModels = [
-              if (req.and != null)
-                for (final m in models)
-                  for (final r in req.and!(m))
-                    ...List.generate(
-                      _random.nextInt(20),
-                      (i) {
-                        return generateEvent(
-                          kind: r.req!.kinds.first,
-                          pubkey:
-                              profiles[_random.nextInt(profiles.length)].pubkey,
-                          parentId: m.id,
-                        );
-                      },
-                    ).nonNulls.toSet()
-            ];
-            Future.microtask(() {
-              save({...models, ...andModels});
-            });
           }
-        } else {
-          t.cancel();
-          _timers.remove(req);
-        }
-      });
+        });
+      }();
     }
+    return querySync(req, onEvents: events).toSet();
   }
 
   Profile generateProfile([String? pubkey]) {
@@ -253,9 +273,16 @@ class DummyStorageNotifier extends StorageNotifier {
       {required int kind,
       String? parentId,
       String? pubkey,
-      DateTime? createdAt}) {
+      DateTime? createdAt,
+      List<String> pTags = const []}) {
     return switch (kind) {
       0 => generateProfile(),
+      3 => pTags.isEmpty
+          ? null
+          : (PartialContactList()
+                ..addFollowPubkey(pTags[0])
+                ..addFollowPubkey(pTags[1]))
+              .dummySign(pubkey),
       1 => PartialNote(faker.lorem.sentence(), createdAt: createdAt)
           .dummySign(pubkey),
       7 => parentId == null
@@ -264,16 +291,15 @@ class DummyStorageNotifier extends StorageNotifier {
       9 => PartialChatMessage(faker.lorem.sentence()).dummySign(pubkey),
       9735 => pubkey != null && parentId != null
           ? Zap.fromMap(
-              jsonDecode(
-                  _sampleBolt11(zapperPubkey: pubkey, eventId: parentId)),
-              ref)
+              _sampleZap(zapperPubkey: pubkey, eventId: parentId), ref)
           : null,
       _ => null,
     };
   }
 }
 
-_sampleBolt11({required String zapperPubkey, required String eventId}) => '''
+_sampleZap({required String zapperPubkey, required String eventId}) =>
+    jsonDecode('''
 {
         "content": "✨",
         "created_at": ${DateTime.now().millisecondsSinceEpoch ~/ 1000},
@@ -307,4 +333,4 @@ _sampleBolt11({required String zapperPubkey, required String eventId}) => '''
             ]
         ]
     }
-''';
+''');
