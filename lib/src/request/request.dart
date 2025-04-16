@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:models/models.dart';
+import 'package:models/src/request/merge.dart';
 import 'package:riverpod/riverpod.dart';
 
 class RequestNotifier<E extends Event<dynamic>>
@@ -9,7 +10,6 @@ class RequestNotifier<E extends Event<dynamic>>
   final RequestFilter req;
   final StorageNotifier storage;
   var applyLimit = true;
-  final List<RequestFilter> andReqs = [];
 
   RequestNotifier(this.ref, this.req)
       : storage = ref.read(storageNotifierProvider.notifier),
@@ -29,26 +29,21 @@ class RequestNotifier<E extends Event<dynamic>>
 
       if (req.and != null) {
         final reqs = {
-          for (final e in events)
-            ...req.and!(e)
-                .map((r) => r.req?.copyWith(remote: req.remote))
-                .nonNulls
+          for (final e in events) ...req.and!(e).map((r) => r.req).nonNulls
         };
+        final mergedReqs = mergeRequests(reqs.toList());
 
-        // TODO: Merge reqs here; and allow querying multiple reqs
-        final mergedReqs = [];
-        for (final r in reqs) {
-          final events = await storage.query(r);
-          andReqs.add(r);
+        for (final r in mergedReqs) {
+          // Query without hitting relays, we do that below
+          final events = await storage.query(r.copyWith(remote: false));
+          // TODO: Could check if r is "included" in some cached req
+          // Would need to implement a bool isIncluded(req) fn
           storage.requestCache[r.subscriptionId] ??= {};
           storage.requestCache[r.subscriptionId]![r] = events;
-        }
-        // Send request filters to relays
-        for (final r in mergedReqs) {
+          // Send request filters to relays
           storage.fetch(r);
         }
       }
-
       return events;
     }
 
@@ -69,6 +64,7 @@ class RequestNotifier<E extends Event<dynamic>>
         }
 
         // TODO: Use defaults? Explain why
+        // TODO: on => relayGroup
         final relayUrls =
             storage.config.getRelays(relayGroup: req.on, useDefault: false);
 

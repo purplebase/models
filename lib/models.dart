@@ -1,8 +1,8 @@
 library;
 
 export 'src/storage/storage.dart';
-export 'src/storage/request.dart';
-export 'src/storage/request_filter.dart';
+export 'src/request/request.dart';
+export 'src/request/request_filter.dart';
 export 'src/storage/dummy_storage.dart';
 export 'src/core/event.dart';
 export 'src/core/extensions.dart';

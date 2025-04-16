@@ -42,6 +42,8 @@ final class BelongsTo<E extends Event<dynamic>> extends Relationship<E> {
   }
 }
 
+// TODO: Some HasManys like targetedPublication#communities may point
+// to multiple replaceable events, so need to support multiple reqs
 final class HasMany<E extends Event<dynamic>> extends Relationship<E> {
   HasMany(super.ref, super.req);
 

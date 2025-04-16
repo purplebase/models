@@ -3,7 +3,7 @@ import 'package:models/models.dart';
 class TargetedPublication
     extends ParameterizableReplaceableEvent<TargetedPublication> {
   late final BelongsTo<Event> event;
-  late final HasMany<Community> communities;
+  late final BelongsTo<Community> community;
 
   TargetedPublication.fromMap(super.map, super.ref) : super.fromMap() {
     if (internal.getFirstTagValue('e') != null) {
@@ -11,11 +11,10 @@ class TargetedPublication
           BelongsTo(ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
     } else {
       final addressableId = internal.getFirstTagValue('a')!;
-      event =
-          BelongsTo(ref, RequestFilter.fromReplaceableEvents({addressableId}));
+      event = BelongsTo(ref, RequestFilter.fromReplaceableEvent(addressableId));
     }
-    communities = HasMany(ref,
-        RequestFilter.fromReplaceableEvents(internal.getTagSetValues('p')));
+    community = BelongsTo(ref,
+        RequestFilter.fromReplaceableEvent(internal.getFirstTagValue('p')!));
   }
 
   int get targetedKind => int.parse(internal.getFirstTagValue('k')!);

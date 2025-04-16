@@ -78,36 +78,39 @@ class RequestFilter extends Equatable {
     this.subscriptionId = subscriptionId ?? 'sub-${_random.nextInt(999999)}';
   }
 
-  factory RequestFilter.fromReplaceableEvents(Set<String> addressableIds) {
-    RequestFilter? req;
-    for (final addressableId in addressableIds) {
-      final [kind, author, _] = addressableId.split(':');
-      if (req == null) {
-        req = RequestFilter(
-          kinds: {int.parse(kind)},
-          authors: {author},
-        );
-      } else {
-        req = req.merge(RequestFilter(
-          kinds: {int.parse(kind)},
-          authors: {author},
-        ))!;
-      }
-    }
-    return req ?? RequestFilter();
+  factory RequestFilter.fromMap(Map<String, dynamic> map) {
+    return RequestFilter(
+      ids: {...?map['ids']},
+      kinds: {...?map['kinds']},
+      authors: {...?map['authors']},
+      tags: {
+        for (final e in map.entries)
+          if (e.key.startsWith('#')) e.key: {...e.value}
+      },
+      search: map['search'],
+      since: map['since'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['since'] * 1000)
+          : null,
+      until: map['until'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['until'] * 1000)
+          : null,
+      limit: map['limit'],
+    );
   }
 
-  // TODO: Improve merge fn
-  RequestFilter? merge(RequestFilter req) {
-    if (_equality.equals(kinds, req.kinds)) {
-      return RequestFilter(
-        authors: {...authors, ...req.authors},
-      );
+  factory RequestFilter.fromReplaceableEvent(String addressableId) {
+    final [kind, author, ...rest] = addressableId.split(':');
+    var req = RequestFilter(
+      kinds: {int.parse(kind)},
+      authors: {author},
+    );
+    if (rest.isNotEmpty && rest.first.isNotEmpty) {
+      req = req.copyWith(tags: {
+        '#d': {rest.first}
+      });
     }
-    return null;
+    return req;
   }
-
-  static final _equality = DeepCollectionEquality();
 
   Map<String, dynamic> toMap() {
     return {
