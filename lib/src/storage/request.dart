@@ -20,17 +20,18 @@ class RequestNotifier<E extends Event<dynamic>>
     }
 
     // Fetch events from local storage, fire request to relays
-    Future<List<Event>> fn(RequestFilter req) async {
-      // Send request filter to relays
+    Future<List<Event>> fetchAndQuery(RequestFilter req) async {
+      // Send req to relays in the background (pre-EOSE + streaming)
       storage.fetch(req);
 
-      final events = await storage.query(req);
+      // And ensure query is run in local storage only
+      final events = await storage.query(req.copyWith(remote: false));
 
       if (req.and != null) {
         final reqs = {
           for (final e in events)
             ...req.and!(e)
-                .map((r) => r.req?.copyWith(storageOnly: req.storageOnly))
+                .map((r) => r.req?.copyWith(remote: req.remote))
                 .nonNulls
         };
 
@@ -51,7 +52,7 @@ class RequestNotifier<E extends Event<dynamic>>
       return events;
     }
 
-    fn(req).then((events) {
+    fetchAndQuery(req).then((events) {
       if (mounted) {
         state = StorageData([...state.models, ...events.cast<E>()]);
       }
@@ -91,9 +92,8 @@ class RequestNotifier<E extends Event<dynamic>>
           return true;
         }).toSet();
 
-        final updatedReq =
-            req.copyWith(ids: finalIncomingIds, storageOnly: true);
-        events = await fn(updatedReq);
+        final updatedReq = req.copyWith(ids: finalIncomingIds, remote: false);
+        events = await fetchAndQuery(updatedReq);
 
         final List<E> sortedModels = {...state.models, ...events.cast<E>()}
             .sortedByCompare((m) => m.createdAt.millisecondsSinceEpoch,
@@ -130,6 +130,7 @@ requestNotifierProvider<E extends Event<dynamic>>(RequestFilter req) =>
     )(req);
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
+/// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
   Set<String>? ids,
   Set<int>? kinds,
@@ -140,7 +141,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
   DateTime? until,
   int? limit,
   int? queryLimit,
-  bool storageOnly = false,
+  bool remote = true,
   String? on,
   bool restrictToRelays = false,
   bool restrictToSubscription = false,
@@ -156,7 +157,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
     until: until,
     limit: limit,
     queryLimit: queryLimit,
-    storageOnly: storageOnly,
+    remote: remote,
     on: on,
     restrictToRelays: restrictToRelays,
     restrictToSubscription: restrictToSubscription,
@@ -166,6 +167,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
 }
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))` on one specific kind
+/// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     queryType<E extends Event<E>>({
   Set<String>? ids,
@@ -176,7 +178,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
   DateTime? until,
   int? limit,
   int? queryLimit,
-  bool storageOnly = false,
+  bool remote = true,
   String? on,
   bool restrictToRelays = false,
   bool restrictToSubscription = false,
@@ -192,7 +194,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     until: until,
     limit: limit,
     queryLimit: queryLimit,
-    storageOnly: storageOnly,
+    remote: remote,
     on: on,
     restrictToRelays: restrictToRelays,
     restrictToSubscription: restrictToSubscription,
@@ -202,12 +204,13 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 }
 
 /// Syntax sugar for watching one model
+/// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
     model<E extends Event<E>>(E model,
-        {AndFunction<E> and, bool storageOnly = false}) {
+        {AndFunction<E> and, bool remote = true}) {
   // Note: does not need kind as it queries by ID
-  final req = RequestFilter(
-      ids: {model.id}, and: _castAnd(and), storageOnly: storageOnly);
+  final req =
+      RequestFilter(ids: {model.id}, and: _castAnd(and), remote: remote);
   return requestNotifierProvider(req);
 }
 

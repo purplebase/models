@@ -1,5 +1,6 @@
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
+import 'package:meta/meta.dart';
 
 abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   StorageNotifier() : super(null);
@@ -14,27 +15,34 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   // TODO: Make this private
   final Map<String, Map<RequestFilter, List<Event>>> requestCache = {};
 
+  @mustCallSuper
   Future<void> initialize(StorageConfiguration config) async {
     this.config = config;
   }
 
+  /// Query storage asynchronously
+  /// Passing [remote]=`true` hits relays only until EOSE
   Future<List<Event>> query(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds});
 
+  /// Query storage asynchronously
+  /// [remote] is ignored and always false
   List<Event> querySync(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds});
 
+  /// Save events to storage, use [publish] to send to relays
+  /// Specifying [relayGroup] or fall back to default group
   Future<void> save(Set<Event> events,
       {String? relayGroup, bool publish = true});
 
-  Future<int> count();
-
-  /// Triggers a fetch on relays, returns pre-EOSE events
+  /// Trigger a fetch on relays, returns pre-EOSE events
+  /// but streams in the background
   Future<Set<Event>> fetch(RequestFilter req);
 
-  /// Cancels any subscriptions for [req]
+  /// Cancel any subscriptions for [req]
   Future<void> cancel(RequestFilter req);
 
+  /// Remove all events from storage, or those matching [req]
   Future<void> clear([RequestFilter? req]);
 }
 

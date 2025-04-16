@@ -27,7 +27,7 @@ class RequestFilter extends Equatable {
   final int? queryLimit;
 
   /// Do not query relays
-  final bool storageOnly;
+  final bool remote;
 
   /// Send request to this relay group
   final String? on;
@@ -56,7 +56,7 @@ class RequestFilter extends Equatable {
     // Extra arguments
     String? subscriptionId,
     this.queryLimit,
-    this.storageOnly = false,
+    this.remote = false,
     this.on,
     this.restrictToRelays = false,
     this.restrictToSubscription = false,
@@ -133,7 +133,7 @@ class RequestFilter extends Equatable {
     DateTime? until,
     int? limit,
     int? queryLimit,
-    bool? storageOnly,
+    bool? remote,
   }) {
     return RequestFilter(
       ids: ids ?? this.ids,
@@ -147,7 +147,7 @@ class RequestFilter extends Equatable {
       // Extra arguments
       subscriptionId: subscriptionId,
       queryLimit: queryLimit,
-      storageOnly: storageOnly ?? this.storageOnly,
+      remote: remote ?? this.remote,
       on: on,
       restrictToRelays: restrictToRelays,
       restrictToSubscription: restrictToSubscription,

@@ -15,13 +15,12 @@ sealed class Relationship<E extends Event<dynamic>> {
     if (req == null) return [];
     final cachedEvents = storage.requestCache.values
         .firstWhereOrNull((m) => m.containsKey(req))?[req];
-    return (cachedEvents ?? storage.querySync(req!.copyWith(storageOnly: true)))
-        .cast();
+    return (cachedEvents ?? storage.querySync(req!)).cast();
   }
 
   Future<List<E>> _eventsAsync({int? limit}) async {
     if (req == null) return [];
-    final updatedReq = req!.copyWith(limit: limit, storageOnly: true);
+    final updatedReq = req!.copyWith(limit: limit, remote: false);
     final events =
         await ref.read(storageNotifierProvider.notifier).query(updatedReq);
     return events.cast<E>();

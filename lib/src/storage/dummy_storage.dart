@@ -42,7 +42,12 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<List<Event>> query(RequestFilter req,
       {bool applyLimit = true, Set<String>? onIds}) async {
-    return querySync(req, applyLimit: applyLimit, onIds: onIds);
+    final results = querySync(req, applyLimit: applyLimit, onIds: onIds);
+    return Future.microtask(() {
+      // No queryLimit disables streaming
+      final fetched = fetchSync(req.copyWith(queryLimit: null));
+      return [...results, ...fetched];
+    });
   }
 
   /// [onEvents] is an extension in this implementation
@@ -124,17 +129,7 @@ class DummyStorageNotifier extends StorageNotifier {
       results = results.where(req.where!).toList();
     }
 
-    // Skip fetchSync if there was an [onEvents]
-    // TODO: Disable streaming when calling fetchSync
-    final fetched = onEvents != null
-        ? <Event>{}
-        : fetchSync(req.copyWith(queryLimit: null));
-    return [...results, ...fetched];
-  }
-
-  @override
-  Future<int> count() async {
-    return _events.length;
+    return results;
   }
 
   @override
@@ -167,10 +162,11 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   Set<Event> fetchSync(RequestFilter req) {
-    if (req.storageOnly) return {};
+    if (!req.remote) return {};
 
     final preEoseAmount = req.limit ?? req.queryLimit ?? 10;
-    var streamAmount = (req.queryLimit ?? 10) - preEoseAmount;
+    var streamAmount =
+        req.queryLimit != null ? req.queryLimit! - preEoseAmount : 0;
 
     if (req.kinds.isEmpty || req.kinds.first == 7 || req.kinds.first == 9735) {
       return {};
@@ -220,8 +216,9 @@ class DummyStorageNotifier extends StorageNotifier {
               t.cancel();
               _timers.remove(req);
             } else {
+              final amt = streamAmount < 5 ? streamAmount : 5;
               final models = List.generate(
-                (streamAmount < 5 ? streamAmount : 5),
+                amt,
                 (i) {
                   streamAmount--;
                   return generateEvent(
@@ -258,7 +255,7 @@ class DummyStorageNotifier extends StorageNotifier {
         });
       }();
     }
-    return querySync(req, onEvents: events).toSet();
+    return querySync(req.copyWith(remote: false), onEvents: events).toSet();
   }
 
   Profile generateProfile([String? pubkey]) {
