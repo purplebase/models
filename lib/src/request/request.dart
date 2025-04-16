@@ -63,10 +63,11 @@ class RequestNotifier<E extends Event<dynamic>>
           return;
         }
 
-        // TODO: Use defaults? Explain why
-        // TODO: on => relayGroup
-        final relayUrls =
-            storage.config.getRelays(relayGroup: req.on, useDefault: false);
+        // We do not want defaults here (just an empty set) so we can
+        // match exactly with user-specified relays when the
+        // restrictToRelays argument is true
+        final relayUrls = storage.config
+            .getRelays(relayGroup: req.relayGroup, useDefault: false);
 
         // If none of the relayUrls are in the incoming IDs, skip
         if (req.restrictToRelays &&
@@ -154,7 +155,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
     limit: limit,
     queryLimit: queryLimit,
     remote: remote,
-    on: on,
+    relayGroup: on,
     restrictToRelays: restrictToRelays,
     restrictToSubscription: restrictToSubscription,
     and: and,
@@ -191,7 +192,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     limit: limit,
     queryLimit: queryLimit,
     remote: remote,
-    on: on,
+    relayGroup: on,
     restrictToRelays: restrictToRelays,
     restrictToSubscription: restrictToSubscription,
     and: _castAnd(and),

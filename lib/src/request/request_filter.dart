@@ -30,7 +30,7 @@ class RequestFilter extends Equatable {
   final bool remote;
 
   /// Send request to this relay group
-  final String? on;
+  final String? relayGroup;
 
   /// Restrict to requested relay group
   final bool restrictToRelays;
@@ -57,7 +57,7 @@ class RequestFilter extends Equatable {
     String? subscriptionId,
     this.queryLimit,
     this.remote = false,
-    this.on,
+    this.relayGroup,
     this.restrictToRelays = false,
     this.restrictToSubscription = false,
     this.where,
@@ -151,7 +151,7 @@ class RequestFilter extends Equatable {
       subscriptionId: subscriptionId,
       queryLimit: queryLimit,
       remote: remote ?? this.remote,
-      on: on,
+      relayGroup: relayGroup,
       restrictToRelays: restrictToRelays,
       restrictToSubscription: restrictToSubscription,
       where: where,
