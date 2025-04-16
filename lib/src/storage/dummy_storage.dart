@@ -29,8 +29,16 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<void> save(Set<Event> events,
-      {String? relayGroup, bool publish = true}) async {
+      {String? relayGroup, bool publish = false}) async {
     _events.addAll(events);
+
+    if (publish && events.isNotEmpty) {
+      final relayUrls =
+          config.getRelays(relayGroup: relayGroup, useDefault: true);
+      for (final relayUrl in relayUrls) {
+        print('Fake publishing ${events.length} events to $relayUrl');
+      }
+    }
 
     // Empty response metadata as these events do not come from a relay
     final responseMetadata = ResponseMetadata(relayUrls: {});

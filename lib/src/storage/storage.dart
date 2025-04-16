@@ -33,7 +33,7 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   /// Save events to storage, use [publish] to send to relays
   /// Specifying [relayGroup] or fall back to default group
   Future<void> save(Set<Event> events,
-      {String? relayGroup, bool publish = true});
+      {String? relayGroup, bool publish = false});
 
   /// Trigger a fetch on relays, returns pre-EOSE events
   /// but streams in the background
