@@ -14,8 +14,12 @@ class ChatMessage extends RegularEvent<ChatMessage> {
         },
       ),
     );
-    community = BelongsTo(ref,
-        RequestFilter.fromReplaceableEvent(internal.getFirstTagValue('h')!));
+    community = BelongsTo(
+        ref,
+        internal.containsTag('h')
+            ? RequestFilter.fromReplaceableEvent(
+                internal.getFirstTagValue('h')!)
+            : null);
   }
   String get content => internal.content;
 }
