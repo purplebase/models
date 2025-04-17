@@ -28,7 +28,7 @@ class PartialChatMessage extends RegularPartialEvent<ChatMessage> {
       internal.createdAt = createdAt;
     }
 
-    internal.addTagValue('q', quotedMessage?.internal.id);
-    internal.addTagValue('h', community?.internal.id);
+    internal.addTagValue('q', quotedMessage?.id);
+    internal.addTagValue('h', community?.id);
   }
 }

@@ -26,7 +26,7 @@ class PartialTargetedPublication
   PartialTargetedPublication(Event event,
       {required Set<Community> communities, Set<String>? relayUrls}) {
     internal.addTagValue('d', generate64Hex());
-    internal.addTagValue(event is ReplaceableEvent ? 'a' : 'e', event.id);
+    internal.addTagValue(event.internal.addressableIdTagLetter, event.id);
     internal.addTagValue('k', event.internal.kind.toString());
     for (final community in communities) {
       internal.addTagValue('p', community.id);

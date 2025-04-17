@@ -94,8 +94,11 @@ final class ImmutableInternalEvent<E extends Event<E>>
     }
   }
 
+  String get addressableIdTagLetter =>
+      this is ImmutableReplaceableInternalEvent ? 'a' : 'e';
+
   Map<String, Set<String>> get addressableIdTagMap => {
-        this is ImmutableReplaceableInternalEvent ? '#a' : '#e': {id}
+        '#$addressableIdTagLetter': {id}
       };
 }
 
