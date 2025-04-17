@@ -1,5 +1,6 @@
 part of models;
 
+// TODO: Make sure there is always access to keys (vs just models), goes in here or models themselves?
 sealed class Relationship<E extends Model<dynamic>> {
   final RequestFilter<E>? req;
   final Ref ref;

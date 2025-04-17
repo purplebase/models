@@ -135,10 +135,13 @@ void main() async {
     });
 
     test('replaceable updates', () async {
-      // TODO: Implement
-      // tester = container
-      //     .testerFor(queryKinds(ids: {a.event.id, e.event.id}, remote: false));
-      // await tester.expectModels(unorderedEquals({a, e}));
+      tester = container
+          .testerFor(query<Profile>(authors: {nielPubkey}, remote: false));
+      await tester.expectModels(unorderedEquals({nielProfile}));
+
+      nielProfile.copyWith(name: 'Nielcho').dummySign(nielPubkey).save();
+      await tester.expect(isA<StorageData<Profile>>()
+          .having((s) => s.models.first.name, 'name', 'Nielcho'));
     });
 
     test('relationships with model watcher', () async {

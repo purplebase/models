@@ -24,6 +24,15 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<void> save(Set<Model> models,
       {String? relayGroup, bool publish = false}) async {
+    // Publish in the background, before using metadata/transformMap
+    if (publish && models.isNotEmpty) {
+      final relayUrls =
+          config.getRelays(relayGroup: relayGroup, useDefault: true);
+      for (final relayUrl in relayUrls) {
+        print('Fake publishing ${models.length} models to $relayUrl');
+      }
+    }
+
     for (final model in models) {
       // Need to deconstruct to inject metadata and
       // remove useless content, then construct again
@@ -33,15 +42,10 @@ class DummyStorageNotifier extends StorageNotifier {
       final e = constructor!.call(
           {...transformedModel, if (metadata.isNotEmpty) 'metadata': metadata},
           ref) as Model;
-      _models.add(e);
-    }
-
-    if (publish && models.isNotEmpty) {
-      final relayUrls =
-          config.getRelays(relayGroup: relayGroup, useDefault: true);
-      for (final relayUrl in relayUrls) {
-        print('Fake publishing ${models.length} models to $relayUrl');
+      if (e is ReplaceableModel) {
+        _models.removeWhere((m) => m.id == e.id);
       }
+      _models.add(e);
     }
 
     // Empty response metadata as these models do not come from a relay

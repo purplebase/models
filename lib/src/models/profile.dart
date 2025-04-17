@@ -44,6 +44,16 @@ class Profile extends ReplaceableModel<Profile> {
 
   String get nameOrNpub => name ?? npub;
 
+  PartialProfile copyWith({String? name}) {
+    // TODO: Confusing not to have metadata here, returs null before saving
+    return PartialProfile(name: name ?? this.name);
+  }
+
+  @override
+  String toString() {
+    return '<Profile>$name [npub: $npub]';
+  }
+
   /// Attempts to convert this string (hex) to npub. Returns same if already npub.
   static String npubFromHex(String hex) =>
       hex.startsWith('npub') ? hex : bech32Encode('npub', hex);
@@ -59,6 +69,8 @@ class Profile extends ReplaceableModel<Profile> {
 
 class PartialProfile extends ReplaceablePartialModel<Profile> {
   PartialProfile({this.name, this.nip05, this.pictureUrl, this.lud16}) {
+    // NOTE: In partial events we don't use metadata, once passed to `save`
+    // it goes out to relays as-is, gets processed and comes back saved with metadata
     event.content =
         jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
   }

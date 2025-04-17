@@ -77,6 +77,7 @@ class RequestNotifier<E extends Model<dynamic>>
 
         final finalIncomingIds = incomingIds.where((id) {
           // If replaceable incoming ID, only keep if in req.ids
+          // TODO: Why ??
           if (kReplaceableRegexp.hasMatch(id)) {
             return req.ids.contains(id);
           }
@@ -85,13 +86,20 @@ class RequestNotifier<E extends Model<dynamic>>
         }).toSet();
 
         final updatedReq = req.copyWith(ids: finalIncomingIds, remote: false);
-        final reqModels = await fetchAndQuery(updatedReq);
+        final updatedModels = await fetchAndQuery(updatedReq);
 
-        final sortedModels = {...state.models, ...reqModels}.sortedByCompare(
-            (m) => m.createdAt.millisecondsSinceEpoch,
-            (a, b) => b.compareTo(a));
-        if (mounted) {
-          state = StorageData(sortedModels);
+        if (updatedModels.isNotEmpty) {
+          // Take care of removing old versions of replaced events
+          final updatedIds = updatedModels.map((m) => m.id);
+          state.models.removeWhere((m) => updatedIds.contains(m.id));
+
+          // Concat and sort
+          final sortedModels = {...state.models, ...updatedModels}
+              .sortedByCompare((m) => m.createdAt.millisecondsSinceEpoch,
+                  (a, b) => b.compareTo(a));
+          if (mounted) {
+            state = StorageData(sortedModels);
+          }
         }
       }
     });

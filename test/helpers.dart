@@ -15,21 +15,21 @@ class StorageNotifierTester {
   final RequestNotifier notifier;
 
   final _disposeFns = [];
-  final completers = <Completer>[Completer()];
+  final _completers = <Completer>[Completer()];
   var initial = true;
   var i = 0;
 
   StorageNotifierTester(this.notifier) {
     final dispose = notifier.addListener((state) {
       // print('${state.runtimeType} ${state.models.length}');
-      completers.last.complete(state);
-      completers.add(Completer());
+      _completers.last.complete(state);
+      _completers.add(Completer());
     }, fireImmediately: false);
     _disposeFns.add(dispose);
   }
 
   Future<dynamic> expect(Matcher m) async {
-    final result = await expectLater(completers[i].future, completion(m));
+    final result = await expectLater(_completers[i].future, completion(m));
     i++;
     return result;
   }

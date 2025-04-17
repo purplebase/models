@@ -87,6 +87,12 @@ sealed class Model<E extends Model<E>>
     return toMap().toString();
   }
 
+  // Storage-related
+
+  Future<void> save() {
+    return storage.save({this});
+  }
+
   // Registry related functions
 
   static final Map<String, ({int kind, ModelConstructor constructor})>
@@ -208,9 +214,6 @@ abstract class ReplaceableModel<E extends Model<E>> extends Model<E> {
 
   ReplaceableModel._(Ref ref, ImmutableReplaceableEvent event)
       : super._(ref, event);
-
-  @override
-  List<Object?> get props => [id];
 }
 
 abstract class ReplaceablePartialModel<E extends Model<E>> = PartialModel<E>
