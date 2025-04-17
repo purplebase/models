@@ -65,47 +65,47 @@ void main() async {
     });
 
     test('ids', () async {
-      tester = container
-          .testerFor(query(ids: {a.internal.id, e.internal.id}, remote: false));
+      tester = container.testerFor(
+          queryKinds(ids: {a.internal.id, e.internal.id}, remote: false));
       await tester.expectModels(unorderedEquals({a, e}));
     });
 
     test('authors', () async {
-      tester = container.testerFor(
-          query(authors: {franzapPubkey, verbirichaPubkey}, remote: false));
+      tester = container.testerFor(queryKinds(
+          authors: {franzapPubkey, verbirichaPubkey}, remote: false));
       await tester.expectModels(unorderedEquals({e, f, g}));
     });
 
     test('kinds', () async {
-      tester = container.testerFor(queryType<Note>(remote: false));
+      tester = container.testerFor(query<Note>(remote: false));
       await tester.expectModels(allOf(
         hasLength(9),
         everyElement((e) => e is Event && e.internal.kind == 1),
       ));
 
-      tester = container.testerFor(queryType<Profile>(remote: false));
+      tester = container.testerFor(query<Profile>(remote: false));
       await tester.expectModels(hasLength(1));
     });
 
     test('tags', () async {
-      tester = container.testerFor(query(authors: {
+      tester = container.testerFor(queryKinds(authors: {
         nielPubkey
       }, tags: {
         '#t': {'nostr'}
       }, remote: false));
       await tester.expectModels(equals({d}));
 
-      tester = container.testerFor(query(tags: {
+      tester = container.testerFor(queryKinds(tags: {
         '#t': {'nostr', 'test'}
       }, remote: false));
       await tester.expectModels(unorderedEquals({d, f}));
 
-      tester = container.testerFor(query(tags: {
+      tester = container.testerFor(queryKinds(tags: {
         '#t': {'test'}
       }, remote: false));
       await tester.expectModels(isEmpty);
 
-      tester = container.testerFor(query(tags: {
+      tester = container.testerFor(queryKinds(tags: {
         '#t': {'nostr'},
         '#e': {nielPubkey}
       }, remote: false));
@@ -113,7 +113,7 @@ void main() async {
     });
 
     test('until', () async {
-      tester = container.testerFor(queryType<Note>(
+      tester = container.testerFor(query<Note>(
           authors: {nielPubkey},
           until: DateTime.now().subtract(Duration(minutes: 1)),
           remote: false));
@@ -121,7 +121,7 @@ void main() async {
     });
 
     test('since', () async {
-      tester = container.testerFor(query(
+      tester = container.testerFor(queryKinds(
           authors: {nielPubkey},
           since: DateTime.now().subtract(Duration(minutes: 1)),
           remote: false));
@@ -130,7 +130,7 @@ void main() async {
 
     test('limit and order', () async {
       tester = container.testerFor(
-          queryType<Note>(authors: {nielPubkey}, limit: 3, remote: false));
+          query<Note>(authors: {nielPubkey}, limit: 3, remote: false));
       await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
@@ -142,7 +142,7 @@ void main() async {
     });
 
     test('multiple relationships', () async {
-      tester = container.testerFor(queryType<Note>(
+      tester = container.testerFor(query<Note>(
           ids: {a.id, b.id},
           and: (note) => {note.author, note.replies},
           remote: false));
@@ -152,7 +152,7 @@ void main() async {
 
     test('relay metadata', () async {
       tester = container
-          .testerFor(queryType<Profile>(authors: {nielPubkey}, remote: false));
+          .testerFor(query<Profile>(authors: {nielPubkey}, remote: false));
       await tester.expect(isA<StorageData>()
           .having((s) => s.models.first.internal.relays, 'relays', <String>{}));
     });
@@ -165,7 +165,7 @@ void main() async {
       await storage.clear();
     });
     test('request filter', () {
-      tester = container.testerFor(queryType<Reaction>()); // no-op
+      tester = container.testerFor(query<Reaction>()); // no-op
       final r1 = RequestFilter<Reaction>(authors: {
         nielPubkey,
         franzapPubkey
@@ -211,13 +211,13 @@ void main() async {
 
     test('relay request should notify with events', () async {
       tester = container.testerFor(
-          queryType<Note>(authors: {nielPubkey, franzapPubkey}, limit: 2));
+          query<Note>(authors: {nielPubkey, franzapPubkey}, limit: 2));
       await tester.expectModels(isEmpty);
       await tester.expectModels(hasLength(2));
     });
 
     test('relay request should notify with events (streamed)', () async {
-      tester = container.testerFor(queryType<Note>(
+      tester = container.testerFor(query<Note>(
         authors: {nielPubkey, franzapPubkey},
         limit: 5,
         queryLimit: 21,

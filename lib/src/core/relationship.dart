@@ -18,8 +18,8 @@ sealed class Relationship<E extends Event<dynamic>> {
     if (req == null) return [];
     final updatedReq = req!.copyWith(limit: limit, remote: false);
     final events =
-        await ref.read(storageNotifierProvider.notifier).query(updatedReq);
-    return events.cast<E>();
+        await ref.read(storageNotifierProvider.notifier).query<E>(updatedReq);
+    return events;
   }
 }
 

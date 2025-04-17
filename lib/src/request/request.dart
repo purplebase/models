@@ -72,8 +72,6 @@ class RequestNotifier<E extends Event<dynamic>>
           return;
         }
 
-        List<E> events;
-
         // Incoming are the IDs of *any* new events in local storage,
         // so restrict req to them and check if they apply
 
@@ -87,12 +85,11 @@ class RequestNotifier<E extends Event<dynamic>>
         }).toSet();
 
         final updatedReq = req.copyWith(ids: finalIncomingIds, remote: false);
-        final mo = await fetchAndQuery(updatedReq);
-        events = mo.cast();
+        final reqModels = await fetchAndQuery(updatedReq);
 
-        final List<E> sortedModels = {...state.models, ...events.cast<E>()}
-            .sortedByCompare((m) => m.createdAt.millisecondsSinceEpoch,
-                (a, b) => b.compareTo(a));
+        final sortedModels = {...state.models, ...reqModels}.sortedByCompare(
+            (m) => m.createdAt.millisecondsSinceEpoch,
+            (a, b) => b.compareTo(a));
         if (mounted) {
           state = StorageData(sortedModels);
         }
@@ -126,7 +123,7 @@ requestNotifierProvider<E extends Event<dynamic>>(RequestFilter<E> req) =>
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
 /// [remote] is true by default
-AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
+AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   Set<String>? ids,
   Set<int>? kinds,
   Set<String>? authors,
@@ -164,7 +161,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> query({
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))` on one specific kind
 /// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
-    queryType<E extends Event<E>>({
+    query<E extends Event<E>>({
   Set<String>? ids,
   Set<String>? authors,
   Map<String, Set<String>>? tags,

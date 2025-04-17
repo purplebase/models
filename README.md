@@ -73,7 +73,7 @@ Storage with a nostr relay API is at the core of this approach. Querying is done
 Example:
 
 ```dart
-ref.watch(query(authors: {'a1b2c3'}, kinds: {1}, since: DateTime.now().subtract(Duration(seconds: 5))));
+ref.watch(query<Note>(authors: {'a1b2c3'}, since: DateTime.now().subtract(Duration(seconds: 5))));
 ```
 
 Every single event coming through this watcher comes from local storage and never from a relay directly. 
@@ -87,11 +87,14 @@ To prevent local storage bloat, an eviction policy callback will be made availab
 The modelling layer intends to abstract away NIP jargon and be as domain language as possible. It will include a powerful relationship API, such that the following can be performed:
 
 ```dart
-final note = await storage.queryType<Note>(authors: {'a'});
+final note = await storage.query<Note>(authors: {'a'});
 final Note reply = await PartialNote('this is cool', replyTo: note).signWith(signer);
 print(note.replies.toList());
 // And maybe:
 await storage.publish(reply, to: {'big-relays'});
+
+// Generic events for multiple kinds
+final events = await storage.queryKinds(kinds: {7, 9735}, authors: {'a'});
 
 // The initial note could of course be retrieved like:
 final note = signedInProfile.notes.first;
@@ -100,7 +103,7 @@ final note = signedInProfile.notes.first;
 And then:
 
 ```dart
-final state = ref.watch(queryType<Note>(authors: {'a1b2c3'}, and: (note) => {note.replies}));
+final state = ref.watch(query<Note>(authors: {'a1b2c3'}, and: (note) => {note.replies}));
 
 // ...
 children: [
@@ -119,7 +122,7 @@ Lastly, watching replaceable events will also be a thing:
 
 ```dart
 final Profile signedInProfile = ref.watch(signedInProfileProvider);
-final state = ref.watch(query(signedInProfile, and: (note) => {note.following}));
+final state = ref.watch(query<Profile>(signedInProfile, and: (note) => {note.following}));
 ```
 
 Relays can be configured in pools, e.g. `storage.configure('big-relays', {'wss://relay.damus.io', 'wss://relay.primal.net'})` and then addressed by label throughout the application; when no relay pools are supplied it is inferred that the outbox model must be utilized.
@@ -142,7 +145,7 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Model relationships
  - [x] Buffered relay pool, with configurable duration
  - [x] Watchable relationships
- - [x] Allow typed queries `ref.watch(queryTyped<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
+ - [x] Allow typed queries `ref.watch(query<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
  - [x] Remote relay configuration
  - [x] Relay metadata in response
  - [x] Cache relationship req results, make relationships check it before hitting sync, remove sync query altogether?
