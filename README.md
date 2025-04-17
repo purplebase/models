@@ -147,8 +147,8 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Relay metadata in response
  - [x] Cache relationship req results, make relationships check it before hitting sync, remove sync query altogether?
  - [x] Publish events
- - [ ] Merge reqs for both local storage and relays
- - [ ] Register types externally (+docs)
+ - [x] Merge reqs for both local storage and relays
+ - [x] Register types externally (+docs)
  - [ ] Event metadata
  - [ ] Restrict by subscription (ignores req filter, brings all events from that sub)
  - [ ] Eviction policy API, allowing clients to manage the local database size
