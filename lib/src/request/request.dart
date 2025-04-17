@@ -27,7 +27,7 @@ class RequestNotifier<E extends Event<dynamic>>
         final reqs = {
           for (final e in events) ...req.and!(e).map((r) => r.req).nonNulls
         };
-        final mergedReqs = mergeRequests(reqs.toList());
+        final mergedReqs = mergeMultipleRequests(reqs.toList());
 
         for (final r in mergedReqs) {
           // Query without hitting relays, we do that below

@@ -1,6 +1,6 @@
 part of models;
 
-List<RequestFilter> merge(RequestFilter req1, RequestFilter req2) {
+List<RequestFilter> mergeRequests(RequestFilter req1, RequestFilter req2) {
   return _merge(req1.toMap(), req2.toMap()).map(RequestFilter.fromMap).toList();
 }
 
@@ -268,7 +268,7 @@ bool canMerge(Map<String, dynamic> filter1, Map<String, dynamic> filter2) {
 
 final _eq = DeepCollectionEquality();
 
-List<RequestFilter> mergeRequests(List<RequestFilter> filters) {
+List<RequestFilter> mergeMultipleRequests(List<RequestFilter> filters) {
   if (filters.length <= 1) {
     return List.from(filters); // Return a copy
   }
@@ -293,7 +293,7 @@ List<RequestFilter> mergeRequests(List<RequestFilter> filters) {
       for (int j = i + 1; j < currentFilters.length; j++) {
         if (merged[j]) continue; // Already consumed
 
-        List<RequestFilter> mergeResult = merge(
+        List<RequestFilter> mergeResult = mergeRequests(
           accumulator,
           currentFilters[j],
         );

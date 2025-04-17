@@ -7,7 +7,7 @@ void main() {
   test("empty array returns empty array", () {
     final filters = <RequestFilter>[];
     final expected = <RequestFilter>[];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -22,7 +22,7 @@ void main() {
         authors: {nielPubkey},
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -40,7 +40,7 @@ void main() {
         authors: {nielPubkey, franzapPubkey},
       ),
     ]; // Assuming merge logic combines lists
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -74,7 +74,7 @@ void main() {
         limit: 6,
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -109,7 +109,7 @@ void main() {
         authors: {nielPubkey, franzapPubkey},
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -141,7 +141,7 @@ void main() {
         },
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -168,7 +168,7 @@ void main() {
         kinds: {1, 2},
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -212,7 +212,7 @@ void main() {
         },
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -251,7 +251,7 @@ void main() {
         limit: 20,
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     // Need custom matcher or manual sort/compare due to generated author
     expect(result.length, expected.length);
     expect(result, containsAll(expected));
@@ -292,7 +292,7 @@ void main() {
         limit: 30,
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -334,7 +334,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filters);
+      final result = mergeMultipleRequests(filters);
       expect(result, unorderedEquals(expected));
     },
   );
@@ -376,7 +376,7 @@ void main() {
         kinds: {4},
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -415,7 +415,7 @@ void main() {
           since: DateTime.fromMillisecondsSinceEpoch(150 * 1000),
         ),
       ];
-      final result = mergeRequests(filters);
+      final result = mergeMultipleRequests(filters);
       expect(result, unorderedEquals(expected));
     },
   );
@@ -452,7 +452,7 @@ void main() {
           until: DateTime.fromMillisecondsSinceEpoch(150 * 1000),
         ),
       ];
-      final result = mergeRequests(filters);
+      final result = mergeMultipleRequests(filters);
       expect(result, unorderedEquals(expected));
     },
   );
@@ -491,7 +491,7 @@ void main() {
         until: DateTime.fromMillisecondsSinceEpoch(250 * 1000),
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -559,7 +559,7 @@ void main() {
         },
       ), // Merged #e
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -597,7 +597,7 @@ void main() {
         },
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -636,7 +636,7 @@ void main() {
         kinds: {2},
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -665,7 +665,7 @@ void main() {
         limit: 20,
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -774,7 +774,7 @@ void main() {
       ),
     ];
 
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -804,7 +804,7 @@ void main() {
         kinds: {2},
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -834,7 +834,7 @@ void main() {
         kinds: {2},
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 
@@ -867,7 +867,7 @@ void main() {
         },
       ),
     ];
-    final result = mergeRequests(filters);
+    final result = mergeMultipleRequests(filters);
     expect(result, unorderedEquals(expected));
   });
 }

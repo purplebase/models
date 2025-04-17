@@ -3,7 +3,7 @@ part of models;
 class TargetedPublication
     extends ParameterizableReplaceableEvent<TargetedPublication> {
   late final BelongsTo<Event> event;
-  late final BelongsTo<Community> community;
+  late final HasMany<Community> communities;
 
   TargetedPublication.fromMap(super.map, super.ref) : super.fromMap() {
     if (internal.getFirstTagValue('e') != null) {
@@ -13,8 +13,15 @@ class TargetedPublication
       final addressableId = internal.getFirstTagValue('a')!;
       event = BelongsTo(ref, RequestFilter.fromReplaceableEvent(addressableId));
     }
-    community = BelongsTo(ref,
-        RequestFilter.fromReplaceableEvent(internal.getFirstTagValue('p')!));
+
+    // This is only possible because communities are replaceable events
+    // without a parameter, PREs would be impossible to combine into one req
+    final communityReqs = internal
+        .getTagSetValues('p')
+        .nonNulls
+        .map(RequestFilter.fromReplaceableEvent);
+    final req = mergeMultipleRequests(communityReqs.toList()).firstOrNull;
+    communities = HasMany(ref, req);
   }
 
   int get targetedKind => int.parse(internal.getFirstTagValue('k')!);

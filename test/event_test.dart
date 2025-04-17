@@ -186,7 +186,7 @@ void main() {
           PartialTargetedPublication(note, communities: {community})
               .dummySign();
       await storage.save({community, note, targetedPublication});
-      expect(targetedPublication.community.value, community);
+      expect(targetedPublication.communities.toList(), [community]);
       expect(targetedPublication.event.value, note);
       expect(targetedPublication.internal.identifier, hasLength(64));
     });

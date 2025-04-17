@@ -20,7 +20,7 @@ void main() {
         limit: 20,
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -37,7 +37,7 @@ void main() {
         authors: {nielPubkey},
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -63,7 +63,7 @@ void main() {
         limit: 4,
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -87,7 +87,7 @@ void main() {
         limit: 4,
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -110,7 +110,7 @@ void main() {
         limit: 4,
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -127,7 +127,7 @@ void main() {
         authors: {nielPubkey, franzapPubkey, verbirichaPubkey},
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -143,7 +143,7 @@ void main() {
         kinds: {1, 2, 3},
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -166,7 +166,7 @@ void main() {
         until: DateTime.fromMillisecondsSinceEpoch(300 * 1000),
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -180,7 +180,7 @@ void main() {
       until: DateTime.fromMillisecondsSinceEpoch(200 * 1000),
     );
     final expected = [filter1, filter2];
-    expect(merge(filter1, filter2), expected);
+    expect(mergeRequests(filter1, filter2), expected);
   });
 
   // Test non-mergeable filters
@@ -203,7 +203,7 @@ void main() {
         kinds: {2},
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -226,7 +226,7 @@ void main() {
         search: 'world',
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -259,7 +259,7 @@ void main() {
           until: DateTime.fromMillisecondsSinceEpoch(200 * 1000),
         ),
       ];
-      final result = merge(filter1, filter2);
+      final result = mergeRequests(filter1, filter2);
       expect(result, equals(expected));
     },
   );
@@ -293,7 +293,7 @@ void main() {
           until: DateTime.fromMillisecondsSinceEpoch(200 * 1000),
         ),
       ];
-      final result = merge(filter1, filter2);
+      final result = mergeRequests(filter1, filter2);
       expect(result, equals(expected));
     },
   );
@@ -317,7 +317,7 @@ void main() {
         },
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -342,7 +342,7 @@ void main() {
         },
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -373,7 +373,7 @@ void main() {
         },
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -398,7 +398,7 @@ void main() {
         },
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -429,7 +429,7 @@ void main() {
         },
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -450,7 +450,7 @@ void main() {
         kinds: {1},
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -467,7 +467,7 @@ void main() {
         authors: {nielPubkey, franzapPubkey},
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -486,7 +486,7 @@ void main() {
         kinds: {1},
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -505,7 +505,7 @@ void main() {
         since: DateTime.fromMillisecondsSinceEpoch(1 * 1000),
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -528,7 +528,7 @@ void main() {
         since: DateTime.fromMillisecondsSinceEpoch(2 * 1000),
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -551,7 +551,7 @@ void main() {
         limit: 10,
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -570,7 +570,7 @@ void main() {
         since: DateTime.fromMillisecondsSinceEpoch(1 * 1000),
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -593,7 +593,7 @@ void main() {
         limit: 10,
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -624,7 +624,7 @@ void main() {
         limit: 10,
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -652,7 +652,7 @@ void main() {
         },
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -680,7 +680,7 @@ void main() {
         },
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -715,7 +715,7 @@ void main() {
         },
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -733,7 +733,7 @@ void main() {
         limit: 3,
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -752,7 +752,7 @@ void main() {
         since: DateTime.fromMillisecondsSinceEpoch(1 * 1000),
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 
@@ -771,7 +771,7 @@ void main() {
         until: DateTime.fromMillisecondsSinceEpoch(2 * 1000),
       ),
     ];
-    final result = merge(filter1, filter2);
+    final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
   });
 }
