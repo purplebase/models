@@ -38,6 +38,8 @@ class RequestFilter extends Equatable {
   /// Watch relationships
   final AndFunction and;
 
+  // TODO: RequestFilter<E extends Event<dynamic>> and calculate kinds right here
+  // (and pass type from relationship)
   RequestFilter({
     Set<String>? ids,
     Set<int>? kinds,

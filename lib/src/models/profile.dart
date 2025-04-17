@@ -1,12 +1,10 @@
 part of models;
 
 class Profile extends ReplaceableEvent<Profile> {
-  late final Map<String, dynamic> _content;
   late final HasMany<Note> notes;
   late final BelongsTo<ContactList> contactList;
 
   Profile.fromMap(super.map, super.ref) : super.fromMap() {
-    _content = internal.content.isNotEmpty ? jsonDecode(internal.content) : {};
     notes = HasMany(
         ref,
         RequestFilter(
@@ -18,23 +16,38 @@ class Profile extends ReplaceableEvent<Profile> {
             authors: {internal.pubkey}));
   }
 
-  String get pubkey => internal.pubkey;
-  String get npub => bech32Encode('npub', pubkey);
-
-  String? get name {
-    var name = _content['name'] as String?;
+  @override
+  Future<Map<String, dynamic>> processMetadata() async {
+    final map = jsonDecode(internal.content);
+    var name = map['name'] as String?;
     if (name == null || name.isEmpty) {
-      name = _content['display_name'] as String?;
+      name = map['display_name'] as String?;
     }
     if (name == null || name.isEmpty) {
-      name = _content['displayName'] as String?;
+      name = map['displayName'] as String?;
     }
-    return name;
+    return {
+      'name': name,
+      'nip05': map['nip05'],
+      'pictureUrl': map['picture'],
+      'lud16': map['lud16'],
+    };
   }
 
-  String? get nip05 => _content['nip05'];
-  String? get pictureUrl => _content['picture'];
-  String? get lud16 => _content['lud16'];
+  @override
+  Map<String, dynamic> transformEventMap(Map<String, dynamic> event) {
+    // As content was processed into metadata, it can be safely removed
+    event['content'] = '';
+    return event;
+  }
+
+  String get pubkey => internal.pubkey;
+  String get npub => bech32Encode('npub', pubkey);
+  String? get name => internal.metadata['name'];
+  String? get nip05 => internal.metadata['nip05'];
+  String? get pictureUrl => internal.metadata['picture'];
+  String? get lud16 => internal.metadata['lud16'];
+
   String get nameOrNpub => name ?? npub;
 
   /// Attempts to convert this string (hex) to npub. Returns same if already npub.

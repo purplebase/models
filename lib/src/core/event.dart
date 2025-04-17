@@ -14,6 +14,7 @@ sealed class Event<E extends Event<E>>
     with EquatableMixin
     implements EventBase<E> {
   final Ref ref;
+
   @override
   final ImmutableInternalEvent internal;
 
@@ -58,8 +59,15 @@ sealed class Event<E extends Event<E>>
       : this._internal(ref, ImmutableInternalEvent<E>(map));
 
   String get id => internal.addressableId;
-
   DateTime get createdAt => internal.createdAt;
+
+  Future<Map<String, dynamic>> processMetadata() async {
+    return {};
+  }
+
+  Map<String, dynamic> transformEventMap(Map<String, dynamic> event) {
+    return event;
+  }
 
   @override
   Map<String, dynamic> toMap() {
@@ -81,6 +89,8 @@ sealed class Event<E extends Event<E>>
   String toString() {
     return toMap().toString();
   }
+
+  // Registry related functions
 
   static final Map<String, ({int kind, EventConstructor constructor})>
       _modelRegistry = {};

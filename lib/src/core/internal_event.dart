@@ -36,6 +36,8 @@ final class ImmutableInternalEvent<E extends Event<E>>
   final Set<String> relays;
   // Signature is nullable as it may be removed as optimization
   final String? signature;
+  // Metadata
+  final Map<String, dynamic> metadata;
 
   ImmutableInternalEvent(Map<String, dynamic> map)
       : id = map['id'],
@@ -48,6 +50,7 @@ final class ImmutableInternalEvent<E extends Event<E>>
               [for (final e in tag) e.toString()]
         ],
         signature = map['sig'],
+        metadata = Map<String, dynamic>.from(map['metadata'] ?? {}),
         relays = <String>{...?map['relays']} {
     if (map['kind'] != kind) {
       throw Exception(

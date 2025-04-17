@@ -24,7 +24,17 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<void> save(Set<Event> events,
       {String? relayGroup, bool publish = false}) async {
-    _events.addAll(events);
+    for (final event in events) {
+      // Need to deconstruct to inject metadata and
+      // remove useless content, then construct again
+      final metadata = await event.processMetadata();
+      final transformedEvent = event.transformEventMap(event.toMap());
+      final constructor = Event.getConstructorForKind(event.internal.kind);
+      final e = constructor!.call(
+          {...transformedEvent, if (metadata.isNotEmpty) 'metadata': metadata},
+          ref) as Event;
+      _events.add(e);
+    }
 
     if (publish && events.isNotEmpty) {
       final relayUrls =

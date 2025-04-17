@@ -3,11 +3,8 @@ part of models;
 /// Zap is technically a kind 9735 Zap Receipt
 class Zap extends RegularEvent<Zap> {
   @override
-  BelongsTo<Profile> get author => BelongsTo(
-      ref,
-      RequestFilter(
-          kinds: {0},
-          authors: {internal.getFirstTagValue('P') ?? description['pubkey']}));
+  BelongsTo<Profile> get author => BelongsTo(ref,
+      RequestFilter(kinds: {0}, authors: {internal.getFirstTagValue('P')!}));
   late final BelongsTo<Event> zappedEvent;
   late final BelongsTo<Profile> recipient;
 
@@ -18,15 +15,23 @@ class Zap extends RegularEvent<Zap> {
         BelongsTo(ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
   }
 
-  Map<String, dynamic> get description =>
-      internal.getFirstTagValue('description') != null
-          ? Map<String, dynamic>.from(
-              jsonDecode(internal.getFirstTagValue('description')!))
-          : {};
+  @override
+  Future<Map<String, dynamic>> processMetadata() async {
+    final amount = getSatsFromBolt11(internal.getFirstTagValue('bolt11')!);
+    return {'amount': amount};
+  }
+
+  @override
+  Map<String, dynamic> transformEventMap(Map<String, dynamic> event) {
+    // Remove bolt11, preimage, description
+    (event['tags'] as List).removeWhere(
+        (t) => ['bolt11', 'preimage', 'description'].contains(t[0]));
+    return event;
+  }
 
   /// Amount in sats
   int get amount {
-    return getSatsFromBolt11(internal.getFirstTagValue('bolt11')!);
+    return internal.metadata['amount'];
   }
 }
 
