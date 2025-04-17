@@ -1,18 +1,18 @@
 part of models;
 
-class Profile extends ReplaceableEvent<Profile> {
+class Profile extends ReplaceableModel<Profile> {
   late final HasMany<Note> notes;
   late final BelongsTo<ContactList> contactList;
 
   Profile.fromMap(super.map, super.ref) : super.fromMap() {
-    notes = HasMany(ref, RequestFilter(authors: {internal.pubkey}));
+    notes = HasMany(ref, RequestFilter(authors: {event.pubkey}));
     contactList =
-        BelongsTo(ref, RequestFilter<ContactList>(authors: {internal.pubkey}));
+        BelongsTo(ref, RequestFilter<ContactList>(authors: {event.pubkey}));
   }
 
   @override
   Future<Map<String, dynamic>> processMetadata() async {
-    final map = jsonDecode(internal.content);
+    final map = jsonDecode(event.content);
     var name = map['name'] as String?;
     if (name == null || name.isEmpty) {
       name = map['display_name'] as String?;
@@ -29,18 +29,18 @@ class Profile extends ReplaceableEvent<Profile> {
   }
 
   @override
-  Map<String, dynamic> transformEventMap(Map<String, dynamic> event) {
+  Map<String, dynamic> transformMap(Map<String, dynamic> map) {
     // As content was processed into metadata, it can be safely removed
-    event['content'] = '';
-    return event;
+    map['content'] = '';
+    return map;
   }
 
-  String get pubkey => internal.pubkey;
+  String get pubkey => event.pubkey;
   String get npub => bech32Encode('npub', pubkey);
-  String? get name => internal.metadata['name'];
-  String? get nip05 => internal.metadata['nip05'];
-  String? get pictureUrl => internal.metadata['picture'];
-  String? get lud16 => internal.metadata['lud16'];
+  String? get name => event.metadata['name'];
+  String? get nip05 => event.metadata['nip05'];
+  String? get pictureUrl => event.metadata['picture'];
+  String? get lud16 => event.metadata['lud16'];
 
   String get nameOrNpub => name ?? npub;
 
@@ -57,9 +57,9 @@ class Profile extends ReplaceableEvent<Profile> {
   }
 }
 
-class PartialProfile extends ReplaceablePartialEvent<Profile> {
+class PartialProfile extends ReplaceablePartialModel<Profile> {
   PartialProfile({this.name, this.nip05, this.pictureUrl, this.lud16}) {
-    internal.content =
+    event.content =
         jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
   }
 

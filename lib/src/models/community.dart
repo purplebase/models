@@ -1,11 +1,11 @@
 part of models;
 
-class Community extends ReplaceableEvent<Community> {
+class Community extends ReplaceableModel<Community> {
   Community.fromMap(super.map, super.ref) : super.fromMap();
 
-  String get name => internal.getFirstTagValue('name')!;
-  Set<String> get relayUrls => internal.getTagSetValues('r');
-  String? get description => internal.getFirstTagValue('description');
+  String get name => event.getFirstTagValue('name')!;
+  Set<String> get relayUrls => event.getTagSetValues('r');
+  String? get description => event.getFirstTagValue('description');
 
   Set<CommunityContentSection> get contentSections {
     final sections = <CommunityContentSection>{};
@@ -13,7 +13,7 @@ class Community extends ReplaceableEvent<Community> {
     Set<int> currentKinds = {};
     int? currentFeeInSats;
 
-    for (final tag in internal.tags) {
+    for (final tag in event.tags) {
       final [key, value, ..._] = tag;
 
       if (key == 'content') {
@@ -65,12 +65,12 @@ class Community extends ReplaceableEvent<Community> {
     return sections.toSet();
   }
 
-  Set<String> get blossomUrls => internal.getTagSetValues('blossom');
-  Set<String> get cashuMintUrls => internal.getTagSetValues('mint');
-  String? get termsOfService => internal.getFirstTagValue('tos');
+  Set<String> get blossomUrls => event.getTagSetValues('blossom');
+  Set<String> get cashuMintUrls => event.getTagSetValues('mint');
+  String? get termsOfService => event.getFirstTagValue('tos');
 }
 
-class PartialCommunity extends ReplaceablePartialEvent<Community> {
+class PartialCommunity extends ReplaceablePartialModel<Community> {
   PartialCommunity(
       {required String name,
       DateTime? createdAt,
@@ -80,32 +80,32 @@ class PartialCommunity extends ReplaceablePartialEvent<Community> {
       Set<String> blossomUrls = const {},
       Set<String> cashuMintUrls = const {},
       String? termsOfService}) {
-    internal.addTagValue('name', name);
+    event.addTagValue('name', name);
     if (createdAt != null) {
-      internal.createdAt = createdAt;
+      event.createdAt = createdAt;
     }
     for (final relayUrl in relayUrls) {
-      internal.addTagValue('r', relayUrl);
+      event.addTagValue('r', relayUrl);
     }
-    internal.addTagValue('description', description);
+    event.addTagValue('description', description);
     if (contentSections != null) {
       for (final section in contentSections) {
-        internal.addTagValue('content', section.content);
+        event.addTagValue('content', section.content);
         for (final k in section.kinds) {
-          internal.addTagValue('k', k.toString());
+          event.addTagValue('k', k.toString());
         }
         if (section.feeInSats != null) {
-          internal.addTag('fee', [section.feeInSats!.toString(), 'sat']);
+          event.addTag('fee', [section.feeInSats!.toString(), 'sat']);
         }
       }
     }
     for (final url in blossomUrls) {
-      internal.addTagValue('blossom', url);
+      event.addTagValue('blossom', url);
     }
     for (final url in cashuMintUrls) {
-      internal.addTagValue('mint', url);
+      event.addTagValue('mint', url);
     }
-    internal.addTagValue('tos', termsOfService);
+    event.addTagValue('tos', termsOfService);
   }
 }
 

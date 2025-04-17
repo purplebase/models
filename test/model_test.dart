@@ -14,39 +14,39 @@ void main() {
     await container.read(initializationProvider(config).future);
   });
 
-  group('event', () {
-    test('from partial event', () async {
+  group('model', () {
+    test('from partial model', () async {
       const pk =
           'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
       final signer = Bip340PrivateKeySigner(pk);
 
       final t = DateTime.parse('2024-07-26');
-      final signedEvent = await signer.sign(PartialApp()
+      final signedModel = await signer.sign(PartialApp()
         ..name = 'tr'
-        ..internal.createdAt = t
+        ..event.createdAt = t
         ..identifier = 's1');
 
-      final signedEvent2 = await signer.sign(PartialApp()
+      final signedModel2 = await signer.sign(PartialApp()
         ..name = 'tr'
         ..identifier = 's1'
-        ..internal.createdAt = t);
+        ..event.createdAt = t);
 
-      expect(signedEvent, signedEvent2);
+      expect(signedModel, signedModel2);
     });
 
     test('tags', () {
       final note = PartialNote('yo hello');
-      note.internal.addTagValue('url', 'http://z');
-      note.internal.addTag('e', ['93893923', '', 'mention']);
-      note.internal.addTagValue('e', 'ab9387');
-      note.internal.addTag('param', ['a', '1']);
-      note.internal.addTag('param', ['a', '2']);
-      note.internal.addTag('param', ['a', '3']);
+      note.event.addTagValue('url', 'http://z');
+      note.event.addTag('e', ['93893923', '', 'mention']);
+      note.event.addTagValue('e', 'ab9387');
+      note.event.addTag('param', ['a', '1']);
+      note.event.addTag('param', ['a', '2']);
+      note.event.addTag('param', ['a', '3']);
 
-      note.internal.addTag('param', ['b', '4']);
-      note.internal.removeTagWithValue('e');
-      expect(note.internal.containsTag('e'), isFalse);
-      expect(note.internal.getFirstTagValue('url'), 'http://z');
+      note.event.addTag('param', ['b', '4']);
+      note.event.removeTagWithValue('e');
+      expect(note.event.containsTag('e'), isFalse);
+      expect(note.event.getFirstTagValue('url'), 'http://z');
     });
   });
 
@@ -100,7 +100,7 @@ void main() {
           PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
               .dummySign(nielPubkey);
       expect(reaction.emojiTag, equals(('test', 'test://t')));
-      expect(reaction.reactedOn.req!.ids, {a.internal.id});
+      expect(reaction.reactedOn.req!.ids, {a.event.id});
       expect(reaction.reactedOn.value, a);
       expect(reaction.author.value, profile);
     });
@@ -112,9 +112,9 @@ void main() {
             'https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png',
       ).dummySign(nielPubkey);
 
-      expect(nielProfile.internal.content,
+      expect(nielProfile.event.content,
           '{"name":"Niel Liesmons","nip05":null,"picture":"https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png"}');
-      expect(nielProfile.internal.shareableId,
+      expect(nielProfile.event.shareableId,
           'nprofile1qqs2js6wu9j76qdjs6lvlsnhrmchqhf4xlg9rvu89zyf3nqq6hygt0sty4s8y');
 
       final franzapProfile = Profile.fromMap(jsonDecode(franzapJson), ref);
@@ -138,12 +138,12 @@ void main() {
       final app = partialApp.dummySign(
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
 
-      expect(app.internal.kind, 32267);
+      expect(app.event.kind, 32267);
       expect(app.description, 'test app');
       expect(app.id,
           '32267:f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1:w');
-      expect(app.internal.id, hasLength(64));
-      expect(app.internal.shareableId,
+      expect(app.event.id, hasLength(64));
+      expect(app.event.shareableId,
           'naddr1qqqhwq3q7dh35fe8k74s9clkaxvyrnftfkt9t7x05xzt6ntg7njvwtdcuhqsxpqqqplqknw8nmm');
       expect(App.fromMap(app.toMap(), ref), app);
     });
@@ -152,9 +152,9 @@ void main() {
       final author = PartialProfile().dummySign(
           'd3f94b353542a632962062f3c914638d0deeba64af1f980d93907ee1b3e0d4f9');
       final zap = Zap.fromMap(jsonDecode(zapJson), ref);
-      final event = Note.fromMap(jsonDecode(zappedEventJson), ref);
-      await storage.save({event, zap, author});
-      expect(zap.zappedEvent.value, event);
+      final note = Note.fromMap(jsonDecode(zappedEventJson), ref);
+      await storage.save({note, zap, author});
+      expect(zap.zappedModel.value, note);
       expect(zap.author.value, author);
     });
 
@@ -187,8 +187,8 @@ void main() {
               .dummySign();
       await storage.save({community, note, targetedPublication});
       expect(targetedPublication.communities.toList(), [community]);
-      expect(targetedPublication.event.value, note);
-      expect(targetedPublication.internal.identifier, hasLength(64));
+      expect(targetedPublication.model.value, note);
+      expect(targetedPublication.event.identifier, hasLength(64));
     });
   });
 }

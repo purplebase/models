@@ -1,7 +1,7 @@
 part of models;
 
-class Note extends RegularEvent<Note> {
-  String get content => internal.content;
+class Note extends RegularModel<Note> {
+  String get content => event.content;
 
   late final BelongsTo<Note> root;
   late final bool isRoot;
@@ -10,7 +10,7 @@ class Note extends RegularEvent<Note> {
 
   Note.fromMap(super.map, super.ref) : super.fromMap() {
     final tagsWithRoot =
-        internal.getTagSet('e').where((t) => t.length > 2 && t[2] == 'root');
+        event.getTagSet('e').where((t) => t.length > 2 && t[2] == 'root');
     isRoot = tagsWithRoot.isEmpty;
 
     root = BelongsTo(
@@ -20,14 +20,14 @@ class Note extends RegularEvent<Note> {
       ref,
       RequestFilter(
         tags: {
-          '#e': {internal.id}
+          '#e': {event.id}
         },
         where: (e) {
           // Querying in-memory as nostr filters do not support this
           // Passes if its matching e tag with ID has a root marker
-          final tags = e.internal.getTagSet('e');
-          return tags.any(
-              (e) => e.length > 2 && e[1] == internal.id && e[2] == 'root');
+          final tags = e.event.getTagSet('e');
+          return tags
+              .any((e) => e.length > 2 && e[1] == event.id && e[2] == 'root');
         },
       ),
     );
@@ -35,12 +35,12 @@ class Note extends RegularEvent<Note> {
       ref,
       RequestFilter(
         tags: {
-          '#e': {internal.id}
+          '#e': {event.id}
         },
         where: (e) {
           // Querying in-memory as nostr filters do not support this
           // Only returns events with a single e tag with a root marker
-          final tags = e.internal.getTagSet('e');
+          final tags = e.event.getTagSet('e');
           return tags.length == 1 &&
               tags.first.length > 2 &&
               tags.first[2] == 'root';
@@ -50,24 +50,24 @@ class Note extends RegularEvent<Note> {
   }
 }
 
-class PartialNote extends RegularPartialEvent<Note> {
+class PartialNote extends RegularPartialModel<Note> {
   PartialNote(String content,
       {DateTime? createdAt, Note? replyTo, Set<String> tags = const {}}) {
-    internal.content = content;
+    event.content = content;
     if (createdAt != null) {
-      internal.createdAt = createdAt;
+      event.createdAt = createdAt;
     }
     if (replyTo != null) {
       if (replyTo.isRoot) {
         // replyTo is the root (has no markers to root)
-        linkEvent(replyTo, marker: 'root');
+        linkModel(replyTo, marker: 'root');
       } else {
-        linkEvent(replyTo.root.value!, marker: 'root');
-        linkEvent(replyTo, marker: 'reply');
+        linkModel(replyTo.root.value!, marker: 'root');
+        linkModel(replyTo, marker: 'reply');
       }
     }
     for (final tag in tags) {
-      internal.addTagValue('t', tag);
+      event.addTagValue('t', tag);
     }
   }
 }

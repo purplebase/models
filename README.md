@@ -1,4 +1,4 @@
-# models
+# nostr-models
 
 Nostr model and local-first reactive relay interface in Dart.
 
@@ -8,13 +8,13 @@ It includes a dummy data implementation that can be used in tests and prototypes
 
 ## Adding your own models
 
-Add a joke event of kind 1055. Extend from `RegularEvent` or `ReplaceableEvent` etc as appropriate. Classes are meant to wrap nostr data and expose it as domain language, properly typed.
+Add a joke model of kind 1055. Extend from `RegularModel` or `ReplaceableModel` etc as appropriate. Models are classes meant to wrap nostr event data and expose it as domain language, properly typed.
 
-The lower level object holding raw nostr data is accessible at `internal` in every event.
+The lower level object holding raw nostr event data is accessible at `event` in every model.
 
 ```dart
-/// This is a signed, immutable Joke event
-class Joke extends RegularEvent<Joke> {
+/// This is a signed, immutable Joke model
+class Joke extends RegularModel<Joke> {
   // Call super to deserialize from a map
   Joke.fromMap(super.map, super.ref) : super.fromMap();
 
@@ -25,9 +25,9 @@ class Joke extends RegularEvent<Joke> {
       internal.getFirstTagValue('published_at')?.toInt()?.toDate();
 }
 
-/// This is a PartialJoke, unsigned and mutable event
-/// on which .signWith() is called to produce a Joke event
-class PartialJoke extends RegularPartialEvent<Joke> {
+/// This is a PartialJoke, unsigned and mutable model
+/// on which .signWith() is called to produce a Joke model
+class PartialJoke extends RegularPartialModel<Joke> {
   PartialJoke(String title, String content, {DateTime? publishedAt}) {
     internal.addTagValue('title', title);
     internal.content = content;
@@ -39,7 +39,7 @@ class PartialJoke extends RegularPartialEvent<Joke> {
 And in your initializer call:
 
 ```dart
-Event.registerModel(kind: 1055, constructor: Joke.fromMap);
+Model.register(kind: 1055, constructor: Joke.fromMap);
 ```
 
 That's it. You can now use jokes in your app:
@@ -76,9 +76,9 @@ Example:
 ref.watch(query<Note>(authors: {'a1b2c3'}, since: DateTime.now().subtract(Duration(seconds: 5))));
 ```
 
-Every single event coming through this watcher comes from local storage and never from a relay directly. 
+Every single model coming through this watcher comes from local storage and never from a relay directly. 
 
-Also, every call by default hits nostr relays (it can be disabled) and saves the returned events to local storage therefore immediately showing up via the watcher - if its filter matches.
+Also, every call by default hits nostr relays (it can be disabled) and saves the returned models to local storage therefore immediately showing up via the watcher - if its filter matches.
 
 The system is aware of previously loaded data so it will add different `since` filters to relay queries appropriately.
 
@@ -93,8 +93,8 @@ print(note.replies.toList());
 // And maybe:
 await storage.publish(reply, to: {'big-relays'});
 
-// Generic events for multiple kinds
-final events = await storage.queryKinds(kinds: {7, 9735}, authors: {'a'});
+// Generic models for multiple kinds
+final models = await storage.queryKinds(kinds: {7, 9735}, authors: {'a'});
 
 // The initial note could of course be retrieved like:
 final note = signedInProfile.notes.first;
@@ -116,9 +116,9 @@ children: [
 ]
 ```
 
-What is important to note here is that the watcher will repaint the widget when any event in storage matches the regular filter. But a reply does not match the regular filter, as it is not a kind 1. That is where the `and` argument comes in, allowing now to repaint upon replies, but not any reply!, only those in a relationship with any matching kind 1 of the regular filter.
+What is important to note here is that the watcher will repaint the widget when any model in storage matches the regular filter. But a reply does not match the regular filter, as it is not a kind 1. That is where the `and` argument comes in, allowing now to repaint upon replies, but not any reply!, only those in a relationship with any matching kind 1 of the regular filter.
 
-Lastly, watching replaceable events will also be a thing:
+Lastly, watching replaceable model will also be a thing:
 
 ```dart
 final Profile signedInProfile = ref.watch(signedInProfileProvider);
@@ -155,3 +155,6 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Event metadata
  - [ ] Restrict by subscription (ignores req filter, brings all events from that sub)
  - [ ] Eviction policy API, allowing clients to manage the local database size
+ - [ ] Go through code and comment everything
+ - [ ] Add tests, ask agent to detect missing
+ - [ ] Generate docs site

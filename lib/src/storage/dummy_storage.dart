@@ -3,16 +3,16 @@ part of models;
 /// Reactive storage with dummy data, singleton
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
-  final Set<Event> _events = {};
+  final Set<Model> _models = {};
   var applyLimit = true;
 
   static DummyStorageNotifier? _instance;
 
   factory DummyStorageNotifier(Ref ref) {
-    return _instance ??= DummyStorageNotifier._internal(ref);
+    return _instance ??= DummyStorageNotifier._(ref);
   }
 
-  DummyStorageNotifier._internal(this.ref);
+  DummyStorageNotifier._(this.ref);
 
   final Map<RequestFilter, Timer> _timers = {};
 
@@ -22,37 +22,37 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> save(Set<Event> events,
+  Future<void> save(Set<Model> models,
       {String? relayGroup, bool publish = false}) async {
-    for (final event in events) {
+    for (final model in models) {
       // Need to deconstruct to inject metadata and
       // remove useless content, then construct again
-      final metadata = await event.processMetadata();
-      final transformedEvent = event.transformEventMap(event.toMap());
-      final constructor = Event.getConstructorForKind(event.internal.kind);
+      final metadata = await model.processMetadata();
+      final transformedModel = model.transformMap(model.toMap());
+      final constructor = Model.getConstructorForKind(model.event.kind);
       final e = constructor!.call(
-          {...transformedEvent, if (metadata.isNotEmpty) 'metadata': metadata},
-          ref) as Event;
-      _events.add(e);
+          {...transformedModel, if (metadata.isNotEmpty) 'metadata': metadata},
+          ref) as Model;
+      _models.add(e);
     }
 
-    if (publish && events.isNotEmpty) {
+    if (publish && models.isNotEmpty) {
       final relayUrls =
           config.getRelays(relayGroup: relayGroup, useDefault: true);
       for (final relayUrl in relayUrls) {
-        print('Fake publishing ${events.length} events to $relayUrl');
+        print('Fake publishing ${models.length} models to $relayUrl');
       }
     }
 
-    // Empty response metadata as these events do not come from a relay
+    // Empty response metadata as these models do not come from a relay
     final responseMetadata = ResponseMetadata(relayUrls: {});
     if (mounted) {
-      state = (({for (final e in events) e.id}, responseMetadata));
+      state = (({for (final e in models) e.id}, responseMetadata));
     }
   }
 
   @override
-  Future<List<E>> query<E extends Event<dynamic>>(RequestFilter<E> req,
+  Future<List<E>> query<E extends Model<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds}) async {
     final results = querySync<E>(req, applyLimit: applyLimit, onIds: onIds);
     return Future.microtask(() {
@@ -62,13 +62,13 @@ class DummyStorageNotifier extends StorageNotifier {
     });
   }
 
-  /// [onEvents] is an extension in this implementation
-  /// that allows filtering req on a specific set of events (not _events)
+  /// [onModels] is an extension in this implementation
+  /// that allows filtering req on a specific set of models (other than _models)
   @override
-  List<E> querySync<E extends Event<dynamic>>(RequestFilter<E> req,
-      {bool applyLimit = true, Set<String>? onIds, Set<Event>? onEvents}) {
-    // Results is of unspecified Event, but it will be casted once we have results of the right kind
-    List<Event> results = (onEvents ?? _events).toList();
+  List<E> querySync<E extends Model<dynamic>>(RequestFilter<E> req,
+      {bool applyLimit = true, Set<String>? onIds, Set<Model>? onModels}) {
+    // Results is of Model<dynamic>, but it will be casted once we have results of the right kind
+    List<Model> results = (onModels ?? _models).toList();
 
     // If onIds present then restrict req to those
     if (onIds != null) {
@@ -86,45 +86,40 @@ class DummyStorageNotifier extends StorageNotifier {
       results = [
         ...results,
         ...results.where((e) {
-          return e is ReplaceableEvent &&
-              replaceableIds.contains(e.internal.addressableId);
+          return e is ReplaceableModel &&
+              replaceableIds.contains(e.event.addressableId);
         })
       ];
     }
 
     if (req.authors.isNotEmpty) {
-      results = results
-          .where((event) => req.authors.contains(event.internal.pubkey))
-          .toList();
+      results =
+          results.where((m) => req.authors.contains(m.event.pubkey)).toList();
     }
 
     if (req.kinds.isNotEmpty) {
-      results = results
-          .where((event) => req.kinds.contains(event.internal.kind))
-          .toList();
+      results = results.where((m) => req.kinds.contains(m.event.kind)).toList();
     }
 
     if (req.since != null) {
-      results = results
-          .where((event) => event.internal.createdAt.isAfter(req.since!))
-          .toList();
+      results =
+          results.where((m) => m.event.createdAt.isAfter(req.since!)).toList();
     }
 
     if (req.until != null) {
-      results = results
-          .where((event) => event.internal.createdAt.isBefore(req.until!))
-          .toList();
+      results =
+          results.where((m) => m.event.createdAt.isBefore(req.until!)).toList();
     }
 
     if (req.tags.isNotEmpty) {
-      results = results.where((event) {
+      results = results.where((m) {
         // Requested tags should behave like AND: use fold with initial true and acc &&
         return req.tags.entries.fold(true, (acc, entry) {
           final wantedTagKey = entry.key.substring(1); // remove leading '#'
           final wantedTagValues = entry.value;
           // Event tags should behave like OR: use fold with initial false and acc ||
           return acc &&
-              event.internal.getTagSetValues(wantedTagKey).fold(false,
+              m.event.getTagSetValues(wantedTagKey).fold(false,
                   (acc, currentTagValue) {
                 return acc || wantedTagValues.contains(currentTagValue);
               });
@@ -132,8 +127,7 @@ class DummyStorageNotifier extends StorageNotifier {
       }).toList();
     }
 
-    results
-        .sort((a, b) => b.internal.createdAt.compareTo(a.internal.createdAt));
+    results.sort((a, b) => b.event.createdAt.compareTo(a.event.createdAt));
 
     if (applyLimit && req.limit != null && results.length > req.limit!) {
       results = results.sublist(0, req.limit!);
@@ -149,11 +143,11 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<void> clear([RequestFilter? req]) async {
     if (req == null) {
-      _events.clear();
+      _models.clear();
       return;
     }
-    final events = await query(req);
-    _events.removeWhere((e) => events.contains(e));
+    final models = await query(req);
+    _models.removeWhere((e) => models.contains(e));
   }
 
   @override
@@ -166,16 +160,16 @@ class DummyStorageNotifier extends StorageNotifier {
     _timers[req]?.cancel();
   }
 
-  // Dummy event generation
+  // Dummy model generation
 
   final _random = Random();
 
   @override
-  Future<Set<E>> fetch<E extends Event<dynamic>>(RequestFilter<E> req) async {
+  Future<Set<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req) async {
     return fetchSync(req);
   }
 
-  Set<E> fetchSync<E extends Event<dynamic>>(RequestFilter<E> req) {
+  Set<E> fetchSync<E extends Model<dynamic>>(RequestFilter<E> req) {
     if (!req.remote) return {};
 
     final preEoseAmount = req.limit ?? req.queryLimit ?? 10;
@@ -196,27 +190,27 @@ class DummyStorageNotifier extends StorageNotifier {
       follows.addAll(List.generate(10, (i) => generateProfile()));
     }
 
-    final models = List.generate(preEoseAmount, (i) {
+    final baseModels = List.generate(preEoseAmount, (i) {
       final profile = profiles.firstWhereOrNull(
               (p) => p.pubkey == req.authors.shuffled().firstOrNull) ??
           profiles[_random.nextInt(profiles.length)];
 
-      return generateEvent(
+      return generateModel(
         kind: req.kinds.first,
         pubkey: profile.pubkey,
         createdAt:
             DateTime.now().subtract(Duration(minutes: _random.nextInt(10))),
-        pTags: follows.map((e) => e.internal.pubkey).toList(),
+        pTags: follows.map((e) => e.event.pubkey).toList(),
       );
     }).nonNulls.toSet();
 
     final andModels = [
       if (req.and != null)
-        for (final m in models)
+        for (final m in baseModels)
           for (final r in req.and!(m))
             ...List.generate(
               _random.nextInt(20),
-              (i) => generateEvent(
+              (i) => generateModel(
                 kind: r.req!.kinds.first,
                 pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
                 parentId: m.id,
@@ -224,8 +218,8 @@ class DummyStorageNotifier extends StorageNotifier {
             ).nonNulls.toSet()
     ];
 
-    final events = {...profiles, ...follows, ...models, ...andModels};
-    Future.microtask(() => save(events));
+    final models = {...profiles, ...follows, ...baseModels, ...andModels};
+    Future.microtask(() => save(models));
 
     if (streamAmount > 0) {
       () {
@@ -236,11 +230,11 @@ class DummyStorageNotifier extends StorageNotifier {
               _timers.remove(req);
             } else {
               final amt = streamAmount < 5 ? streamAmount : 5;
-              final models = List.generate(
+              final baseModels = List.generate(
                 amt,
                 (i) {
                   streamAmount--;
-                  return generateEvent(
+                  return generateModel(
                       kind: req.kinds.first,
                       pubkey:
                           profiles[_random.nextInt(profiles.length)].pubkey);
@@ -249,12 +243,12 @@ class DummyStorageNotifier extends StorageNotifier {
 
               final andModels = [
                 if (req.and != null)
-                  for (final m in models)
+                  for (final m in baseModels)
                     for (final r in req.and!(m))
                       ...List.generate(
                         _random.nextInt(20),
                         (i) {
-                          return generateEvent(
+                          return generateModel(
                             kind: r.req!.kinds.first,
                             pubkey: profiles[_random.nextInt(profiles.length)]
                                 .pubkey,
@@ -264,7 +258,7 @@ class DummyStorageNotifier extends StorageNotifier {
                       ).nonNulls.toSet()
               ];
               Future.microtask(() {
-                save({...models, ...andModels});
+                save({...baseModels, ...andModels});
               });
             }
           } else {
@@ -274,7 +268,7 @@ class DummyStorageNotifier extends StorageNotifier {
         });
       }();
     }
-    return querySync(req.copyWith(remote: false), onEvents: events).toSet();
+    return querySync(req.copyWith(remote: false), onModels: models).toSet();
   }
 
   Profile generateProfile([String? pubkey]) {
@@ -285,7 +279,7 @@ class DummyStorageNotifier extends StorageNotifier {
         .dummySign(pubkey);
   }
 
-  Event? generateEvent(
+  Model? generateModel(
       {required int kind,
       String? parentId,
       String? pubkey,
@@ -298,7 +292,7 @@ class DummyStorageNotifier extends StorageNotifier {
           .dummySign(pubkey),
       7 => parentId == null
           ? null
-          : (PartialReaction()..internal.addTag('e', [parentId])).dummySign(),
+          : (PartialReaction()..event.addTag('e', [parentId])).dummySign(),
       9 => PartialChatMessage(faker.lorem.sentence()).dummySign(pubkey),
       9735 => pubkey != null && parentId != null
           ? Zap.fromMap(

@@ -1,6 +1,6 @@
 part of models;
 
-class AppCurationSet extends ParameterizableReplaceableEvent<AppCurationSet> {
+class AppCurationSet extends ParameterizableReplaceableModel<AppCurationSet> {
   AppCurationSet.fromMap(super.map, super.ref) : super.fromMap();
 }
 

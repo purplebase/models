@@ -1,6 +1,6 @@
 part of models;
 
-class RequestFilter<E extends Event<dynamic>> extends Equatable {
+class RequestFilter<E extends Model<dynamic>> extends Equatable {
   static final _random = Random();
 
   final Set<String> ids;
@@ -33,7 +33,7 @@ class RequestFilter<E extends Event<dynamic>> extends Equatable {
   final bool restrictToSubscription;
 
   /// Provide additional post-query filtering in Dart
-  final bool Function(Event)? where;
+  final bool Function(Model)? where;
 
   /// Watch relationships
   final AndFunction and;
@@ -60,7 +60,7 @@ class RequestFilter<E extends Event<dynamic>> extends Equatable {
   })  : ids = ids ?? const {},
         authors = authors ?? const {},
         kinds =
-            _isGenericEvent<E>() ? kinds ?? const {} : {Event._kindFor<E>()},
+            _isModelOfDynamic<E>() ? kinds ?? const {} : {Model._kindFor<E>()},
         tags = tags ?? const {} {
     // IDs are either regular (64 character) or replaceable and match its regexp
     if (ids != null &&
@@ -77,7 +77,8 @@ class RequestFilter<E extends Event<dynamic>> extends Equatable {
   factory RequestFilter.fromMap(Map<String, dynamic> map) {
     return RequestFilter<E>(
       ids: {...?map['ids']},
-      kinds: _isGenericEvent<E>() ? {...?map['kinds']} : {Event._kindFor<E>()},
+      kinds:
+          _isModelOfDynamic<E>() ? {...?map['kinds']} : {Model._kindFor<E>()},
       authors: {...?map['authors']},
       tags: {
         for (final e in map.entries)
@@ -94,7 +95,7 @@ class RequestFilter<E extends Event<dynamic>> extends Equatable {
     );
   }
 
-  factory RequestFilter.fromReplaceableEvent(String addressableId) {
+  factory RequestFilter.fromReplaceable(String addressableId) {
     final [kind, author, ...rest] = addressableId.split(':');
     var req = RequestFilter<E>(
       kinds: {int.parse(kind)},
@@ -108,8 +109,8 @@ class RequestFilter<E extends Event<dynamic>> extends Equatable {
     return req;
   }
 
-  static bool _isGenericEvent<E extends Event<dynamic>>() =>
-      ['Event<Event<dynamic>>', 'Event<dynamic>'].contains(E.toString());
+  static bool _isModelOfDynamic<E extends Model<dynamic>>() =>
+      <Model<dynamic>>[] is List<E>;
 
   Map<String, dynamic> toMap() {
     return {

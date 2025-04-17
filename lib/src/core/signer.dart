@@ -1,12 +1,12 @@
 part of models;
 
-mixin Signable<E extends Event<E>> {
+mixin Signable<E extends Model<E>> {
   Future<E> signWith(Signer signer, {String? withPubkey}) {
-    return signer.sign<E>(this as PartialEvent<E>, withPubkey: withPubkey);
+    return signer.sign<E>(this as PartialModel<E>, withPubkey: withPubkey);
   }
 
   E dummySign([String? withPubkey]) =>
-      _dummySigner.signSync(this as PartialEvent<E>, withPubkey: withPubkey);
+      _dummySigner.signSync(this as PartialModel<E>, withPubkey: withPubkey);
 }
 
 // Needs to be here because of Signer._ref
@@ -23,8 +23,8 @@ abstract class Signer {
   Future<Signer> initialize();
   Future<String?> getPublicKey();
 
-  /// Sign the partial event, supply `withPubkey` to disambiguate when signer holds multiple keys
-  Future<E> sign<E extends Event<E>>(PartialEvent<E> partialEvent,
+  /// Sign the partial model, supply `withPubkey` to disambiguate when signer holds multiple keys
+  Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey});
 }
 
@@ -51,14 +51,14 @@ class Bip340PrivateKeySigner extends Signer {
   }
 
   @override
-  Future<E> sign<E extends Event<E>>(PartialEvent<E> partialEvent,
+  Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) async {
     final pubkey = Profile.getPublicKey(privateKey);
-    final id = partialEvent.getEventId(pubkey);
+    final id = partialModel.getEventId(pubkey);
     final aux = hex.encode(List<int>.generate(32, (i) => 1));
     final signature = bip340.sign(privateKey, id.toString(), aux);
-    final map = _prepare(partialEvent.toMap(), id, pubkey, signature);
-    return Event.getConstructorFor<E>()!.call(map, Signer._ref);
+    final map = _prepare(partialModel.toMap(), id, pubkey, signature);
+    return Model.getConstructorFor<E>()!.call(map, Signer._ref);
   }
 }
 
@@ -73,21 +73,21 @@ class DummySigner extends Signer {
     return this;
   }
 
-  E signSync<E extends Event<E>>(PartialEvent<E> partialEvent,
+  E signSync<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) {
     final pubkey = withPubkey ?? generate64Hex();
-    return Event.getConstructorFor<E>()!.call({
-      'id': partialEvent.getEventId(pubkey),
+    return Model.getConstructorFor<E>()!.call({
+      'id': partialModel.getEventId(pubkey),
       'pubkey': pubkey,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      ...partialEvent.toMap(),
+      ...partialModel.toMap(),
     }, Signer._ref);
   }
 
   @override
-  Future<E> sign<E extends Event<E>>(PartialEvent<E> partialEvent,
+  Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) async {
-    return signSync(partialEvent, withPubkey: withPubkey);
+    return signSync(partialModel, withPubkey: withPubkey);
   }
 }
 

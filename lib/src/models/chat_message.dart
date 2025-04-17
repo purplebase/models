@@ -1,6 +1,6 @@
 part of models;
 
-class ChatMessage extends RegularEvent<ChatMessage> {
+class ChatMessage extends RegularModel<ChatMessage> {
   late final BelongsTo<ChatMessage> quotedMessage;
   late final BelongsTo<Community> community;
 
@@ -9,29 +9,28 @@ class ChatMessage extends RegularEvent<ChatMessage> {
       ref,
       RequestFilter(
         tags: {
-          '#q': {internal.id}
+          '#q': {event.id}
         },
       ),
     );
     community = BelongsTo(
         ref,
-        internal.containsTag('h')
-            ? RequestFilter.fromReplaceableEvent(
-                internal.getFirstTagValue('h')!)
+        event.containsTag('h')
+            ? RequestFilter.fromReplaceable(event.getFirstTagValue('h')!)
             : null);
   }
-  String get content => internal.content;
+  String get content => event.content;
 }
 
-class PartialChatMessage extends RegularPartialEvent<ChatMessage> {
+class PartialChatMessage extends RegularPartialModel<ChatMessage> {
   PartialChatMessage(String content,
       {DateTime? createdAt, ChatMessage? quotedMessage, Community? community}) {
-    internal.content = content;
+    event.content = content;
     if (createdAt != null) {
-      internal.createdAt = createdAt;
+      event.createdAt = createdAt;
     }
 
-    internal.addTagValue('q', quotedMessage?.id);
-    internal.addTagValue('h', community?.id);
+    event.addTagValue('q', quotedMessage?.id);
+    event.addTagValue('h', community?.id);
   }
 }

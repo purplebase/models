@@ -1,7 +1,7 @@
 library models;
 
 import 'package:riverpod/riverpod.dart';
-import 'package:meta/meta.dart' hide internal;
+import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'dart:math';
@@ -16,9 +16,9 @@ import 'package:convert/convert.dart';
 
 part 'src/core/config.dart';
 part 'src/core/encoding.dart';
-part 'src/core/event.dart';
+part 'src/core/model.dart';
 part 'src/core/extensions.dart';
-part 'src/core/internal_event.dart';
+part 'src/core/event.dart';
 part 'src/core/relationship.dart';
 part 'src/core/signer.dart';
 

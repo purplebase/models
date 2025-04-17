@@ -1,6 +1,6 @@
 part of models;
 
-class RequestNotifier<E extends Event<dynamic>>
+class RequestNotifier<E extends Model<dynamic>>
     extends StateNotifier<StorageState<E>> {
   final Ref ref;
   final RequestFilter<E> req;
@@ -15,38 +15,38 @@ class RequestNotifier<E extends Event<dynamic>>
       return;
     }
 
-    // Fetch events from local storage, fire request to relays
+    // Fetch models from local storage, fire request to relays
     Future<List<E>> fetchAndQuery(RequestFilter<E> req) async {
       // Send req to relays in the background (pre-EOSE + streaming)
       storage.fetch(req);
 
       // And ensure query is run in local storage only
-      final events = await storage.query(req.copyWith(remote: false));
+      final models = await storage.query(req.copyWith(remote: false));
 
       if (req.and != null) {
         final reqs = {
-          for (final e in events) ...req.and!(e).map((r) => r.req).nonNulls
+          for (final m in models) ...req.and!(m).map((r) => r.req).nonNulls
         };
         final mergedReqs = mergeMultipleRequests(reqs.toList());
 
         for (final r in mergedReqs) {
           // Query without hitting relays, we do that below
           // (does not pass E type argument, as these are of any kind)
-          final relatedEvents = await storage.query(r.copyWith(remote: false));
+          final relatedModels = await storage.query(r.copyWith(remote: false));
           // TODO: Could check if r is "included" in some cached req
           // Would need to implement a bool isIncluded(req) fn
           storage.requestCache[r.subscriptionId] ??= {};
-          storage.requestCache[r.subscriptionId]![r] = relatedEvents.cast();
+          storage.requestCache[r.subscriptionId]![r] = relatedModels.cast();
           // Send request filters to relays
           storage.fetch(r);
         }
       }
-      return events;
+      return models;
     }
 
-    fetchAndQuery(req).then((events) {
+    fetchAndQuery(req).then((models) {
       if (mounted) {
-        state = StorageData([...state.models, ...events]);
+        state = StorageData([...state.models, ...models]);
       }
     });
 
@@ -72,7 +72,7 @@ class RequestNotifier<E extends Event<dynamic>>
           return;
         }
 
-        // Incoming are the IDs of *any* new events in local storage,
+        // Incoming are the IDs of *any* new models in local storage,
         // so restrict req to them and check if they apply
 
         final finalIncomingIds = incomingIds.where((id) {
@@ -101,8 +101,8 @@ class RequestNotifier<E extends Event<dynamic>>
     ref.onDispose(() => storage.cancel(req));
   }
 
-  Future<void> save(Set<Event> events) async {
-    await storage.save(events);
+  Future<void> save(Set<Model> models) async {
+    await storage.save(models);
   }
 }
 
@@ -112,7 +112,7 @@ final Map<RequestFilter,
 
 /// Family of notifier providers, one per request
 /// Manually caching since a factory function is needed to pass the type
-requestNotifierProvider<E extends Event<dynamic>>(RequestFilter<E> req) =>
+requestNotifierProvider<E extends Model<dynamic>>(RequestFilter<E> req) =>
     _typedProviderCache[req] ??= StateNotifierProvider.autoDispose
         .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>(
       (ref, req) {
@@ -161,7 +161,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))` on one specific kind
 /// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
-    query<E extends Event<E>>({
+    query<E extends Model<E>>({
   Set<String>? ids,
   Set<String>? authors,
   Map<String, Set<String>>? tags,
@@ -197,7 +197,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 /// Syntax sugar for watching one model
 /// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
-    model<E extends Event<E>>(E model,
+    model<E extends Model<E>>(E model,
         {AndFunction<E> and, bool remote = true}) {
   // Note: does not need kind as it queries by ID
   final req =
@@ -205,16 +205,16 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
   return requestNotifierProvider(req);
 }
 
-AndFunction _castAnd<E extends Event<E>>(AndFunction<E> andFn) {
+AndFunction _castAnd<E extends Model<E>>(AndFunction<E> andFn) {
   return andFn == null ? null : (e) => andFn(e as E);
 }
 
-typedef AndFunction<E extends Event<dynamic>> = Set<Relationship<Event>>
+typedef AndFunction<E extends Model<dynamic>> = Set<Relationship<Model>>
     Function(E)?;
 
 // State
 
-sealed class StorageState<E extends Event<dynamic>> with EquatableMixin {
+sealed class StorageState<E extends Model<dynamic>> with EquatableMixin {
   final List<E> models;
   const StorageState(this.models);
 
@@ -227,15 +227,15 @@ sealed class StorageState<E extends Event<dynamic>> with EquatableMixin {
   }
 }
 
-final class StorageLoading<E extends Event<dynamic>> extends StorageState<E> {
+final class StorageLoading<E extends Model<dynamic>> extends StorageState<E> {
   StorageLoading(super.models);
 }
 
-final class StorageData<E extends Event<dynamic>> extends StorageState<E> {
+final class StorageData<E extends Model<dynamic>> extends StorageState<E> {
   StorageData(super.models);
 }
 
-final class StorageError<E extends Event<dynamic>> extends StorageState<E> {
+final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
   final Exception exception;
   final StackTrace? stackTrace;
   StorageError(super.modelsWithMetadata,

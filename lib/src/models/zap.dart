@@ -1,50 +1,49 @@
 part of models;
 
 /// Zap is technically a kind 9735 Zap Receipt
-class Zap extends RegularEvent<Zap> {
+class Zap extends RegularModel<Zap> {
   @override
   BelongsTo<Profile> get author =>
-      BelongsTo(ref, RequestFilter(authors: {internal.getFirstTagValue('P')!}));
-  late final BelongsTo<Event> zappedEvent;
+      BelongsTo(ref, RequestFilter(authors: {event.getFirstTagValue('P')!}));
+  late final BelongsTo<Model> zappedModel;
   late final BelongsTo<Profile> recipient;
 
   Zap.fromMap(super.map, super.ref) : super.fromMap() {
-    recipient = BelongsTo(
-        ref, RequestFilter(authors: {internal.getFirstTagValue('p')!}));
-    zappedEvent =
-        BelongsTo(ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
+    recipient =
+        BelongsTo(ref, RequestFilter(authors: {event.getFirstTagValue('p')!}));
+    zappedModel =
+        BelongsTo(ref, RequestFilter(ids: {event.getFirstTagValue('e')!}));
   }
 
   @override
   Future<Map<String, dynamic>> processMetadata() async {
-    final amount = getSatsFromBolt11(internal.getFirstTagValue('bolt11')!);
+    final amount = getSatsFromBolt11(event.getFirstTagValue('bolt11')!);
     return {'amount': amount};
   }
 
   @override
-  Map<String, dynamic> transformEventMap(Map<String, dynamic> event) {
+  Map<String, dynamic> transformMap(Map<String, dynamic> map) {
     // Remove bolt11, preimage, description
-    (event['tags'] as List).removeWhere(
+    (map['tags'] as List).removeWhere(
         (t) => ['bolt11', 'preimage', 'description'].contains(t[0]));
-    return event;
+    return map;
   }
 
   /// Amount in sats
   int get amount {
-    return internal.metadata['amount'];
+    return event.metadata['amount'];
   }
 }
 
-class ZapRequest extends RegularEvent<ZapRequest> {
+class ZapRequest extends RegularModel<ZapRequest> {
   ZapRequest.fromMap(super.map, super.ref) : super.fromMap();
 }
 
-class PartialZapRequest extends RegularPartialEvent<ZapRequest> {
-  set comment(String? value) => value != null ? internal.content = value : null;
-  set amount(int value) => internal.setTagValue('amount', value.toString());
-  set relays(Iterable<String> value) =>
-      internal.addTag('relays', value.toList());
-  set lnurl(String value) => internal.setTagValue('lnurl', value);
+class PartialZapRequest extends RegularPartialModel<ZapRequest> {
+  set comment(String? value) => value != null ? event.content = value : null;
+  set amount(int value) => event.setTagValue('amount', value.toString());
+  set relays(Iterable<String> value) => event.addTag('relays', value.toList());
+  set lnurl(String value) => event.setTagValue('lnurl', value);
 }
 
 final kBolt11Regexp = RegExp(r'lnbc(\d+)([munp])');

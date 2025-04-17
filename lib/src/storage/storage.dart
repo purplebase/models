@@ -7,61 +7,61 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
   // - Need to place this cache here as its accessed by
   // both request notifiers and relationships
   // - Keep it as list and it will retain order from database query
-  // - Format: {'subId': {RequestFilter(1): [events1], RequestFilter(2): [events2]}}
+  // - Format: {'subId': {RequestFilter(1): [models1], RequestFilter(2): [models2]}}
   // - It's necessary to keep it per subscription ID as request notifiers
   // remove caches when disposed, but should only be theirs
   @protected
-  final Map<String, Map<RequestFilter, List<Event>>> requestCache = {};
+  final Map<String, Map<RequestFilter, List<Model>>> requestCache = {};
 
   @mustCallSuper
   Future<void> initialize(StorageConfiguration config) async {
     // Regular
-    Event.registerModel(kind: 0, constructor: Profile.fromMap);
-    Event.registerModel(kind: 1, constructor: Note.fromMap);
-    Event.registerModel(kind: 3, constructor: ContactList.fromMap);
-    Event.registerModel(kind: 4, constructor: DirectMessage.fromMap);
-    Event.registerModel(kind: 7, constructor: Reaction.fromMap);
-    Event.registerModel(kind: 9, constructor: ChatMessage.fromMap);
-    Event.registerModel(kind: 1063, constructor: FileMetadata.fromMap);
-    Event.registerModel(kind: 9734, constructor: ZapRequest.fromMap);
-    Event.registerModel(kind: 9735, constructor: Zap.fromMap);
+    Model.register(kind: 0, constructor: Profile.fromMap);
+    Model.register(kind: 1, constructor: Note.fromMap);
+    Model.register(kind: 3, constructor: ContactList.fromMap);
+    Model.register(kind: 4, constructor: DirectMessage.fromMap);
+    Model.register(kind: 7, constructor: Reaction.fromMap);
+    Model.register(kind: 9, constructor: ChatMessage.fromMap);
+    Model.register(kind: 1063, constructor: FileMetadata.fromMap);
+    Model.register(kind: 9734, constructor: ZapRequest.fromMap);
+    Model.register(kind: 9735, constructor: Zap.fromMap);
 
     // Replaceable
-    Event.registerModel(kind: 10222, constructor: Community.fromMap);
+    Model.register(kind: 10222, constructor: Community.fromMap);
 
     // Parameterized replaceable
-    Event.registerModel(kind: 30023, constructor: Article.fromMap);
-    Event.registerModel(kind: 30063, constructor: Release.fromMap);
-    Event.registerModel(kind: 30222, constructor: TargetedPublication.fromMap);
-    Event.registerModel(kind: 30267, constructor: AppCurationSet.fromMap);
-    Event.registerModel(kind: 32267, constructor: App.fromMap);
+    Model.register(kind: 30023, constructor: Article.fromMap);
+    Model.register(kind: 30063, constructor: Release.fromMap);
+    Model.register(kind: 30222, constructor: TargetedPublication.fromMap);
+    Model.register(kind: 30267, constructor: AppCurationSet.fromMap);
+    Model.register(kind: 32267, constructor: App.fromMap);
 
     this.config = config;
   }
 
   /// Query storage asynchronously
   /// Passing [remote]=`true` hits relays only until EOSE
-  Future<List<E>> query<E extends Event<dynamic>>(RequestFilter<E> req,
+  Future<List<E>> query<E extends Model<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds});
 
   /// Query storage asynchronously
   /// [remote] is ignored and always false
-  List<E> querySync<E extends Event<dynamic>>(RequestFilter<E> req,
+  List<E> querySync<E extends Model<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds});
 
-  /// Save events to storage, use [publish] to send to relays
+  /// Save models to storage, use [publish] to send to relays
   /// Specifying [relayGroup] or fall back to default group
-  Future<void> save(Set<Event> events,
+  Future<void> save(Set<Model> models,
       {String? relayGroup, bool publish = false});
 
-  /// Trigger a fetch on relays, returns pre-EOSE events
+  /// Trigger a fetch on relays, returns pre-EOSE models
   /// but streams in the background
-  Future<Set<E>> fetch<E extends Event<dynamic>>(RequestFilter<E> req);
+  Future<Set<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req);
 
   /// Cancel any subscriptions for [req]
   Future<void> cancel(RequestFilter req);
 
-  /// Remove all events from storage, or those matching [req]
+  /// Remove all models from storage, or those matching [req]
   Future<void> clear([RequestFilter? req]);
 }
 

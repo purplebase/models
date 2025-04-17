@@ -268,7 +268,7 @@ bool canMerge(Map<String, dynamic> filter1, Map<String, dynamic> filter2) {
 
 final _eq = DeepCollectionEquality();
 
-List<RequestFilter<E>> mergeMultipleRequests<E extends Event<dynamic>>(
+List<RequestFilter<E>> mergeMultipleRequests<E extends Model<dynamic>>(
     List<RequestFilter<E>> filters) {
   if (filters.length <= 1) {
     return List.from(filters); // Return a copy

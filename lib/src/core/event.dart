@@ -1,233 +1,159 @@
 part of models;
 
-mixin EventBase<E extends Event<E>> {
-  InternalEvent get internal;
-  Map<String, dynamic> toMap();
+sealed class EventBase<E extends Model<E>> {
+  final int kind = Model._kindFor<E>();
+  DateTime get createdAt;
+  String get content;
+  List<List<String>> get tags;
+
+  String? getFirstTagValue(String key) {
+    return getFirstTag(key)?[1];
+  }
+
+  List<String>? getFirstTag(String key) {
+    return tags.firstWhereOrNull((t) => t[0] == key);
+  }
+
+  Set<String> getTagSetValues(String key) =>
+      getTagSet(key).map((e) => e[1]).toSet();
+
+  Set<List<String>> getTagSet(String key) =>
+      tags.where((e) => e[0] == key).toSet();
+
+  bool containsTag(String key) => tags.any((t) => t[0] == key);
 }
 
-typedef EventConstructor<E extends Event<E>> = E Function(
-    Map<String, dynamic>, Ref ref);
-
-// Event
-
-sealed class Event<E extends Event<E>>
-    with EquatableMixin
-    implements EventBase<E> {
-  final Ref ref;
-
+final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
+  final String id;
   @override
-  final ImmutableInternalEvent internal;
+  final DateTime createdAt;
+  final String pubkey;
+  @override
+  final String content;
+  @override
+  final List<List<String>> tags;
+  final Set<String> relays;
+  // Signature is nullable as it may be removed as optimization
+  final String? signature;
+  // Metadata
+  final Map<String, dynamic> metadata;
 
-  late final BelongsTo<Profile> author;
-  late final HasMany<Reaction> reactions;
-  late final HasMany<Zap> zaps;
-  late final HasMany<TargetedPublication> targetedPublications;
-
-  Event._internal(this.ref, this.internal) {
-    final kindCheck = switch (internal.kind) {
-      >= 10000 && < 20000 || 0 || 3 => this is ReplaceableEvent,
-      >= 20000 && < 30000 => this is EphemeralEvent,
-      >= 30000 && < 40000 => this is ParameterizableReplaceableEvent,
-      _ => this is RegularEvent,
-    };
-
-    if (!kindCheck) {
+  ImmutableEvent(Map<String, dynamic> map)
+      : id = map['id'],
+        content = map['content'],
+        pubkey = map['pubkey'],
+        createdAt = (map['created_at'] as int).toDate(),
+        tags = [
+          for (final tag in map['tags'])
+            if (tag is Iterable && tag.length > 1)
+              [for (final e in tag) e.toString()]
+        ],
+        signature = map['sig'],
+        metadata = Map<String, dynamic>.from(map['metadata'] ?? {}),
+        relays = <String>{...?map['relays']} {
+    if (map['kind'] != kind) {
       throw Exception(
-          'Kind ${internal.kind} does not match the type of event: regular, replaceable, etc. Check the model definition inherits the right one.');
+          'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E ($kind)');
     }
-
-    // Generic relationships
-    author = BelongsTo(ref, RequestFilter<Profile>(authors: {internal.pubkey}));
-    reactions = HasMany(ref, RequestFilter(tags: internal.addressableIdTagMap));
-    zaps = HasMany(ref, RequestFilter(tags: internal.addressableIdTagMap));
-    targetedPublications = HasMany(
-        ref,
-        RequestFilter(tags: {
-          '#d': {id}
-        }));
   }
 
-  Event.fromMap(Map<String, dynamic> map, Ref ref)
-      : this._internal(ref, ImmutableInternalEvent<E>(map));
-
-  String get id => internal.addressableId;
-  DateTime get createdAt => internal.createdAt;
-
-  Future<Map<String, dynamic>> processMetadata() async {
-    return {};
-  }
-
-  Map<String, dynamic> transformEventMap(Map<String, dynamic> event) {
-    return event;
-  }
-
-  @override
-  Map<String, dynamic> toMap() {
-    return {
-      'id': internal.id,
-      'content': internal.content,
-      'created_at': internal.createdAt.toSeconds(),
-      'pubkey': internal.pubkey,
-      'kind': internal.kind,
-      'tags': internal.tags,
-      'sig': internal.signature,
+  String get addressableId {
+    return switch (this) {
+      ImmutableParameterizableReplaceableEvent(:final identifier) =>
+        '$kind:$pubkey:$identifier',
+      ImmutableReplaceableEvent() => '$kind:$pubkey:',
+      ImmutableEvent() => id
     };
   }
 
-  @override
-  List<Object?> get props => [internal.id];
-
-  @override
-  String toString() {
-    return toMap().toString();
-  }
-
-  // Registry related functions
-
-  static final Map<String, ({int kind, EventConstructor constructor})>
-      _modelRegistry = {};
-
-  static void registerModel<E extends Event<E>>(
-      {required int kind, required EventConstructor<E> constructor}) {
-    _modelRegistry[E.toString()] = (kind: kind, constructor: constructor);
-  }
-
-  static Exception _unregisteredException<T>() => Exception(
-      'Type $T has not been registered. Make sure to register it with Event.registerModel.');
-
-  static int _kindFor<E extends Event<dynamic>>() {
-    final kind = Event._modelRegistry[E.toString()]?.kind;
-    if (kind == null) {
-      throw _unregisteredException();
+  String get shareableId {
+    switch (this) {
+      case ImmutableParameterizableReplaceableEvent(:final identifier):
+        // naddr
+        return encodeShareableIdentifiers(
+            prefix: 'naddr',
+            special: identifier,
+            relays: null,
+            author: pubkey,
+            kind: kind);
+      default:
+        // nprofile
+        if (kind == 0) {
+          return encodeShareableIdentifiers(
+              prefix: 'nprofile',
+              special: pubkey,
+              relays: null,
+              author: null,
+              kind: null);
+        }
+        // nevent
+        return encodeShareableIdentifiers(
+            prefix: 'nevent',
+            special: id,
+            relays: null,
+            author: null,
+            kind: null);
     }
-    return kind;
   }
 
-  static EventConstructor<E>? getConstructorFor<E extends Event<E>>() {
-    final constructor =
-        _modelRegistry[E.toString()]?.constructor as EventConstructor<E>?;
-    if (constructor == null) {
-      throw _unregisteredException();
-    }
-    return constructor;
-  }
+  String get addressableIdTagLetter =>
+      this is ImmutableReplaceableEvent ? 'a' : 'e';
 
-  static EventConstructor<Event<dynamic>>? getConstructorForKind(int kind) {
-    final constructor = _modelRegistry.values
-        .firstWhereOrNull((v) => v.kind == kind)
-        ?.constructor;
-    if (constructor == null) {
-      throw _unregisteredException();
-    }
-    return constructor;
-  }
+  Map<String, Set<String>> get addressableIdTagMap => {
+        '#$addressableIdTagLetter': {id}
+      };
 }
 
-sealed class PartialEvent<E extends Event<E>>
-    with Signable<E>
-    implements EventBase<E> {
-  @override
-  final PartialInternalEvent internal = PartialInternalEvent<E>();
+final class ImmutableReplaceableEvent<E extends Model<E>>
+    extends ImmutableEvent<E> {
+  ImmutableReplaceableEvent(super.map);
+}
 
-  String getEventId(String pubkey) {
-    final data = [
-      0,
-      pubkey.toLowerCase(),
-      internal.createdAt.toSeconds(),
-      internal.kind,
-      internal.tags,
-      internal.content
-    ];
-    final digest =
-        sha256.convert(Uint8List.fromList(utf8.encode(json.encode(data))));
-    return digest.toString();
+final class ImmutableParameterizableReplaceableEvent<E extends Model<E>>
+    extends ImmutableReplaceableEvent<E> {
+  ImmutableParameterizableReplaceableEvent(super.map);
+
+  String get identifier => getFirstTagValue('d')!;
+}
+
+final class PartialEvent<E extends Model<E>> extends EventBase<E> {
+  // No ID, pubkey or signature
+  // Kind is inherited
+  @override
+  String content = '';
+  @override
+  DateTime createdAt = DateTime.now();
+  @override
+  List<List<String>> tags = [];
+
+  void addTagValue(String key, String? value) {
+    if (value != null) {
+      tags.add([key, value]);
+    }
   }
 
-  void linkEvent(Event e, {String? relayUrl, String? marker, String? pubkey}) {
-    if (e is ReplaceableEvent) {
-      internal.addTag('a', [e.id]);
+  void addTagValues(String key, List<String> values) {
+    for (final value in values) {
+      tags.add([key, value]);
+    }
+  }
+
+  void addTag(String key, List<String> tag) {
+    tags.add([key, ...tag]);
+  }
+
+  void removeTagWithValue(String key, [String? value]) {
+    if (value != null) {
+      tags.removeWhere((t) => t[1] == value);
     } else {
-      internal.addTag('e', [
-        e.id,
-        if (relayUrl != null) relayUrl,
-        if (marker != null) marker,
-        if (pubkey != null) pubkey
-      ]);
+      tags.removeWhere((t) => t.first == key);
     }
   }
 
-  void unlinkEvent(Event e) {
-    internal.removeTagWithValue(e is ReplaceableEvent ? 'a' : 'e', e.id);
-  }
-
-  void linkProfile(Profile p) => internal.setTagValue('p', p.pubkey);
-  void unlinkProfile(Profile u) => internal.removeTagWithValue('p', u.pubkey);
-
-  @override
-  Map<String, dynamic> toMap() {
-    return {
-      'content': internal.content,
-      'created_at': internal.createdAt.toSeconds(),
-      'kind': internal.kind,
-      'tags': internal.tags,
-    };
-  }
-
-  @override
-  String toString() {
-    return jsonEncode(toMap());
-  }
-}
-
-// Event types
-
-// Create an empty mixin in order to use the = class definitions
-mixin _EmptyMixin {}
-
-abstract class RegularEvent<E extends Event<E>> = Event<E> with _EmptyMixin;
-abstract class RegularPartialEvent<E extends Event<E>> = PartialEvent<E>
-    with _EmptyMixin;
-
-abstract class EphemeralEvent<E extends Event<E>> = Event<E> with _EmptyMixin;
-abstract class EphemeralPartialEvent<E extends Event<E>> = PartialEvent<E>
-    with _EmptyMixin;
-
-abstract class ReplaceableEvent<E extends Event<E>> extends Event<E> {
-  @override
-  ImmutableReplaceableInternalEvent<E> get internal =>
-      super.internal as ImmutableReplaceableInternalEvent<E>;
-
-  ReplaceableEvent.fromMap(Map<String, dynamic> map, Ref ref)
-      : this._internal(ref, ImmutableReplaceableInternalEvent<E>(map));
-
-  ReplaceableEvent._internal(
-      Ref ref, ImmutableReplaceableInternalEvent internal)
-      : super._internal(ref, internal);
-
-  @override
-  List<Object?> get props => [id];
-}
-
-abstract class ReplaceablePartialEvent<E extends Event<E>> = PartialEvent<E>
-    with _EmptyMixin;
-
-abstract class ParameterizableReplaceableEvent<E extends Event<E>>
-    extends ReplaceableEvent<E> {
-  @override
-  ImmutableParameterizableReplaceableInternalEvent<E> get internal =>
-      super.internal as ImmutableParameterizableReplaceableInternalEvent<E>;
-
-  ParameterizableReplaceableEvent.fromMap(Map<String, dynamic> map, Ref ref)
-      : super._internal(
-            ref, ImmutableParameterizableReplaceableInternalEvent<E>(map)) {
-    if (!internal.containsTag('d')) {
-      throw Exception('Event must contain a `d` tag');
+  void setTagValue(String key, String? value) {
+    if (value != null) {
+      removeTagWithValue(key);
+      addTagValue(key, value);
     }
   }
-}
-
-abstract class ParameterizableReplaceablePartialEvent<E extends Event<E>>
-    extends ReplaceablePartialEvent<E> {
-  String? get identifier => internal.getFirstTagValue('d');
-  set identifier(String? value) => internal.setTagValue('d', value);
 }

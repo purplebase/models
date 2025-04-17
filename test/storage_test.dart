@@ -65,8 +65,8 @@ void main() async {
     });
 
     test('ids', () async {
-      tester = container.testerFor(
-          queryKinds(ids: {a.internal.id, e.internal.id}, remote: false));
+      tester = container
+          .testerFor(queryKinds(ids: {a.event.id, e.event.id}, remote: false));
       await tester.expectModels(unorderedEquals({a, e}));
     });
 
@@ -80,7 +80,7 @@ void main() async {
       tester = container.testerFor(query<Note>(remote: false));
       await tester.expectModels(allOf(
         hasLength(9),
-        everyElement((e) => e is Event && e.internal.kind == 1),
+        everyElement((e) => e is Model && e.event.kind == 1),
       ));
 
       tester = container.testerFor(query<Profile>(remote: false));
@@ -134,6 +134,13 @@ void main() async {
       await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
+    test('replaceable updates', () async {
+      // TODO: Implement
+      // tester = container
+      //     .testerFor(queryKinds(ids: {a.event.id, e.event.id}, remote: false));
+      // await tester.expectModels(unorderedEquals({a, e}));
+    });
+
     test('relationships with model watcher', () async {
       tester = container
           .testerFor(model(a, and: (note) => {note.author}, remote: false));
@@ -154,7 +161,7 @@ void main() async {
       tester = container
           .testerFor(query<Profile>(authors: {nielPubkey}, remote: false));
       await tester.expect(isA<StorageData>()
-          .having((s) => s.models.first.internal.relays, 'relays', <String>{}));
+          .having((s) => s.models.first.event.relays, 'relays', <String>{}));
     });
   });
 
@@ -209,14 +216,14 @@ void main() async {
       expect(r1, equals(r4));
     });
 
-    test('relay request should notify with events', () async {
+    test('relay request should notify with models', () async {
       tester = container.testerFor(
           query<Note>(authors: {nielPubkey, franzapPubkey}, limit: 2));
       await tester.expectModels(isEmpty);
       await tester.expectModels(hasLength(2));
     });
 
-    test('relay request should notify with events (streamed)', () async {
+    test('relay request should notify with models (streamed)', () async {
       tester = container.testerFor(query<Note>(
         authors: {nielPubkey, franzapPubkey},
         limit: 5,
