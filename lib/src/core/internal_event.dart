@@ -130,6 +130,12 @@ final class PartialInternalEvent<E extends Event<E>> extends InternalEvent<E> {
     }
   }
 
+  void addTagValues(String key, List<String> values) {
+    for (final value in values) {
+      tags.add([key, value]);
+    }
+  }
+
   void addTag(String key, List<String> tag) {
     tags.add([key, ...tag]);
   }

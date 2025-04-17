@@ -173,20 +173,25 @@ class DummyStorageNotifier extends StorageNotifier {
     if (req.kinds.isEmpty || req.kinds.first == 7 || req.kinds.first == 9735) {
       return {};
     }
-    final pubkey = req.authors.firstOrNull;
-    final profiles = pubkey != null
-        ? [generateProfile(pubkey)]
+    final profiles = req.authors.isNotEmpty
+        ? req.authors.map(generateProfile).toList()
         : List.generate(10, (i) => generateProfile());
+    // Add already saved profiles
+    profiles.addAll(querySync(RequestFilter(kinds: {0})).cast<Profile>());
 
     final follows = <Profile>{};
     if (req.kinds.contains(3)) {
-      follows.addAll([generateProfile(), generateProfile(), generateProfile()]);
+      follows.addAll(List.generate(10, (i) => generateProfile()));
     }
 
     final models = List.generate(preEoseAmount, (i) {
+      final profile = profiles.firstWhereOrNull(
+              (p) => p.pubkey == req.authors.shuffled().firstOrNull) ??
+          profiles[_random.nextInt(profiles.length)];
+
       return generateEvent(
         kind: req.kinds.first,
-        pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
+        pubkey: profile.pubkey,
         createdAt:
             DateTime.now().subtract(Duration(minutes: _random.nextInt(10))),
         pTags: follows.map((e) => e.internal.pubkey).toList(),
@@ -276,12 +281,7 @@ class DummyStorageNotifier extends StorageNotifier {
       List<String> pTags = const []}) {
     return switch (kind) {
       0 => generateProfile(),
-      3 => pTags.isEmpty
-          ? null
-          : (PartialContactList()
-                ..addFollowPubkey(pTags[0])
-                ..addFollowPubkey(pTags[1]))
-              .dummySign(pubkey),
+      3 => PartialContactList(followPubkeys: pTags).dummySign(pubkey),
       1 => PartialNote(faker.lorem.sentence(), createdAt: createdAt)
           .dummySign(pubkey),
       7 => parentId == null

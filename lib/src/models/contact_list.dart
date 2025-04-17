@@ -13,8 +13,13 @@ class ContactList extends ReplaceableEvent<ContactList> {
 }
 
 class PartialContactList extends ReplaceablePartialEvent<ContactList> {
+  PartialContactList({List<String> followPubkeys = const []}) {
+    addFollowPubkeys(followPubkeys);
+  }
+
   void addFollow(Profile profile) => internal.addTagValue('p', profile.pubkey);
-  void addFollowPubkey(String pubkey) => internal.addTagValue('p', pubkey);
+  void addFollowPubkeys(List<String> pubkeys) =>
+      internal.addTagValues('p', pubkeys);
   void removeFollow(Profile profile) =>
       internal.removeTagWithValue('p', profile.pubkey);
   void removeFollowPubkey(String pubkey) =>
