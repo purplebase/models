@@ -6,6 +6,55 @@ It includes a dummy data implementation that can be used in tests and prototypes
 
 [Purplebase](https://github.com/purplebase/purplebase) will be one such real implementation.
 
+## Adding your own models
+
+Add a joke event of kind 1055. Extend from `RegularEvent` or `ReplaceableEvent` etc as appropriate. Classes are meant to wrap nostr data and expose it as domain language, properly typed.
+
+The lower level object holding raw nostr data is accessible at `internal` in every event.
+
+```dart
+/// This is a signed, immutable Joke event
+class Joke extends RegularEvent<Joke> {
+  // Call super to deserialize from a map
+  Joke.fromMap(super.map, super.ref) : super.fromMap();
+
+  // Getter to the title tag
+  String? get title => internal.getFirstTagValue('title');
+  // Getter to published_at tag, converting to DateTime
+  DateTime? get publishedAt =>
+      internal.getFirstTagValue('published_at')?.toInt()?.toDate();
+}
+
+/// This is a PartialJoke, unsigned and mutable event
+/// on which .signWith() is called to produce a Joke event
+class PartialJoke extends RegularPartialEvent<Joke> {
+  PartialJoke(String title, String content, {DateTime? publishedAt}) {
+    internal.addTagValue('title', title);
+    internal.content = content;
+    internal.addTagValue('published_at', publishedAt?.toSeconds().toString());
+  }
+}
+```
+
+And in your initializer call:
+
+```dart
+Event.registerType<Joke>(1055, Joke.fromMap);
+```
+
+That's it. You can now use jokes in your app:
+
+```dart
+final joke = PartialJoke('The Time Traveler',
+        'I was going to tell you a joke about time travel... but you didn\'t like it.',
+        publishedAt: DateTime.parse('2025-02-02'))
+    .dummySign();
+print(jsonEncode(joke.toMap()));
+// {id: c717b625dfd623f660847ec26c14de33b5cccb2f4cf3bad41297546dd7230941, content: I was going to tell you a joke about time travel... but you didn't like it., created_at: 1744851226, pubkey: f907e6c86c02efe9e26c2d028c6d5112e19308e3cc54a3ff016ac0e9e1af0ff1, kind: 1055, tags: [[title, The Time Traveler], [published_at, 1738465200]], sig: null}
+
+final joke2 = Joke.fromMap({'id': 'c717b625dfd623f660847ec26c14de33b5cccb2f4cf3bad41297546dd7230941', 'content': 'I was going to tell you a joke about time travel... but you didn\'t like it.', 'created_at': 1744851226, 'pubkey': 'f907e6c86c02efe9e26c2d028c6d5112e19308e3cc54a3ff016ac0e9e1af0ff1', 'kind': 1055, 'tags': [['title', 'The Time Traveler'], ['published_at', 1738465200]], 'sig': null}, ref);
+```
+
 ## Design goals
 
  - Leverage the Dart language to provide maximum type safety and beautiful interfaces that make sense

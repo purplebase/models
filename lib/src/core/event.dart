@@ -83,7 +83,8 @@ sealed class Event<E extends Event<E>>
   }
 
   // Registerable mappings
-  static final Map<String, ({int kind, EventConstructor constructor})> types = {
+  static final Map<String, ({int kind, EventConstructor constructor})> _types =
+      {
     'Profile': (kind: 0, constructor: Profile.fromMap),
     'Note': (kind: 1, constructor: Note.fromMap),
     'ContactList': (kind: 3, constructor: ContactList.fromMap),
@@ -104,11 +105,16 @@ sealed class Event<E extends Event<E>>
     'App': (kind: 32267, constructor: App.fromMap),
   };
 
-  static int kindFor<E extends Event<E>>() => Event.types[E.toString()]!.kind;
+  static void registerType<E extends Event<E>>(
+      int kind, EventConstructor constructor) {
+    _types[E.toString()] = (kind: kind, constructor: constructor);
+  }
+
+  static int kindFor<E extends Event<E>>() => Event._types[E.toString()]!.kind;
 
   static EventConstructor<E>? getConstructor<E extends Event<E>>() {
     final constructor =
-        types[E.toString()]?.constructor as EventConstructor<E>?;
+        _types[E.toString()]?.constructor as EventConstructor<E>?;
     if (constructor == null) {
       throw Exception('''
 Could not find the constructor for $E. Did you forget to register the type?
@@ -120,7 +126,7 @@ You can do so by calling: Event.types['$E'] = (kind, $E.fromMap);
   }
 
   static EventConstructor<Event<dynamic>>? getConstructorForKind(int kind) {
-    return types.values.firstWhereOrNull((v) => v.kind == kind)?.constructor;
+    return _types.values.firstWhereOrNull((v) => v.kind == kind)?.constructor;
   }
 }
 
