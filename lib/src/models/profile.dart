@@ -46,6 +46,7 @@ class Profile extends ReplaceableModel<Profile> {
 
   PartialProfile copyWith({String? name}) {
     // TODO: Confusing not to have metadata here, returs null before saving
+    // Issue also in 'relay metadata' with relays not copied
     return PartialProfile(name: name ?? this.name);
   }
 

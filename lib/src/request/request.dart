@@ -74,18 +74,7 @@ class RequestNotifier<E extends Model<dynamic>>
 
         // Incoming are the IDs of *any* new models in local storage,
         // so restrict req to them and check if they apply
-
-        final finalIncomingIds = incomingIds.where((id) {
-          // If replaceable incoming ID, only keep if in req.ids
-          // TODO: Why ??
-          if (kReplaceableRegexp.hasMatch(id)) {
-            return req.ids.contains(id);
-          }
-          // If regular incoming ID, keep
-          return true;
-        }).toSet();
-
-        final updatedReq = req.copyWith(ids: finalIncomingIds, remote: false);
+        final updatedReq = req.copyWith(ids: incomingIds, remote: false);
         final updatedModels = await fetchAndQuery(updatedReq);
 
         if (updatedModels.isNotEmpty) {

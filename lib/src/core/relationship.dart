@@ -39,8 +39,6 @@ final class BelongsTo<E extends Model<dynamic>> extends Relationship<E> {
   }
 }
 
-// TODO: Support multiple reqs for multiple PRE addressable IDs
-// TODO: Add req to further restrict the rel.req (e.g. to paginate)
 final class HasMany<E extends Model<dynamic>> extends Relationship<E> {
   HasMany(super.ref, super.req);
 
