@@ -15,7 +15,7 @@ class RequestNotifier<E extends Model<dynamic>>
       return;
     }
 
-    // Fetch models from local storage, fire request to relays
+    // Fetch models from local storage and/or fire request to relays
     Future<List<E>> fetchAndQuery(RequestFilter<E> req) async {
       // Send req to relays in the background (pre-EOSE + streaming)
       storage.fetch(req);
@@ -30,11 +30,13 @@ class RequestNotifier<E extends Model<dynamic>>
         final mergedReqs = mergeMultipleRequests(reqs.toList());
 
         for (final r in mergedReqs) {
+          // Fill the cache to prepare it for sync relationships.
           // Query without hitting relays, we do that below
           // (does not pass E type argument, as these are of any kind)
           final relatedModels = await storage.query(r.copyWith(remote: false));
           storage.requestCache[r.subscriptionId] ??= {};
           storage.requestCache[r.subscriptionId]![r] = relatedModels.cast();
+
           // Send request filters to relays
           storage.fetch(r);
         }
@@ -49,27 +51,10 @@ class RequestNotifier<E extends Model<dynamic>>
     });
 
     // Listen for storage updates
-    final sub = ref.listen(storageNotifierProvider, (_, signal) async {
+    final sub = ref.listen(storageNotifierProvider, (_, incomingIds) async {
       if (!mounted) return;
 
-      if (signal case (final incomingIds, final responseMetadata)) {
-        if (req.restrictToSubscription &&
-            responseMetadata.subscriptionId! != req.subscriptionId) {
-          return;
-        }
-
-        // We do not want defaults here (just an empty set) so we can
-        // match exactly with user-specified relays when the
-        // restrictToRelays argument is true
-        final relayUrls = storage.config
-            .getRelays(relayGroup: req.relayGroup, useDefault: false);
-
-        // If none of the relayUrls are in the incoming IDs, skip
-        if (req.restrictToRelays &&
-            !responseMetadata.relayUrls.any((r) => relayUrls.contains(r))) {
-          return;
-        }
-
+      if (incomingIds != null && incomingIds.isNotEmpty) {
         // Incoming are the IDs of *any* new models in local storage,
         // so restrict req to them and check if they apply
         final updatedReq = req.copyWith(ids: incomingIds, remote: false);
@@ -81,9 +66,8 @@ class RequestNotifier<E extends Model<dynamic>>
           state.models.removeWhere((m) => updatedIds.contains(m.id));
 
           // Concat and sort
-          final sortedModels = {...state.models, ...updatedModels}
-              .sortedByCompare((m) => m.createdAt.millisecondsSinceEpoch,
-                  (a, b) => b.compareTo(a));
+          final sortedModels =
+              {...state.models, ...updatedModels}.sortByCreatedAt();
           if (mounted) {
             state = StorageData(sortedModels);
           }
@@ -146,8 +130,6 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
     queryLimit: queryLimit,
     remote: remote,
     relayGroup: on,
-    restrictToRelays: restrictToRelays,
-    restrictToSubscription: restrictToSubscription,
     and: and,
   );
   return requestNotifierProvider(req);
@@ -182,8 +164,6 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     queryLimit: queryLimit,
     remote: remote,
     relayGroup: on,
-    restrictToRelays: restrictToRelays,
-    restrictToSubscription: restrictToSubscription,
     and: _castAnd(and),
   );
   return requestNotifierProvider<E>(req);

@@ -1,6 +1,6 @@
 part of models;
 
-abstract class StorageNotifier extends StateNotifier<StorageSignal> {
+abstract class StorageNotifier extends StateNotifier<Set<String>?> {
   StorageNotifier() : super(null);
   late StorageConfiguration config;
 
@@ -66,7 +66,5 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
 }
 
 final storageNotifierProvider =
-    StateNotifierProvider<StorageNotifier, StorageSignal>(
+    StateNotifierProvider<StorageNotifier, Set<String>?>(
         DummyStorageNotifier.new);
-
-typedef StorageSignal = (Set<String>, ResponseMetadata)?;

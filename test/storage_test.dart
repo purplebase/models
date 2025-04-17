@@ -219,7 +219,6 @@ void main() async {
           '#t': {'nostr'}
         },
         remote: false,
-        restrictToRelays: true,
       );
 
       expect(r1.hash, equals(r4.hash));

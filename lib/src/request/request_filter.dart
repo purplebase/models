@@ -26,12 +26,6 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   /// Send request to this relay group
   final String? relayGroup;
 
-  /// Restrict to requested relay group
-  final bool restrictToRelays;
-
-  /// Restrict to current subscription
-  final bool restrictToSubscription;
-
   /// Provide additional post-query filtering in Dart
   final bool Function(Model)? where;
 
@@ -53,8 +47,6 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
     this.queryLimit,
     this.remote = false,
     this.relayGroup,
-    this.restrictToRelays = false,
-    this.restrictToSubscription = false,
     this.where,
     this.and,
   })  : ids = ids ?? const {},
@@ -152,8 +144,6 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
       queryLimit: queryLimit,
       remote: remote ?? this.remote,
       relayGroup: relayGroup,
-      restrictToRelays: restrictToRelays,
-      restrictToSubscription: restrictToSubscription,
       where: where,
       and: and,
     );
@@ -169,24 +159,6 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   String toString() {
     return toMap().toString();
   }
-}
-
-// Response metadata
-
-class ResponseMetadata with EquatableMixin {
-  final String? subscriptionId;
-  final Set<String> relayUrls;
-  ResponseMetadata({this.subscriptionId, required this.relayUrls});
-
-  ResponseMetadata copyWith(String? subscriptionId, Set<String>? relayUrls) {
-    return ResponseMetadata(
-      subscriptionId: subscriptionId ?? this.subscriptionId,
-      relayUrls: relayUrls ?? this.relayUrls,
-    );
-  }
-
-  @override
-  List<Object?> get props => [subscriptionId, relayUrls];
 }
 
 final kReplaceableRegexp = RegExp(r'(\d+):([0-9a-f]{64}):(.*)');

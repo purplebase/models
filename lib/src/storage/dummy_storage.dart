@@ -48,10 +48,8 @@ class DummyStorageNotifier extends StorageNotifier {
       _models.add(e);
     }
 
-    // Empty response metadata as these models do not come from a relay
-    final responseMetadata = ResponseMetadata(relayUrls: {});
     if (mounted) {
-      state = (({for (final e in models) e.id}, responseMetadata));
+      state = {for (final e in models) e.id};
     }
   }
 
