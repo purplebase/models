@@ -82,51 +82,42 @@ sealed class Event<E extends Event<E>>
     return toMap().toString();
   }
 
-  // Registerable mappings
-  static final Map<String, ({int kind, EventConstructor constructor})> _types =
-      {
-    'Profile': (kind: 0, constructor: Profile.fromMap),
-    'Note': (kind: 1, constructor: Note.fromMap),
-    'ContactList': (kind: 3, constructor: ContactList.fromMap),
-    'DirectMessage': (kind: 4, constructor: DirectMessage.fromMap),
-    'ChatMessage': (kind: 9, constructor: ChatMessage.fromMap),
-    'Reaction': (kind: 7, constructor: Reaction.fromMap),
-    'FileMetadata': (kind: 1063, constructor: FileMetadata.fromMap),
-    'ZapRequest': (kind: 9734, constructor: ZapRequest.fromMap),
-    'Zap': (kind: 9735, constructor: Zap.fromMap),
-    'Community': (kind: 10222, constructor: Community.fromMap),
-    'Article': (kind: 30023, constructor: Article.fromMap),
-    'Release': (kind: 30063, constructor: Release.fromMap),
-    'TargetedPublication': (
-      kind: 30222,
-      constructor: TargetedPublication.fromMap
-    ),
-    'AppCurationSet': (kind: 30267, constructor: AppCurationSet.fromMap),
-    'App': (kind: 32267, constructor: App.fromMap),
-  };
+  static final Map<String, ({int kind, EventConstructor constructor})>
+      _modelRegistry = {};
 
-  static void registerType<E extends Event<E>>(
-      int kind, EventConstructor constructor) {
-    _types[E.toString()] = (kind: kind, constructor: constructor);
+  static void registerModel<E extends Event<E>>(
+      {required int kind, required EventConstructor<E> constructor}) {
+    _modelRegistry[E.toString()] = (kind: kind, constructor: constructor);
   }
 
-  static int kindFor<E extends Event<E>>() => Event._types[E.toString()]!.kind;
+  static Exception _unregisteredException<T>() => Exception(
+      'Type $T has not been registered. Make sure to register it with Event.registerModel.');
 
-  static EventConstructor<E>? getConstructor<E extends Event<E>>() {
+  static int getKindFor<E extends Event<E>>() {
+    final kind = Event._modelRegistry[E.toString()]?.kind;
+    if (kind == null) {
+      throw _unregisteredException();
+    }
+    return kind;
+  }
+
+  static EventConstructor<E>? getConstructorFor<E extends Event<E>>() {
     final constructor =
-        _types[E.toString()]?.constructor as EventConstructor<E>?;
+        _modelRegistry[E.toString()]?.constructor as EventConstructor<E>?;
     if (constructor == null) {
-      throw Exception('''
-Could not find the constructor for $E. Did you forget to register the type?
-
-You can do so by calling: Event.types['$E'] = (kind, $E.fromMap);
-''');
+      throw _unregisteredException();
     }
     return constructor;
   }
 
   static EventConstructor<Event<dynamic>>? getConstructorForKind(int kind) {
-    return _types.values.firstWhereOrNull((v) => v.kind == kind)?.constructor;
+    final constructor = _modelRegistry.values
+        .firstWhereOrNull((v) => v.kind == kind)
+        ?.constructor;
+    if (constructor == null) {
+      throw _unregisteredException();
+    }
+    return constructor;
   }
 }
 

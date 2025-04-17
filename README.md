@@ -39,7 +39,7 @@ class PartialJoke extends RegularPartialEvent<Joke> {
 And in your initializer call:
 
 ```dart
-Event.registerType<Joke>(1055, Joke.fromMap);
+Event.registerModel(kind: 1055, constructor: Joke.fromMap);
 ```
 
 That's it. You can now use jokes in your app:

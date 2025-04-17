@@ -10,11 +10,12 @@ class Profile extends ReplaceableEvent<Profile> {
     notes = HasMany(
         ref,
         RequestFilter(
-            kinds: {Event.kindFor<Note>()}, authors: {internal.pubkey}));
+            kinds: {Event.getKindFor<Note>()}, authors: {internal.pubkey}));
     contactList = BelongsTo(
         ref,
         RequestFilter(
-            kinds: {Event.kindFor<ContactList>()}, authors: {internal.pubkey}));
+            kinds: {Event.getKindFor<ContactList>()},
+            authors: {internal.pubkey}));
   }
 
   String get pubkey => internal.pubkey;

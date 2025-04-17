@@ -58,7 +58,7 @@ class Bip340PrivateKeySigner extends Signer {
     final aux = hex.encode(List<int>.generate(32, (i) => 1));
     final signature = bip340.sign(privateKey, id.toString(), aux);
     final map = _prepare(partialEvent.toMap(), id, pubkey, signature);
-    return Event.getConstructor<E>()!.call(map, Signer._ref);
+    return Event.getConstructorFor<E>()!.call(map, Signer._ref);
   }
 }
 
@@ -76,7 +76,7 @@ class DummySigner extends Signer {
   E signSync<E extends Event<E>>(PartialEvent<E> partialEvent,
       {String? withPubkey}) {
     final pubkey = withPubkey ?? generate64Hex();
-    return Event.getConstructor<E>()!.call({
+    return Event.getConstructorFor<E>()!.call({
       'id': partialEvent.getEventId(pubkey),
       'pubkey': pubkey,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,

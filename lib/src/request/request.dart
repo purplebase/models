@@ -179,7 +179,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 }) {
   final req = RequestFilter(
     ids: ids,
-    kinds: {Event.kindFor<E>()},
+    kinds: {Event.getKindFor<E>()},
     authors: authors,
     tags: tags,
     search: search,

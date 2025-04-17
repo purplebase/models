@@ -15,6 +15,27 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
 
   @mustCallSuper
   Future<void> initialize(StorageConfiguration config) async {
+    // Regular
+    Event.registerModel(kind: 0, constructor: Profile.fromMap);
+    Event.registerModel(kind: 1, constructor: Note.fromMap);
+    Event.registerModel(kind: 3, constructor: ContactList.fromMap);
+    Event.registerModel(kind: 4, constructor: DirectMessage.fromMap);
+    Event.registerModel(kind: 7, constructor: Reaction.fromMap);
+    Event.registerModel(kind: 9, constructor: ChatMessage.fromMap);
+    Event.registerModel(kind: 1063, constructor: FileMetadata.fromMap);
+    Event.registerModel(kind: 9734, constructor: ZapRequest.fromMap);
+    Event.registerModel(kind: 9735, constructor: Zap.fromMap);
+
+    // Replaceable
+    Event.registerModel(kind: 10222, constructor: Community.fromMap);
+
+    // Parameterized replaceable
+    Event.registerModel(kind: 30023, constructor: Article.fromMap);
+    Event.registerModel(kind: 30063, constructor: Release.fromMap);
+    Event.registerModel(kind: 30222, constructor: TargetedPublication.fromMap);
+    Event.registerModel(kind: 30267, constructor: AppCurationSet.fromMap);
+    Event.registerModel(kind: 32267, constructor: App.fromMap);
+
     this.config = config;
   }
 
