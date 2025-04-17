@@ -37,20 +37,12 @@ sealed class Event<E extends Event<E>>
     }
 
     // Generic relationships
-    author =
-        BelongsTo(ref, RequestFilter(kinds: {0}, authors: {internal.pubkey}));
-
-    reactions = HasMany<Reaction>(
-        ref, RequestFilter(kinds: {7}, tags: internal.addressableIdTagMap));
-
-    zaps = HasMany<Zap>(
-        ref, RequestFilter(kinds: {9735}, tags: internal.addressableIdTagMap));
-
-    targetedPublications = HasMany<TargetedPublication>(
+    author = BelongsTo(ref, RequestFilter<Profile>(authors: {internal.pubkey}));
+    reactions = HasMany(ref, RequestFilter(tags: internal.addressableIdTagMap));
+    zaps = HasMany(ref, RequestFilter(tags: internal.addressableIdTagMap));
+    targetedPublications = HasMany(
         ref,
-        RequestFilter(kinds: {
-          30222
-        }, tags: {
+        RequestFilter(tags: {
           '#d': {id}
         }));
   }
@@ -103,7 +95,7 @@ sealed class Event<E extends Event<E>>
   static Exception _unregisteredException<T>() => Exception(
       'Type $T has not been registered. Make sure to register it with Event.registerModel.');
 
-  static int getKindFor<E extends Event<E>>() {
+  static int _kindFor<E extends Event<dynamic>>() {
     final kind = Event._modelRegistry[E.toString()]?.kind;
     if (kind == null) {
       throw _unregisteredException();

@@ -5,15 +5,9 @@ class Profile extends ReplaceableEvent<Profile> {
   late final BelongsTo<ContactList> contactList;
 
   Profile.fromMap(super.map, super.ref) : super.fromMap() {
-    notes = HasMany(
-        ref,
-        RequestFilter(
-            kinds: {Event.getKindFor<Note>()}, authors: {internal.pubkey}));
-    contactList = BelongsTo(
-        ref,
-        RequestFilter(
-            kinds: {Event.getKindFor<ContactList>()},
-            authors: {internal.pubkey}));
+    notes = HasMany(ref, RequestFilter(authors: {internal.pubkey}));
+    contactList =
+        BelongsTo(ref, RequestFilter<ContactList>(authors: {internal.pubkey}));
   }
 
   @override

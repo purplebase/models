@@ -3,7 +3,7 @@ part of models;
 class RequestNotifier<E extends Event<dynamic>>
     extends StateNotifier<StorageState<E>> {
   final Ref ref;
-  final RequestFilter req;
+  final RequestFilter<E> req;
   final StorageNotifier storage;
   var applyLimit = true;
 
@@ -16,7 +16,7 @@ class RequestNotifier<E extends Event<dynamic>>
     }
 
     // Fetch events from local storage, fire request to relays
-    Future<List<Event>> fetchAndQuery(RequestFilter req) async {
+    Future<List<E>> fetchAndQuery(RequestFilter<E> req) async {
       // Send req to relays in the background (pre-EOSE + streaming)
       storage.fetch(req);
 
@@ -31,11 +31,12 @@ class RequestNotifier<E extends Event<dynamic>>
 
         for (final r in mergedReqs) {
           // Query without hitting relays, we do that below
-          final events = await storage.query(r.copyWith(remote: false));
+          // (does not pass E type argument, as these are of any kind)
+          final relatedEvents = await storage.query(r.copyWith(remote: false));
           // TODO: Could check if r is "included" in some cached req
           // Would need to implement a bool isIncluded(req) fn
           storage.requestCache[r.subscriptionId] ??= {};
-          storage.requestCache[r.subscriptionId]![r] = events;
+          storage.requestCache[r.subscriptionId]![r] = relatedEvents.cast();
           // Send request filters to relays
           storage.fetch(r);
         }
@@ -45,7 +46,7 @@ class RequestNotifier<E extends Event<dynamic>>
 
     fetchAndQuery(req).then((events) {
       if (mounted) {
-        state = StorageData([...state.models, ...events.cast<E>()]);
+        state = StorageData([...state.models, ...events]);
       }
     });
 
@@ -71,7 +72,7 @@ class RequestNotifier<E extends Event<dynamic>>
           return;
         }
 
-        List<Event> events;
+        List<E> events;
 
         // Incoming are the IDs of *any* new events in local storage,
         // so restrict req to them and check if they apply
@@ -86,7 +87,8 @@ class RequestNotifier<E extends Event<dynamic>>
         }).toSet();
 
         final updatedReq = req.copyWith(ids: finalIncomingIds, remote: false);
-        events = await fetchAndQuery(updatedReq);
+        final mo = await fetchAndQuery(updatedReq);
+        events = mo.cast();
 
         final List<E> sortedModels = {...state.models, ...events.cast<E>()}
             .sortedByCompare((m) => m.createdAt.millisecondsSinceEpoch,
@@ -113,9 +115,9 @@ final Map<RequestFilter,
 
 /// Family of notifier providers, one per request
 /// Manually caching since a factory function is needed to pass the type
-requestNotifierProvider<E extends Event<dynamic>>(RequestFilter req) =>
+requestNotifierProvider<E extends Event<dynamic>>(RequestFilter<E> req) =>
     _typedProviderCache[req] ??= StateNotifierProvider.autoDispose
-        .family<RequestNotifier<E>, StorageState<E>, RequestFilter>(
+        .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>(
       (ref, req) {
         ref.onDispose(() => print('disposing provider'));
         return RequestNotifier(ref, req);
@@ -177,9 +179,8 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
   bool restrictToSubscription = false,
   AndFunction<E> and,
 }) {
-  final req = RequestFilter(
+  final req = RequestFilter<E>(
     ids: ids,
-    kinds: {Event.getKindFor<E>()},
     authors: authors,
     tags: tags,
     search: search,

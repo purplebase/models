@@ -87,7 +87,7 @@ To prevent local storage bloat, an eviction policy callback will be made availab
 The modelling layer intends to abstract away NIP jargon and be as domain language as possible. It will include a powerful relationship API, such that the following can be performed:
 
 ```dart
-final note = await storage.query(kinds: {1}, authors: {'a'});
+final note = await storage.queryType<Note>(authors: {'a'});
 final Note reply = await PartialNote('this is cool', replyTo: note).signWith(signer);
 print(note.replies.toList());
 // And maybe:
@@ -149,6 +149,6 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Publish events
  - [x] Merge reqs for both local storage and relays
  - [x] Register types externally (+docs)
- - [ ] Event metadata
+ - [x] Event metadata
  - [ ] Restrict by subscription (ignores req filter, brings all events from that sub)
  - [ ] Eviction policy API, allowing clients to manage the local database size

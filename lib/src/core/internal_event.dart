@@ -1,7 +1,7 @@
 part of models;
 
 sealed class InternalEvent<E extends Event<E>> {
-  final int kind = Event.getKindFor<E>();
+  final int kind = Event._kindFor<E>();
   DateTime get createdAt;
   String get content;
   List<List<String>> get tags;

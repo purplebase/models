@@ -14,15 +14,11 @@ class Note extends RegularEvent<Note> {
     isRoot = tagsWithRoot.isEmpty;
 
     root = BelongsTo(
-        ref,
-        isRoot
-            ? null
-            : RequestFilter(kinds: {1}, ids: {tagsWithRoot.first[1]}));
+        ref, isRoot ? null : RequestFilter(ids: {tagsWithRoot.first[1]}));
 
     allReplies = HasMany(
       ref,
       RequestFilter(
-        kinds: {1},
         tags: {
           '#e': {internal.id}
         },
@@ -38,7 +34,6 @@ class Note extends RegularEvent<Note> {
     replies = HasMany(
       ref,
       RequestFilter(
-        kinds: {1},
         tags: {
           '#e': {internal.id}
         },

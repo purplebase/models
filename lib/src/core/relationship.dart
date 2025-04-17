@@ -1,7 +1,7 @@
 part of models;
 
 sealed class Relationship<E extends Event<dynamic>> {
-  final RequestFilter? req;
+  final RequestFilter<E>? req;
   final Ref ref;
   final StorageNotifier storage;
   Relationship(this.ref, this.req)
@@ -11,7 +11,7 @@ sealed class Relationship<E extends Event<dynamic>> {
     if (req == null) return [];
     final cachedEvents = storage.requestCache.values
         .firstWhereOrNull((m) => m.containsKey(req))?[req];
-    return (cachedEvents ?? storage.querySync(req!)).cast();
+    return (cachedEvents ?? storage.querySync<E>(req!)).cast();
   }
 
   Future<List<E>> _eventsAsync({int? limit}) async {

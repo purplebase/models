@@ -3,14 +3,14 @@ part of models;
 /// Zap is technically a kind 9735 Zap Receipt
 class Zap extends RegularEvent<Zap> {
   @override
-  BelongsTo<Profile> get author => BelongsTo(ref,
-      RequestFilter(kinds: {0}, authors: {internal.getFirstTagValue('P')!}));
+  BelongsTo<Profile> get author =>
+      BelongsTo(ref, RequestFilter(authors: {internal.getFirstTagValue('P')!}));
   late final BelongsTo<Event> zappedEvent;
   late final BelongsTo<Profile> recipient;
 
   Zap.fromMap(super.map, super.ref) : super.fromMap() {
-    recipient = BelongsTo(ref,
-        RequestFilter(kinds: {0}, authors: {internal.getFirstTagValue('p')!}));
+    recipient = BelongsTo(
+        ref, RequestFilter(authors: {internal.getFirstTagValue('p')!}));
     zappedEvent =
         BelongsTo(ref, RequestFilter(ids: {internal.getFirstTagValue('e')!}));
   }

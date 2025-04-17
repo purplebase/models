@@ -8,7 +8,6 @@ class ChatMessage extends RegularEvent<ChatMessage> {
     quotedMessage = BelongsTo(
       ref,
       RequestFilter(
-        kinds: {9},
         tags: {
           '#q': {internal.id}
         },

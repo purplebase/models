@@ -52,12 +52,12 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<List<Event>> query(RequestFilter req,
+  Future<List<E>> query<E extends Event<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds}) async {
-    final results = querySync(req, applyLimit: applyLimit, onIds: onIds);
+    final results = querySync<E>(req, applyLimit: applyLimit, onIds: onIds);
     return Future.microtask(() {
       // No queryLimit disables streaming
-      final fetched = fetchSync(req.copyWith(queryLimit: null));
+      final fetched = fetchSync<E>(req.copyWith(queryLimit: null));
       return [...results, ...fetched];
     });
   }
@@ -65,9 +65,11 @@ class DummyStorageNotifier extends StorageNotifier {
   /// [onEvents] is an extension in this implementation
   /// that allows filtering req on a specific set of events (not _events)
   @override
-  List<Event> querySync(RequestFilter req,
+  List<E> querySync<E extends Event<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds, Set<Event>? onEvents}) {
-    var results = (onEvents ?? _events).toList();
+    // Results is of unspecified Event, but it will be casted once we have results of the right kind
+    List<Event> results = (onEvents ?? _events).toList();
+
     // If onIds present then restrict req to those
     if (onIds != null) {
       req = req.copyWith(ids: onIds);
@@ -141,7 +143,7 @@ class DummyStorageNotifier extends StorageNotifier {
       results = results.where(req.where!).toList();
     }
 
-    return results;
+    return results.cast<E>();
   }
 
   @override
@@ -169,11 +171,11 @@ class DummyStorageNotifier extends StorageNotifier {
   final _random = Random();
 
   @override
-  Future<Set<Event>> fetch(RequestFilter req) async {
+  Future<Set<E>> fetch<E extends Event<dynamic>>(RequestFilter<E> req) async {
     return fetchSync(req);
   }
 
-  Set<Event> fetchSync(RequestFilter req) {
+  Set<E> fetchSync<E extends Event<dynamic>>(RequestFilter<E> req) {
     if (!req.remote) return {};
 
     final preEoseAmount = req.limit ?? req.queryLimit ?? 10;
@@ -187,7 +189,7 @@ class DummyStorageNotifier extends StorageNotifier {
         ? req.authors.map(generateProfile).toList()
         : List.generate(10, (i) => generateProfile());
     // Add already saved profiles
-    profiles.addAll(querySync(RequestFilter(kinds: {0})).cast<Profile>());
+    profiles.addAll(querySync(RequestFilter<Profile>()));
 
     final follows = <Profile>{};
     if (req.kinds.contains(3)) {

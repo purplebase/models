@@ -19,8 +19,9 @@ class TargetedPublication
     final communityReqs = internal
         .getTagSetValues('p')
         .nonNulls
-        .map(RequestFilter.fromReplaceableEvent);
-    final req = mergeMultipleRequests(communityReqs.toList()).firstOrNull;
+        .map(RequestFilter<Community>.fromReplaceableEvent);
+    final req =
+        mergeMultipleRequests<Community>(communityReqs.toList()).firstOrNull;
     communities = HasMany(ref, req);
   }
 

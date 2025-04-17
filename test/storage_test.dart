@@ -77,13 +77,13 @@ void main() async {
     });
 
     test('kinds', () async {
-      tester = container.testerFor(query(kinds: {1}, remote: false));
+      tester = container.testerFor(queryType<Note>(remote: false));
       await tester.expectModels(allOf(
         hasLength(9),
         everyElement((e) => e is Event && e.internal.kind == 1),
       ));
 
-      tester = container.testerFor(query(kinds: {0}, remote: false));
+      tester = container.testerFor(queryType<Profile>(remote: false));
       await tester.expectModels(hasLength(1));
     });
 
@@ -113,8 +113,7 @@ void main() async {
     });
 
     test('until', () async {
-      tester = container.testerFor(query(
-          kinds: {1},
+      tester = container.testerFor(queryType<Note>(
           authors: {nielPubkey},
           until: DateTime.now().subtract(Duration(minutes: 1)),
           remote: false));
@@ -131,7 +130,7 @@ void main() async {
 
     test('limit and order', () async {
       tester = container.testerFor(
-          query(kinds: {1}, authors: {nielPubkey}, limit: 3, remote: false));
+          queryType<Note>(authors: {nielPubkey}, limit: 3, remote: false));
       await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
@@ -166,33 +165,28 @@ void main() async {
       await storage.clear();
     });
     test('request filter', () {
-      tester = container.testerFor(query()); // no-op
-      final r1 = RequestFilter(kinds: {
-        7
-      }, authors: {
+      tester = container.testerFor(queryType<Reaction>()); // no-op
+      final r1 = RequestFilter<Reaction>(authors: {
         nielPubkey,
         franzapPubkey
       }, tags: {
         'foo': {'bar'},
         '#t': {'nostr'}
       });
-      final r2 = RequestFilter(kinds: {
-        7
-      }, authors: {
+      final r2 = RequestFilter<Reaction>(authors: {
         franzapPubkey,
         nielPubkey
       }, tags: {
         '#t': {'nostr'},
         'foo': {'bar'}
       });
-      final r3 = RequestFilter(kinds: {
-        7
-      }, authors: {
+      final r3 = RequestFilter<Reaction>(authors: {
         franzapPubkey,
         nielPubkey
       }, tags: {
         'foo': {'bar'}
       });
+      expect(r1.kinds.first, 7);
       expect(r1, equals(r2));
       expect(r1.toMap(), equals(r2.toMap()));
       expect(r1.hash, equals(r2.hash));
@@ -201,8 +195,7 @@ void main() async {
       expect(r1.hash, isNot(equals(r3.hash)));
 
       // Filter with extra arguments
-      final r4 = RequestFilter(
-        kinds: {7},
+      final r4 = RequestFilter<Reaction>(
         authors: {nielPubkey, franzapPubkey},
         tags: {
           'foo': {'bar'},
@@ -218,14 +211,13 @@ void main() async {
 
     test('relay request should notify with events', () async {
       tester = container.testerFor(
-          query(kinds: {1}, authors: {nielPubkey, franzapPubkey}, limit: 2));
+          queryType<Note>(authors: {nielPubkey, franzapPubkey}, limit: 2));
       await tester.expectModels(isEmpty);
       await tester.expectModels(hasLength(2));
     });
 
     test('relay request should notify with events (streamed)', () async {
-      tester = container.testerFor(query(
-        kinds: {1},
+      tester = container.testerFor(queryType<Note>(
         authors: {nielPubkey, franzapPubkey},
         limit: 5,
         queryLimit: 21,

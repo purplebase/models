@@ -1,6 +1,6 @@
 part of models;
 
-class RequestFilter extends Equatable {
+class RequestFilter<E extends Event<dynamic>> extends Equatable {
   static final _random = Random();
 
   final Set<String> ids;
@@ -38,8 +38,6 @@ class RequestFilter extends Equatable {
   /// Watch relationships
   final AndFunction and;
 
-  // TODO: RequestFilter<E extends Event<dynamic>> and calculate kinds right here
-  // (and pass type from relationship)
   RequestFilter({
     Set<String>? ids,
     Set<int>? kinds,
@@ -49,6 +47,7 @@ class RequestFilter extends Equatable {
     this.until,
     this.limit,
     this.search,
+
     // Extra arguments
     String? subscriptionId,
     this.queryLimit,
@@ -60,7 +59,8 @@ class RequestFilter extends Equatable {
     this.and,
   })  : ids = ids ?? const {},
         authors = authors ?? const {},
-        kinds = kinds ?? const {},
+        kinds =
+            _isGenericEvent<E>() ? kinds ?? const {} : {Event._kindFor<E>()},
         tags = tags ?? const {} {
     // IDs are either regular (64 character) or replaceable and match its regexp
     if (ids != null &&
@@ -75,9 +75,9 @@ class RequestFilter extends Equatable {
   }
 
   factory RequestFilter.fromMap(Map<String, dynamic> map) {
-    return RequestFilter(
+    return RequestFilter<E>(
       ids: {...?map['ids']},
-      kinds: {...?map['kinds']},
+      kinds: _isGenericEvent<E>() ? {...?map['kinds']} : {Event._kindFor<E>()},
       authors: {...?map['authors']},
       tags: {
         for (final e in map.entries)
@@ -96,7 +96,7 @@ class RequestFilter extends Equatable {
 
   factory RequestFilter.fromReplaceableEvent(String addressableId) {
     final [kind, author, ...rest] = addressableId.split(':');
-    var req = RequestFilter(
+    var req = RequestFilter<E>(
       kinds: {int.parse(kind)},
       authors: {author},
     );
@@ -107,6 +107,9 @@ class RequestFilter extends Equatable {
     }
     return req;
   }
+
+  static bool _isGenericEvent<E extends Event<dynamic>>() =>
+      ['Event<Event<dynamic>>', 'Event<dynamic>'].contains(E.toString());
 
   Map<String, dynamic> toMap() {
     return {
@@ -122,7 +125,7 @@ class RequestFilter extends Equatable {
     };
   }
 
-  RequestFilter copyWith({
+  RequestFilter<E> copyWith({
     Set<String>? ids,
     Set<String>? authors,
     Set<int>? kinds,

@@ -41,12 +41,12 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
 
   /// Query storage asynchronously
   /// Passing [remote]=`true` hits relays only until EOSE
-  Future<List<Event>> query(RequestFilter req,
+  Future<List<E>> query<E extends Event<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds});
 
   /// Query storage asynchronously
   /// [remote] is ignored and always false
-  List<Event> querySync(RequestFilter req,
+  List<E> querySync<E extends Event<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds});
 
   /// Save events to storage, use [publish] to send to relays
@@ -56,7 +56,7 @@ abstract class StorageNotifier extends StateNotifier<StorageSignal> {
 
   /// Trigger a fetch on relays, returns pre-EOSE events
   /// but streams in the background
-  Future<Set<Event>> fetch(RequestFilter req);
+  Future<Set<E>> fetch<E extends Event<dynamic>>(RequestFilter<E> req);
 
   /// Cancel any subscriptions for [req]
   Future<void> cancel(RequestFilter req);
