@@ -57,8 +57,7 @@ void main() {
     final filters = [
       RequestFilter(
         ids: {id1, id2},
-        limit: 5,
-        // TODO: With limit: 1 this still merges and should not
+        limit: 1,
       ),
       RequestFilter(
         ids: {id3, id4},
@@ -70,8 +69,11 @@ void main() {
     ];
     final expected = [
       RequestFilter(
-        ids: {id1, id2, id3, id4, id5, id6},
-        limit: 6,
+        ids: {id1, id2},
+        limit: 1,
+      ),
+      RequestFilter(
+        ids: {id3, id4, id5, id6},
       ),
     ];
     final result = mergeMultipleRequests(filters);
@@ -103,7 +105,6 @@ void main() {
     final expected = [
       RequestFilter(
         ids: {id1, id2, id3, id4},
-        limit: 4,
       ),
       RequestFilter(
         authors: {nielPubkey, franzapPubkey},
@@ -538,7 +539,6 @@ void main() {
     final expected = [
       RequestFilter(
         ids: {id1, id2, id3, id4},
-        limit: 4,
       ), // Merged IDs
       RequestFilter(
         authors: {nielPubkey},
@@ -748,7 +748,6 @@ void main() {
       ),
       RequestFilter(
         ids: {id1, id2, id3, id4},
-        limit: 4,
       ),
       RequestFilter(
         tags: {

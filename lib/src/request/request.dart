@@ -33,8 +33,6 @@ class RequestNotifier<E extends Model<dynamic>>
           // Query without hitting relays, we do that below
           // (does not pass E type argument, as these are of any kind)
           final relatedModels = await storage.query(r.copyWith(remote: false));
-          // TODO: Could check if r is "included" in some cached req
-          // Would need to implement a bool isIncluded(req) fn
           storage.requestCache[r.subscriptionId] ??= {};
           storage.requestCache[r.subscriptionId]![r] = relatedModels.cast();
           // Send request filters to relays

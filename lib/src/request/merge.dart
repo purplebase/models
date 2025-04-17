@@ -1,16 +1,18 @@
 part of models;
 
 List<RequestFilter> mergeRequests(RequestFilter req1, RequestFilter req2) {
-  return _merge(req1.toMap(), req2.toMap()).map(RequestFilter.fromMap).toList();
+  final map1 = req1.toMap();
+  final map2 = req2.toMap();
+  final result = _merge(map1, map2);
+  return (result != null ? [result] : [map1, map2])
+      .map(RequestFilter.fromMap)
+      .toList();
 }
 
-List<Map<String, dynamic>> _merge(
-  Map<String, dynamic> filter1,
-  Map<String, dynamic> filter2,
+Map<String, dynamic>? _merge(
+  Map<String, dynamic> f1,
+  Map<String, dynamic> f2,
 ) {
-  Map<String, dynamic> f1 = Map.from(filter1);
-  Map<String, dynamic> f2 = Map.from(filter2);
-
   final Set<String> allKeys = {...f1.keys, ...f2.keys};
   final Set<String> arrayKeys = {
     'ids',
@@ -19,158 +21,83 @@ List<Map<String, dynamic>> _merge(
     ...allKeys.where((k) => k.startsWith('#')),
   };
 
-  List<String> differingKeys = [];
-  bool presenceMismatch = false;
+  Set<String> differingKeys = {};
 
-  // Check for differing keys and inconsistent presence
+  // Check for differing keys
   for (final key in allKeys) {
-    bool f1Has = f1.containsKey(key);
-    bool f2Has = f2.containsKey(key);
-
-    if (f1Has != f2Has) {
-      // Allow limit to be missing in one
-      if (key != 'limit') {
-        presenceMismatch = true;
-        break;
+    if (arrayKeys.contains(key)) {
+      if (f1[key] == null || f2[key] == null) {
+        // If one of the arrays is not present, its unbounded, can't merge
+        return null;
       }
-    } else if (f1Has) {
-      // Both have the key
-      if (key == 'search') {
-        if (f1[key] != f2[key]) differingKeys.add(key);
-      } else if (arrayKeys.contains(key)) {
-        if (!_eq.equals(f1[key], f2[key])) differingKeys.add(key);
-      } else if (key == 'since' || key == 'until') {
-        if (f1[key] != f2[key]) differingKeys.add(key);
-      }
-      // Ignore 'limit' difference during this initial check
-    }
-  }
-
-  if (presenceMismatch) return [f1, f2];
-  if (differingKeys.contains('search')) return [f1, f2];
-
-  List<String> nonLimitDiffs =
-      differingKeys.where((k) => k != 'limit').toList();
-  bool limitPresent = f1.containsKey('limit') || f2.containsKey('limit');
-
-  // --- Handle Special 'ids' Merging ---
-  // Merge if only 'ids' differs, or if 'ids' and 'limit' differ.
-  bool idsDiffer = differingKeys.contains('ids');
-  bool onlyIdsOrIdsAndLimitDiffer =
-      nonLimitDiffs.length == (idsDiffer ? 1 : 0) && idsDiffer;
-
-  if (idsDiffer && onlyIdsOrIdsAndLimitDiffer) {
-    Map<String, dynamic> merged = {};
-    // Copy non-ids, non-limit keys from f1 (they must match f2)
-    f1.forEach((key, value) {
-      if (key != 'ids' && key != 'limit') {
-        merged[key] = value;
-      }
-    });
-
-    final mergedIds =
-        {...(f1['ids'] as List? ?? []), ...(f2['ids'] as List? ?? [])}.toList();
-    merged['ids'] = mergedIds;
-    merged['limit'] = mergedIds.length; // Limit is count of merged IDs
-    return [merged];
-  }
-
-  // --- General Merge Logic ---
-
-  // Non-mergeable: Limit present AND any non-limit difference exists (excluding the handled 'ids' case)
-  if (limitPresent && nonLimitDiffs.isNotEmpty) {
-    return [f1, f2];
-  }
-
-  // Non-mergeable: More than one non-limit difference, unless it's just since/until
-  bool onlySinceUntilDiff = nonLimitDiffs.length <= 2 &&
-      nonLimitDiffs.every((k) => k == 'since' || k == 'until');
-
-  if (nonLimitDiffs.length > 1 && !onlySinceUntilDiff) {
-    return [f1, f2];
-  }
-
-  // --- Mergeable Cases ---
-  Map<String, dynamic> merged = Map.from(f1); // Base for merging
-
-  // Case 1: Identical (nonLimitDiffs.isEmpty) - Handle limit based on tests
-  if (nonLimitDiffs.isEmpty) {
-    dynamic l1 = f1['limit'];
-    dynamic l2 = f2['limit'];
-    if (l1 != null && l2 != null) {
-      merged['limit'] = max(l1 as num, l2 as num); // Max limit if both present
-    } else if (l1 != null || l2 != null) {
-      merged.remove('limit'); // No limit if only one present
+      if (!_eq.equals(f1[key], f2[key])) differingKeys.add(key);
     } else {
-      merged.remove('limit'); // Ensure no limit if neither present
+      // Just their presence means its differing
+      differingKeys.add(key);
     }
-    return [merged];
   }
 
-  // Case 2: Only Since/Until differ
-  if (onlySinceUntilDiff) {
-    dynamic f1Since = f1['since'];
-    dynamic f2Since = f2['since'];
-    dynamic f1Until = f1['until'];
-    dynamic f2Until = f2['until'];
+  if (differingKeys.contains('search')) {
+    return null;
+  }
 
-    // Check for overlap/contiguity required by canMerge
-    num f1SinceVal = (f1Since is num ? f1Since : 0);
-    num f1UntilVal = (f1Until is num ? f1Until : double.infinity);
-    num f2SinceVal = (f2Since is num ? f2Since : 0);
-    num f2UntilVal = (f2Until is num ? f2Until : double.infinity);
+  final differingArrayKeys = differingKeys.intersection(arrayKeys);
+  if (differingArrayKeys.length > 1) {
+    return null;
+  }
 
-    if (f1SinceVal <= f2UntilVal && f2SinceVal <= f1UntilVal) {
-      // Merge since (min non-null)
-      dynamic mergedSince;
-      if (f1Since != null && f2Since != null) {
-        mergedSince = min(f1Since as num, f2Since as num);
-      } else {
-        mergedSince =
-            f1Since ?? f2Since; // Take the non-null one, or null if both null
-      }
-      if (mergedSince != null) {
-        merged['since'] = mergedSince;
-      } else {
-        merged.remove('since');
-      }
+  Map<String, int?> intValues = {};
 
-      // Merge until (max non-null)
-      dynamic mergedUntil;
-      if (f1Until != null && f2Until != null) {
-        mergedUntil = max(f1Until as num, f2Until as num);
-      } else {
-        mergedUntil =
-            f1Until ?? f2Until; // Take the non-null one, or null if both null
+  // If we have limit and another differing key
+  if (differingKeys.contains('limit')) {
+    final limit1 = f1['limit'] as num? ?? double.infinity;
+    final limit2 = f2['limit'] as num? ?? double.infinity;
+    if (differingKeys.contains('ids')) {
+      if (f1['ids'].length > limit1 || f2['ids'].length > limit2) {
+        return null;
       }
-      if (mergedUntil != null) {
-        merged['until'] = mergedUntil;
-      } else {
-        merged.remove('until');
-      }
-
-      merged.remove('limit'); // Cannot have limit if since/until differ
-      return [merged];
+    } else if (differingKeys.length > 1) {
+      return null;
     } else {
-      // No overlap -> cannot merge
-      return [f1, f2];
+      // We only have limit as differing
+      final maxLimit = max(limit1, limit2);
+      intValues['limit'] =
+          maxLimit == double.infinity ? null : maxLimit.toInt();
     }
   }
 
-  // Case 3: Single differing array key (and not 'ids', which was handled earlier)
-  if (nonLimitDiffs.length == 1 && arrayKeys.contains(nonLimitDiffs[0])) {
-    String key = nonLimitDiffs[0];
-    // Ensure keys exist before accessing (should be guaranteed by presence check)
-    List list1 = f1[key] as List? ?? [];
-    List list2 = f2[key] as List? ?? [];
-    merged[key] =
-        {...list1, ...list2}.toList(); // Merge using Set for uniqueness
-    merged.remove('limit'); // Cannot have limit if arrays differ
-    return [merged];
+  if (differingKeys.contains('since') || differingKeys.contains('until')) {
+    final num f1Since = f1['since'] ?? 0;
+    final num f1Until = f1['until'] ?? double.infinity;
+    final num f2Since = f2['since'] ?? 0;
+    final num f2Until = f2['until'] ?? double.infinity;
+
+    // Only way we keep going with differingArrayKeys is if since/until are the same
+    if (differingArrayKeys.isNotEmpty &&
+        (f1Since != f2Since || f1Until != f2Until)) {
+      return null;
+    }
+
+    if (f1Since <= f2Until && f2Since <= f1Until) {
+      final sinceNum = min(f1Since, f2Since);
+      intValues['since'] = sinceNum == 0 ? null : sinceNum.toInt();
+      final untilNum = max(f1Until, f2Until);
+      intValues['until'] =
+          untilNum == double.infinity ? null : untilNum.toInt();
+    } else {
+      return null;
+    }
   }
 
-  // Fallback: If none of the mergeable conditions were met.
-  return [f1, f2];
+  final differingArrayKey = differingKeys.intersection(arrayKeys).firstOrNull;
+
+  return {
+    for (final k in arrayKeys)
+      // Merge differing keys, others take from f1
+      k: differingArrayKey == k ? <dynamic>{...?f1[k], ...?f2[k]} : f1[k],
+    ...intValues,
+    if (f1.containsKey('search')) 'search': f1['search'].toString(),
+  };
 }
 
 bool canMerge(Map<String, dynamic> filter1, Map<String, dynamic> filter2) {

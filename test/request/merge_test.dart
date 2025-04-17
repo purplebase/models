@@ -60,11 +60,38 @@ void main() {
     final expected = [
       RequestFilter(
         ids: {id1, id2, id3, id4},
-        limit: 4,
       ),
     ];
     final result = mergeRequests(filter1, filter2);
     expect(result, equals(expected));
+  });
+
+  test("ids-only filters - limits less than length and ids are not merged", () {
+    final [
+      id1,
+      id2,
+      id3,
+      id4
+    ] = [generate64Hex(), generate64Hex(), generate64Hex(), generate64Hex()];
+    final filter1 = RequestFilter(
+      ids: {id1, id2},
+      limit: 1,
+    );
+    final filter2 = RequestFilter(
+      ids: {id3, id4},
+    );
+    final expected = [
+      RequestFilter(
+        ids: {id1, id2},
+        limit: 1,
+      ),
+      RequestFilter(
+        ids: {id3, id4},
+      ),
+    ];
+    final result = mergeRequests(filter1, filter2);
+    expect(result, equals(expected));
+    // print(result);
   });
 
   test("ids-only filters - one without limit", () {
@@ -84,7 +111,6 @@ void main() {
     final expected = [
       RequestFilter(
         ids: {id1, id2, id3, id4},
-        limit: 4,
       ),
     ];
     final result = mergeRequests(filter1, filter2);
@@ -107,7 +133,6 @@ void main() {
     final expected = [
       RequestFilter(
         ids: {id1, id2, id3, id4},
-        limit: 4,
       ),
     ];
     final result = mergeRequests(filter1, filter2);
@@ -172,14 +197,18 @@ void main() {
 
   test('handles since and until', () {
     final filter1 = RequestFilter(
-      authors: {nielPubkey},
+      authors: {franzapPubkey},
       since: DateTime.fromMillisecondsSinceEpoch(100 * 1000),
     );
     final filter2 = RequestFilter(
       authors: {franzapPubkey},
       until: DateTime.fromMillisecondsSinceEpoch(200 * 1000),
     );
-    final expected = [filter1, filter2];
+    final expected = [
+      RequestFilter(
+        authors: {franzapPubkey},
+      )
+    ];
     expect(mergeRequests(filter1, filter2), expected);
   });
 
@@ -730,7 +759,6 @@ void main() {
     final expected = [
       RequestFilter(
         ids: {id1, id2, id3},
-        limit: 3,
       ),
     ];
     final result = mergeRequests(filter1, filter2);
