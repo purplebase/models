@@ -100,7 +100,7 @@ void main() {
           PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
               .dummySign(nielPubkey);
       expect(reaction.emojiTag, equals(('test', 'test://t')));
-      expect(reaction.reactedOn.ids, {a.internal.id});
+      expect(reaction.reactedOn.req!.ids, {a.internal.id});
       expect(reaction.reactedOn.value, a);
       expect(reaction.author.value, profile);
     });

@@ -6,7 +6,6 @@ class ContactList extends ReplaceableEvent<ContactList> {
   ContactList.fromMap(super.map, super.ref) : super.fromMap() {
     following =
         HasMany(ref, RequestFilter(kinds: {0}, authors: followingPubkeys));
-    // TODO: Implement known followers
     followers = HasMany(ref, null);
   }
   Set<String> get followingPubkeys => internal.getTagSetValues('p');

@@ -7,8 +7,6 @@ sealed class Relationship<E extends Event<dynamic>> {
   Relationship(this.ref, this.req)
       : storage = ref.read(storageNotifierProvider.notifier);
 
-  Set<String> get ids => req?.ids ?? {};
-
   List<E> get _events {
     if (req == null) return [];
     final cachedEvents = storage.requestCache.values
@@ -40,8 +38,8 @@ final class BelongsTo<E extends Event<dynamic>> extends Relationship<E> {
   }
 }
 
-// TODO: Some HasManys like targetedPublication#communities may point
-// to multiple replaceable events, so need to support multiple reqs
+// TODO: Support multiple reqs for multiple PRE addressable IDs
+// TODO: Add req to further restrict the rel.req (e.g. to paginate)
 final class HasMany<E extends Event<dynamic>> extends Relationship<E> {
   HasMany(super.ref, super.req);
 
