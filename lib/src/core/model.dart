@@ -14,6 +14,7 @@ sealed class Model<E extends Model<E>>
     with EquatableMixin
     implements ModelBase<E> {
   final Ref ref;
+  final StorageNotifier storage;
 
   @override
   final ImmutableEvent event;
@@ -23,7 +24,8 @@ sealed class Model<E extends Model<E>>
   late final HasMany<Zap> zaps;
   late final HasMany<TargetedPublication> targetedPublications;
 
-  Model._(this.ref, this.event) {
+  Model._(this.ref, this.event)
+      : storage = ref.read(storageNotifierProvider.notifier) {
     final kindCheck = switch (event.kind) {
       >= 10000 && < 20000 || 0 || 3 => this is ReplaceableModel,
       >= 20000 && < 30000 => this is EphemeralModel,
@@ -58,6 +60,9 @@ sealed class Model<E extends Model<E>>
   }
 
   Map<String, dynamic> transformMap(Map<String, dynamic> map) {
+    if (!storage.config.keepSignatures) {
+      map['sig'] = null;
+    }
     return map;
   }
 

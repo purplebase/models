@@ -10,7 +10,7 @@ void main() {
   late ProviderContainer container;
   setUpAll(() async {
     container = ProviderContainer();
-    final config = StorageConfiguration.empty();
+    final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
   });
 
@@ -154,6 +154,8 @@ void main() {
       final zap = Zap.fromMap(jsonDecode(zapJson), ref);
       final note = Note.fromMap(jsonDecode(zappedEventJson), ref);
       await storage.save({note, zap, author});
+      // As config is keepSignatures=false, it should come back as null
+      expect(zap.zappedModel.value!.event.signature, isNull);
       expect(zap.zappedModel.value, note);
       expect(zap.author.value, author);
     });
