@@ -46,8 +46,14 @@ class Profile extends ReplaceableModel<Profile> {
 
   String get nameOrNpub => name ?? npub;
 
-  PartialProfile copyWith({String? name}) {
-    return PartialProfile(name: name ?? this.name);
+  PartialProfile copyWith(
+      {String? name, String? nip05, String? pictureUrl, String? lud16}) {
+    return PartialProfile(
+      name: name ?? this.name,
+      nip05: nip05 ?? this.nip05,
+      pictureUrl: pictureUrl ?? this.pictureUrl,
+      lud16: lud16 ?? this.lud16,
+    );
   }
 
   @override
@@ -70,8 +76,6 @@ class Profile extends ReplaceableModel<Profile> {
 
 class PartialProfile extends ReplaceablePartialModel<Profile> {
   PartialProfile({this.name, this.nip05, this.pictureUrl, this.lud16}) {
-    // NOTE: In partial events we don't use metadata, once passed to `save`
-    // it goes out to relays as-is, gets processed and comes back saved with metadata
     event.content =
         jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
   }
