@@ -34,14 +34,14 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     for (final model in models) {
-      // Need to deconstruct to inject metadata and
-      // remove useless content, then construct again
-      final metadata = await model.processMetadata();
+      // Need to deconstruct to remove useless content, then construct again
       final transformedModel = model.transformMap(model.toMap());
       final constructor = Model.getConstructorForKind(model.event.kind);
-      final e = constructor!.call(
-          {...transformedModel, if (metadata.isNotEmpty) 'metadata': metadata},
-          ref) as Model;
+      final e = constructor!.call({
+        ...transformedModel,
+        // Need to pass metadata back
+        if (model.event.metadata.isNotEmpty) 'metadata': model.event.metadata
+      }, ref) as Model;
       if (e is ReplaceableModel) {
         _models.removeWhere((m) => m.id == e.id);
       }

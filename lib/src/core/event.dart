@@ -32,11 +32,12 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
   final String content;
   @override
   final List<List<String>> tags;
-  final Set<String> relays;
   // Signature is nullable as it may be removed as optimization
   final String? signature;
+
   // Metadata
   final Map<String, dynamic> metadata;
+  final Set<String> relays;
 
   ImmutableEvent(Map<String, dynamic> map)
       : id = map['id'],
@@ -125,6 +126,11 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
   DateTime createdAt = DateTime.now();
   @override
   List<List<String>> tags = [];
+
+  // Metadata
+  Map<String, dynamic> metadata = {};
+
+  // Tag utilities
 
   void addTagValue(String key, String? value) {
     if (value != null) {

@@ -139,7 +139,14 @@ void main() async {
           .testerFor(query<Profile>(authors: {nielPubkey}, remote: false));
       await tester.expectModels(unorderedEquals({nielProfile}));
 
-      nielProfile.copyWith(name: 'Nielcho').dummySign(nielPubkey).save();
+      final nielcho =
+          nielProfile.copyWith(name: 'Nielcho').dummySign(nielPubkey);
+      // Check processMetadata() was called when constructing
+      expect(nielcho.name, equals('Nielcho'));
+      // Content should NOT be empty as this new event could be sent to relays
+      expect(nielcho.event.content, isNotEmpty);
+      await nielcho.save();
+
       await tester.expect(isA<StorageData<Profile>>()
           .having((s) => s.models.first.name, 'name', 'Nielcho'));
     });

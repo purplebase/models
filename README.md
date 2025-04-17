@@ -148,7 +148,7 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Allow typed queries `ref.watch(query<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
  - [x] Remote relay configuration
  - [x] Relay metadata in response
- - [x] Cache relationship req results, make relationships check it before hitting sync, remove sync query altogether?
+ - [x] Cache relationship req results, make relationships check it before hitting sync
  - [x] Publish events
  - [x] Merge reqs for both local storage and relays
  - [x] Register types externally (+docs)

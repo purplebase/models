@@ -11,7 +11,9 @@ class Profile extends ReplaceableModel<Profile> {
   }
 
   @override
-  Future<Map<String, dynamic>> processMetadata() async {
+  Map<String, dynamic> processMetadata() {
+    if (event.content.isEmpty) return {};
+
     final map = jsonDecode(event.content);
     var name = map['name'] as String?;
     if (name == null || name.isEmpty) {
@@ -45,8 +47,6 @@ class Profile extends ReplaceableModel<Profile> {
   String get nameOrNpub => name ?? npub;
 
   PartialProfile copyWith({String? name}) {
-    // TODO: Confusing not to have metadata here, returs null before saving
-    // Issue also in 'relay metadata' with relays not copied
     return PartialProfile(name: name ?? this.name);
   }
 

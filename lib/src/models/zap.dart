@@ -16,7 +16,7 @@ class Zap extends RegularModel<Zap> {
   }
 
   @override
-  Future<Map<String, dynamic>> processMetadata() async {
+  Map<String, dynamic> processMetadata() {
     final amount = getSatsFromBolt11(event.getFirstTagValue('bolt11')!);
     return {'amount': amount};
   }

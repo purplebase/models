@@ -26,6 +26,9 @@ sealed class Model<E extends Model<E>>
 
   Model._(this.ref, this.event)
       : storage = ref.read(storageNotifierProvider.notifier) {
+    if (event.metadata.isEmpty) {
+      event.metadata.addAll(processMetadata());
+    }
     final kindCheck = switch (event.kind) {
       >= 10000 && < 20000 || 0 || 3 => this is ReplaceableModel,
       >= 20000 && < 30000 => this is EphemeralModel,
@@ -55,7 +58,7 @@ sealed class Model<E extends Model<E>>
   String get id => event.addressableId;
   DateTime get createdAt => event.createdAt;
 
-  Future<Map<String, dynamic>> processMetadata() async {
+  Map<String, dynamic> processMetadata() {
     return {};
   }
 
