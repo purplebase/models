@@ -176,7 +176,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
         {AndFunction<E> and, bool remote = true}) {
   // Note: does not need kind as it queries by ID
   final req =
-      RequestFilter(ids: {model.id}, and: _castAnd(and), remote: remote);
+      RequestFilter<E>(ids: {model.id}, and: _castAnd(and), remote: remote);
   return requestNotifierProvider(req);
 }
 

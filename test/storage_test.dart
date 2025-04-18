@@ -9,14 +9,10 @@ void main() async {
     late ProviderContainer container;
     late DummyStorageNotifier storage;
     late StateNotifierTester tester;
-
-    // NOTE: Having no tearDown with cancel() keeps some timers
-    // in memory, which help test how request notifiers handle unrelated IDs
-
     late Note a, b, c, d, e, f, g, replyToA, replyToB;
     late Profile nielProfile;
 
-    setUpAll(() async {
+    setUp(() async {
       container = ProviderContainer();
       final config = StorageConfiguration(
         relayGroups: {
@@ -49,7 +45,8 @@ void main() async {
       await storage.save({nielProfile}, relayGroup: 'big-relays');
     });
 
-    tearDownAll(() async {
+    tearDown(() async {
+      tester.dispose();
       await storage.cancel();
       await storage.clear();
     });
