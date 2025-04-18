@@ -173,7 +173,7 @@ void main() async {
       container = ProviderContainer();
       final config = StorageConfiguration(
         streamingBufferWindow: Duration.zero,
-        maxModels: 10,
+        maxModels: 100,
       );
       await container.read(initializationProvider(config).future);
       storage = container.read(storageNotifierProvider.notifier)
