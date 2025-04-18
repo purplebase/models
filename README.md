@@ -19,19 +19,19 @@ class Joke extends RegularModel<Joke> {
   Joke.fromMap(super.map, super.ref) : super.fromMap();
 
   // Getter to the title tag
-  String? get title => internal.getFirstTagValue('title');
+  String? get title => event.getFirstTagValue('title');
   // Getter to published_at tag, converting to DateTime
   DateTime? get publishedAt =>
-      internal.getFirstTagValue('published_at')?.toInt()?.toDate();
+      event.getFirstTagValue('published_at')?.toInt()?.toDate();
 }
 
 /// This is a PartialJoke, unsigned and mutable model
 /// on which .signWith() is called to produce a Joke model
 class PartialJoke extends RegularPartialModel<Joke> {
   PartialJoke(String title, String content, {DateTime? publishedAt}) {
-    internal.addTagValue('title', title);
-    internal.content = content;
-    internal.addTagValue('published_at', publishedAt?.toSeconds().toString());
+    event.addTagValue('title', title);
+    event.content = content;
+    event.addTagValue('published_at', publishedAt?.toSeconds().toString());
   }
 }
 ```
