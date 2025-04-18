@@ -5,39 +5,30 @@ import 'package:test/test.dart';
 import 'helpers.dart';
 
 void main() async {
-  late ProviderContainer container;
-  late StorageNotifierTester tester;
-  late DummyStorageNotifier storage;
-
-  setUpAll(() async {
-    container = ProviderContainer();
-    final config = StorageConfiguration(
-      databasePath: '',
-      relayGroups: {
-        'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'}
-      },
-      defaultRelayGroup: 'big-relays',
-      streamingBufferWindow: Duration.zero,
-    );
-    await container.read(initializationProvider(config).future);
-    storage = container.read(storageNotifierProvider.notifier)
-        as DummyStorageNotifier;
-  });
-
-  // NOTE: Having no tearDown with cancel() keeps some timers
-  // in memory, which help test how request notifiers handle unrelated IDs
-
-  tearDownAll(() async {
-    tester.dispose();
-    await storage.cancel();
-    await storage.clear();
-  });
-
   group('storage filters', () {
+    late ProviderContainer container;
+    late DummyStorageNotifier storage;
+    late StateNotifierTester tester;
+
+    // NOTE: Having no tearDown with cancel() keeps some timers
+    // in memory, which help test how request notifiers handle unrelated IDs
+
     late Note a, b, c, d, e, f, g, replyToA, replyToB;
     late Profile nielProfile;
 
     setUpAll(() async {
+      container = ProviderContainer();
+      final config = StorageConfiguration(
+        relayGroups: {
+          'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'}
+        },
+        defaultRelayGroup: 'big-relays',
+        streamingBufferWindow: Duration.zero,
+      );
+      await container.read(initializationProvider(config).future);
+      storage = container.read(storageNotifierProvider.notifier)
+          as DummyStorageNotifier;
+
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
@@ -59,7 +50,6 @@ void main() async {
     });
 
     tearDownAll(() async {
-      tester.dispose();
       await storage.cancel();
       await storage.clear();
     });
@@ -175,14 +165,52 @@ void main() async {
     });
   });
 
-  group('storage relay interface', () {
+  group('storage', () {
+    late ProviderContainer container;
+    late DummyStorageNotifier storage;
+
+    setUpAll(() async {
+      container = ProviderContainer();
+      final config = StorageConfiguration(
+        streamingBufferWindow: Duration.zero,
+        maxModels: 10,
+      );
+      await container.read(initializationProvider(config).future);
+      storage = container.read(storageNotifierProvider.notifier)
+          as DummyStorageNotifier;
+    });
+
     tearDown(() async {
-      tester.dispose();
-      await storage.cancel();
+      // await storage.cancel();
       await storage.clear();
     });
+
+    test('clear with req', () async {
+      final a = List.generate(
+          30,
+          (_) => storage.generateModel(
+              kind: 1, createdAt: DateTime.parse('2025-03-12'))!);
+      final b = List.generate(30, (_) => storage.generateModel(kind: 1)!);
+      await storage.save({...a, ...b});
+      final beginOfYear = DateTime.parse('2025-01-01');
+      final beginOfMonth = DateTime.parse('2025-04-01');
+      expect(
+          storage.querySync(RequestFilter(since: beginOfYear)), hasLength(60));
+      expect(
+          storage.querySync(RequestFilter(since: beginOfMonth)), hasLength(30));
+      await storage.clear(RequestFilter(until: beginOfMonth));
+      expect(
+          storage.querySync(RequestFilter(since: beginOfYear)), hasLength(30));
+    });
+
+    test('max models config', () async {
+      final max = storage.config.maxModels;
+      final a = List.generate(max * 2, (_) => storage.generateModel(kind: 1)!);
+      await storage.save(a.toSet());
+      expect(storage.querySync(RequestFilter()), hasLength(max));
+    });
+
     test('request filter', () {
-      tester = container.testerFor(query<Reaction>()); // no-op
       final r1 = RequestFilter<Reaction>(authors: {
         nielPubkey,
         franzapPubkey
@@ -225,26 +253,34 @@ void main() async {
       expect(r1, equals(r4));
     });
 
-    test('relay request should notify with models', () async {
-      tester = container.testerFor(
-          query<Note>(authors: {nielPubkey, franzapPubkey}, limit: 2));
-      await tester.expectModels(isEmpty);
-      await tester.expectModels(hasLength(2));
-    });
+    group('with notifier', () {
+      late StateNotifierTester tester;
 
-    test('relay request should notify with models (streamed)', () async {
-      tester = container.testerFor(query<Note>(
-        authors: {nielPubkey, franzapPubkey},
-        limit: 5,
-        queryLimit: 21,
-      ));
-      await tester.expectModels(isEmpty); // nothing was in local storage
-      await tester.expectModels(hasLength(5)); // limit=5
-      // stream starts in batches of 5, until queryLimit=21
-      await tester.expectModels(hasLength(10));
-      await tester.expectModels(hasLength(15));
-      await tester.expectModels(hasLength(20));
-      await tester.expectModels(hasLength(21));
+      tearDown(() async {
+        tester.dispose();
+      });
+
+      test('relay request should notify with models', () async {
+        tester = container.testerFor(
+            query<Note>(authors: {nielPubkey, franzapPubkey}, limit: 2));
+        await tester.expectModels(isEmpty);
+        await tester.expectModels(hasLength(2));
+      });
+
+      test('relay request should notify with models (streamed)', () async {
+        tester = container.testerFor(query<Note>(
+          authors: {nielPubkey, franzapPubkey},
+          limit: 5,
+          queryLimit: 21,
+        ));
+        await tester.expectModels(isEmpty); // nothing was in local storage
+        await tester.expectModels(hasLength(5)); // limit=5
+        // stream starts in batches of 5, until queryLimit=21
+        await tester.expectModels(hasLength(10));
+        await tester.expectModels(hasLength(15));
+        await tester.expectModels(hasLength(20));
+        await tester.expectModels(hasLength(21));
+      });
     });
   });
 }

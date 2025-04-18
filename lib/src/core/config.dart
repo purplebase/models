@@ -8,6 +8,7 @@ class StorageConfiguration extends Equatable {
   final String? defaultRelayGroup;
   final Duration idleTimeout;
   final Duration streamingBufferWindow;
+  final int maxModels;
 
   const StorageConfiguration({
     this.databasePath = '',
@@ -17,6 +18,7 @@ class StorageConfiguration extends Equatable {
     this.defaultRelayGroup,
     this.idleTimeout = const Duration(minutes: 5),
     this.streamingBufferWindow = const Duration(seconds: 2),
+    this.maxModels = 20000,
   });
 
   Set<String> getRelays({String? relayGroup, bool useDefault = true}) {

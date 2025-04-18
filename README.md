@@ -153,8 +153,7 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Merge reqs for both local storage and relays
  - [x] Register types externally (+docs)
  - [x] Event metadata
- - [ ] Restrict by subscription (ignores req filter, brings all events from that sub)
- - [ ] Eviction policy API, allowing clients to manage the local database size
+ - [x] Eviction API to manage db size
  - [ ] Go through code and comment everything
  - [ ] Add tests, ask agent to detect missing
  - [ ] Generate docs site

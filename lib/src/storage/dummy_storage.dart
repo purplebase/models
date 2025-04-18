@@ -3,7 +3,7 @@ part of models;
 /// Reactive storage with dummy data, singleton
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
-  final Set<Model> _models = {};
+  Set<Model> _models = {};
   var applyLimit = true;
 
   static DummyStorageNotifier? _instance;
@@ -46,6 +46,11 @@ class DummyStorageNotifier extends StorageNotifier {
         _models.removeWhere((m) => m.id == e.id);
       }
       _models.add(e);
+    }
+
+    // FIFO queue, ensure we don't go over config.maxModels
+    if (_models.length > config.maxModels) {
+      _models = _models.sortByCreatedAt().take(config.maxModels).toSet();
     }
 
     if (mounted) {

@@ -11,15 +11,15 @@ final verbirichaPubkey =
 final franzapPubkey =
     '726a1e261cc6474674e8285e3951b3bb139be9a773d1acf49dc868db861a1c11';
 
-class StorageNotifierTester {
-  final RequestNotifier notifier;
+class StateNotifierTester {
+  final StateNotifier notifier;
 
   final _disposeFns = [];
   final _completers = <Completer>[Completer()];
   var initial = true;
   var i = 0;
 
-  StorageNotifierTester(this.notifier) {
+  StateNotifierTester(this.notifier) {
     final dispose = notifier.addListener((state) {
       // print('${state.runtimeType} ${state.models.length}');
       _completers.last.complete(state);
@@ -48,13 +48,13 @@ class StorageNotifierTester {
 extension ProviderContainerExt on ProviderContainer {
   /// Has fireImmediately set to false, so the
   /// initial StorageLoading never gets fired
-  StorageNotifierTester testerFor(
+  StateNotifierTester testerFor(
       AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
           provider) {
     // Keep the provider alive during the test
     listen(provider, (_, __) {}).read();
 
-    return StorageNotifierTester(read(provider.notifier));
+    return StateNotifierTester(read(provider.notifier));
   }
 }
 
