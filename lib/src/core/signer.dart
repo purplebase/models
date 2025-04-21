@@ -3,7 +3,7 @@ part of models;
 DummySigner? _dummySigner;
 
 mixin Signable<E extends Model<E>> {
-  Future<E> signWith(Signer signer, {String? withPubkey}) {
+  Future<E> signWith(Signer signer, {required String? withPubkey}) {
     return signer.sign<E>(this as PartialModel<E>, withPubkey: withPubkey);
   }
 
@@ -14,19 +14,19 @@ mixin Signable<E extends Model<E>> {
 abstract class Signer {
   final Ref ref;
 
-  Signer({required this.ref});
+  Signer(this.ref);
 
   Future<Signer> initialize();
   Future<String?> getPublicKey();
 
   /// Sign the partial model, supply `withPubkey` to disambiguate when signer holds multiple keys
   Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
-      {String? withPubkey});
+      {required String? withPubkey});
 }
 
 class Bip340PrivateKeySigner extends Signer {
   final String privateKey;
-  Bip340PrivateKeySigner(this.privateKey, {required super.ref});
+  Bip340PrivateKeySigner(this.privateKey, super.ref);
 
   @override
   Future<Signer> initialize() async {
@@ -59,7 +59,7 @@ class Bip340PrivateKeySigner extends Signer {
 }
 
 class DummySigner extends Signer {
-  DummySigner({required super.ref});
+  DummySigner(super.ref);
 
   @override
   Future<String?> getPublicKey() async {
@@ -91,7 +91,7 @@ class DummySigner extends Signer {
 
 final initializationProvider =
     FutureProvider.family<bool, StorageConfiguration>((ref, config) async {
-  _dummySigner = DummySigner(ref: ref);
+  _dummySigner = DummySigner(ref);
   await ref.read(storageNotifierProvider.notifier).initialize(config);
   return true;
 });
