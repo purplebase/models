@@ -113,7 +113,7 @@ void main() {
       ).dummySign(nielPubkey);
 
       expect(nielProfile.event.content,
-          '{"name":"Niel Liesmons","nip05":null,"picture":"https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png"}');
+          '{"name":"Niel Liesmons","picture":"https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png"}');
       expect(nielProfile.event.shareableId,
           'nprofile1qqs2js6wu9j76qdjs6lvlsnhrmchqhf4xlg9rvu89zyf3nqq6hygt0sty4s8y');
 

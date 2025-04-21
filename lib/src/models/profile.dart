@@ -14,7 +14,7 @@ class Profile extends ReplaceableModel<Profile> {
   Map<String, dynamic> processMetadata() {
     if (event.content.isEmpty) return {};
 
-    final map = jsonDecode(event.content);
+    final map = jsonDecode(event.content) as Map;
     var name = map['name'] as String?;
     if (name == null || name.isEmpty) {
       name = map['display_name'] as String?;
@@ -48,7 +48,7 @@ class Profile extends ReplaceableModel<Profile> {
       'banner': map['banner'],
       'website': map['website'],
       'birthday': map['birthday'],
-    };
+    }..removeWhere((k, v) => v == null);
   }
 
   @override
@@ -138,7 +138,7 @@ class PartialProfile extends ReplaceablePartialModel<Profile> {
     this.birthday,
     this.externalIdentities,
   }) {
-    final Map<String, dynamic> content = {
+    final content = <String, dynamic>{
       'name': name,
       'nip05': nip05,
       'picture': pictureUrl,
@@ -146,7 +146,7 @@ class PartialProfile extends ReplaceablePartialModel<Profile> {
       'about': about,
       'banner': banner,
       'website': website,
-    };
+    }..removeWhere((k, v) => v == null);
 
     // Only add birthday if defined
     if (birthday != null) {
