@@ -1,16 +1,5 @@
 part of models;
 
-DummySigner? _dummySigner;
-
-mixin Signable<E extends Model<E>> {
-  Future<E> signWith(Signer signer, {String? withPubkey}) {
-    return signer.sign<E>(this as PartialModel<E>, withPubkey: withPubkey);
-  }
-
-  E dummySign([String? withPubkey]) =>
-      _dummySigner!.signSync(this as PartialModel<E>, withPubkey: withPubkey);
-}
-
 abstract class Signer {
   final Ref ref;
   final Set<String> signedInPubkeys = {};
@@ -36,7 +25,9 @@ class Bip340PrivateKeySigner extends Signer {
 
   @override
   Future<String?> getPublicKey() async {
-    return Profile.getPublicKey(privateKey);
+    final pubkey = Profile.getPublicKey(privateKey);
+    signedInPubkeys.add(pubkey);
+    return pubkey;
   }
 
   Map<String, dynamic> _prepare(
@@ -50,7 +41,7 @@ class Bip340PrivateKeySigner extends Signer {
   @override
   Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) async {
-    final pubkey = Profile.getPublicKey(privateKey);
+    final pubkey = (await getPublicKey())!;
     final id = partialModel.getEventId(pubkey);
     final aux = hex.encode(List<int>.generate(32, (i) => 1));
     final signature = bip340.sign(privateKey, id.toString(), aux);
@@ -61,10 +52,11 @@ class Bip340PrivateKeySigner extends Signer {
 
 class DummySigner extends Signer {
   DummySigner(super.ref);
+  String? pubkey;
 
   @override
   Future<String?> getPublicKey() async {
-    return null;
+    return pubkey;
   }
 
   @override
@@ -74,9 +66,10 @@ class DummySigner extends Signer {
 
   E signSync<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) {
-    final pubkey = withPubkey ?? Utils.generateRandomHex64();
+    pubkey = withPubkey ?? Utils.generateRandomHex64();
+    signedInPubkeys.add(pubkey!);
     return Model.getConstructorFor<E>()!.call({
-      'id': partialModel.getEventId(pubkey),
+      'id': partialModel.getEventId(pubkey!),
       'pubkey': pubkey,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ...partialModel.toMap(),
@@ -88,6 +81,17 @@ class DummySigner extends Signer {
       {String? withPubkey}) async {
     return signSync(partialModel, withPubkey: withPubkey);
   }
+}
+
+DummySigner? _dummySigner;
+
+mixin Signable<E extends Model<E>> {
+  Future<E> signWith(Signer signer, {String? withPubkey}) {
+    return signer.sign<E>(this as PartialModel<E>, withPubkey: withPubkey);
+  }
+
+  E dummySign([String? withPubkey]) =>
+      _dummySigner!.signSync(this as PartialModel<E>, withPubkey: withPubkey);
 }
 
 final initializationProvider =
