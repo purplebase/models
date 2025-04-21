@@ -10,6 +10,22 @@ class App extends ParameterizableReplaceableModel<App> {
   String? get license => event.getFirstTagValue('license');
   Set<String> get icons => event.getTagSetValues('icon');
   Set<String> get images => event.getTagSetValues('image');
+  PartialApp copyWith({
+    String? name,
+    String? repository,
+    String? description,
+    String? url,
+  }) {
+    // Note: This copyWith creates a new PartialApp. Due to PartialApp's current design,
+    // 'license', 'icons', and 'images' from the original App are not handled here as
+    // PartialApp does not provide direct setters or a constructor argument for them.
+    final partial = PartialApp();
+    partial.name = name ?? this.name;
+    partial.repository = repository ?? this.repository;
+    partial.description = description ?? this.description;
+    partial.url = url ?? this.url;
+    return partial;
+  }
 }
 
 class PartialApp extends ParameterizableReplaceablePartialEvent<App> {

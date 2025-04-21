@@ -7,6 +7,20 @@ class Article extends ParameterizableReplaceableModel<Article> {
   String? get summary => event.getFirstTagValue('summary');
   DateTime? get publishedAt =>
       event.getFirstTagValue('published_at')?.toInt()?.toDate();
+
+  PartialArticle copyWith({
+    String? title,
+    String? content, // Required by PartialArticle constructor
+    String? imageUrl, // Not settable via PartialArticle constructor
+    String? summary, // Not settable via PartialArticle constructor
+    DateTime? publishedAt,
+  }) {
+    return PartialArticle(
+      title ?? this.title ?? '',
+      content ?? event.content,
+      publishedAt: publishedAt ?? this.publishedAt,
+    );
+  }
 }
 
 class PartialArticle extends ParameterizableReplaceablePartialEvent<Article> {

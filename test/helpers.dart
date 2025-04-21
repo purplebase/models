@@ -59,5 +59,3 @@ extension ProviderContainerExt on ProviderContainer {
 }
 
 final refProvider = Provider((ref) => ref);
-
-final dummySigner = DummySigner();

@@ -203,7 +203,7 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Register types externally (+docs)
  - [x] Event metadata
  - [x] Eviction API to manage db size
- - [ ] Add more models based on NIPs, hook up nostr MCP and ask agent
+ - [x] Add more models based on NIPs, hook up nostr MCP and ask agent
  - [ ] `signedInProfilesProvider`, with ability to select a current one
  - [ ] Go through code and comment everything
  - [ ] Add tests, ask agent to detect missing

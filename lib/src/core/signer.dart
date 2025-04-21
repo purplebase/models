@@ -1,25 +1,21 @@
 part of models;
 
+DummySigner? _dummySigner;
+
 mixin Signable<E extends Model<E>> {
   Future<E> signWith(Signer signer, {String? withPubkey}) {
     return signer.sign<E>(this as PartialModel<E>, withPubkey: withPubkey);
   }
 
   E dummySign([String? withPubkey]) =>
-      _dummySigner.signSync(this as PartialModel<E>, withPubkey: withPubkey);
+      _dummySigner!.signSync(this as PartialModel<E>, withPubkey: withPubkey);
 }
 
-// Needs to be here because of Signer._ref
-final initializationProvider =
-    FutureProvider.family<bool, StorageConfiguration>((ref, config) async {
-  // Initialize a private ref exclusive for signers
-  Signer._ref = ref;
-  await ref.read(storageNotifierProvider.notifier).initialize(config);
-  return true;
-});
-
 abstract class Signer {
-  static late Ref _ref;
+  final Ref ref;
+
+  Signer({required this.ref});
+
   Future<Signer> initialize();
   Future<String?> getPublicKey();
 
@@ -30,7 +26,7 @@ abstract class Signer {
 
 class Bip340PrivateKeySigner extends Signer {
   final String privateKey;
-  Bip340PrivateKeySigner(this.privateKey);
+  Bip340PrivateKeySigner(this.privateKey, {required super.ref});
 
   @override
   Future<Signer> initialize() async {
@@ -58,11 +54,13 @@ class Bip340PrivateKeySigner extends Signer {
     final aux = hex.encode(List<int>.generate(32, (i) => 1));
     final signature = bip340.sign(privateKey, id.toString(), aux);
     final map = _prepare(partialModel.toMap(), id, pubkey, signature);
-    return Model.getConstructorFor<E>()!.call(map, Signer._ref);
+    return Model.getConstructorFor<E>()!.call(map, ref);
   }
 }
 
 class DummySigner extends Signer {
+  DummySigner({required super.ref});
+
   @override
   Future<String?> getPublicKey() async {
     return null;
@@ -81,7 +79,7 @@ class DummySigner extends Signer {
       'pubkey': pubkey,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ...partialModel.toMap(),
-    }, Signer._ref);
+    }, ref);
   }
 
   @override
@@ -91,4 +89,9 @@ class DummySigner extends Signer {
   }
 }
 
-final _dummySigner = DummySigner();
+final initializationProvider =
+    FutureProvider.family<bool, StorageConfiguration>((ref, config) async {
+  _dummySigner = DummySigner(ref: ref);
+  await ref.read(storageNotifierProvider.notifier).initialize(config);
+  return true;
+});
