@@ -2,7 +2,7 @@ part of models;
 
 abstract class Signer {
   final Ref ref;
-  final Set<String> signedInPubkeys = {};
+  static final _signedInPubkeysProvider = StateProvider((ref) => <String>{});
 
   Signer(this.ref);
 
@@ -12,6 +12,12 @@ abstract class Signer {
   /// Sign the partial model, supply `withPubkey` to disambiguate when signer holds multiple keys
   Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey});
+
+  @protected
+  void addSignedInPubkey(String pubkey) {
+    final n = ref.read(_signedInPubkeysProvider.notifier);
+    n.state = {...n.state, pubkey};
+  }
 }
 
 class Bip340PrivateKeySigner extends Signer {
@@ -26,7 +32,7 @@ class Bip340PrivateKeySigner extends Signer {
   @override
   Future<String?> getPublicKey() async {
     final pubkey = Profile.getPublicKey(privateKey);
-    signedInPubkeys.add(pubkey);
+    addSignedInPubkey(pubkey);
     return pubkey;
   }
 
@@ -67,7 +73,7 @@ class DummySigner extends Signer {
   E signSync<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) {
     pubkey = withPubkey ?? Utils.generateRandomHex64();
-    signedInPubkeys.add(pubkey!);
+    addSignedInPubkey(pubkey!);
     return Model.getConstructorFor<E>()!.call({
       'id': partialModel.getEventId(pubkey!),
       'pubkey': pubkey,
@@ -82,6 +88,13 @@ class DummySigner extends Signer {
     return signSync(partialModel, withPubkey: withPubkey);
   }
 }
+
+final signedInProfilesProvider = Provider((ref) {
+  final pubkeys = ref.watch(Signer._signedInPubkeysProvider);
+  return ref
+      .read(storageNotifierProvider.notifier)
+      .querySync(RequestFilter<Profile>(authors: pubkeys));
+});
 
 DummySigner? _dummySigner;
 
