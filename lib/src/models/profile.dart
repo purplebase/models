@@ -128,12 +128,12 @@ class Profile extends ReplaceableModel<Profile> {
   static final currentProfileProvider = Provider((ref) {
     final active = ref.watch(_currentPubkeyProvider);
     final pubkeys = ref.watch(Profile._signedInPubkeysProvider);
-    if (active == null) {
+    if (active == null || !pubkeys.contains(active)) {
       return null;
     }
     return ref
         .read(storageNotifierProvider.notifier)
-        .querySync(RequestFilter<Profile>(authors: pubkeys, remote: false))
+        .querySync(RequestFilter<Profile>(authors: {active}, remote: false))
         .firstOrNull;
   });
 }
