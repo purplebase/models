@@ -3,7 +3,7 @@ part of models;
 DummySigner? _dummySigner;
 
 mixin Signable<E extends Model<E>> {
-  Future<E> signWith(Signer signer, {required String? withPubkey}) {
+  Future<E> signWith(Signer signer, {String? withPubkey}) {
     return signer.sign<E>(this as PartialModel<E>, withPubkey: withPubkey);
   }
 
@@ -13,6 +13,7 @@ mixin Signable<E extends Model<E>> {
 
 abstract class Signer {
   final Ref ref;
+  final Set<String> signedInPubkeys = {};
 
   Signer(this.ref);
 
@@ -21,7 +22,7 @@ abstract class Signer {
 
   /// Sign the partial model, supply `withPubkey` to disambiguate when signer holds multiple keys
   Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
-      {required String? withPubkey});
+      {String? withPubkey});
 }
 
 class Bip340PrivateKeySigner extends Signer {
