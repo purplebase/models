@@ -73,7 +73,6 @@ class DummySigner extends Signer {
   E signSync<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) {
     pubkey = withPubkey ?? Utils.generateRandomHex64();
-    addSignedInPubkey(pubkey!);
     return Model.getConstructorFor<E>()!.call({
       'id': partialModel.getEventId(pubkey!),
       'pubkey': pubkey,
