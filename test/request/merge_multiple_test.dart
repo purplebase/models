@@ -4,6 +4,8 @@ import 'package:test/test.dart';
 import '../helpers.dart';
 
 void main() {
+  final generate64Hex = Utils.generateRandomHex64;
+
   test("empty array returns empty array", () {
     final filters = <RequestFilter>[];
     final expected = <RequestFilter>[];

@@ -43,3 +43,5 @@ part 'src/request/merge.dart';
 
 part 'src/storage/storage.dart';
 part 'src/storage/dummy_storage.dart';
+
+part 'src/utils/utils.dart';

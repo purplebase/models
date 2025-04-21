@@ -55,6 +55,50 @@ print(jsonEncode(joke.toMap()));
 final joke2 = Joke.fromMap({'id': 'c717b625dfd623f660847ec26c14de33b5cccb2f4cf3bad41297546dd7230941', 'content': 'I was going to tell you a joke about time travel... but you didn\'t like it.', 'created_at': 1744851226, 'pubkey': 'f907e6c86c02efe9e26c2d028c6d5112e19308e3cc54a3ff016ac0e9e1af0ff1', 'kind': 1055, 'tags': [['title', 'The Time Traveler'], ['published_at', 1738465200]], 'sig': null}, ref);
 ```
 
+## Generate dummy models
+
+This can go in the initializer, for example. Then query normally.
+
+```dart
+final r = Random();
+final storage = ref.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
+
+final profile = storage.generateProfile(franzap);
+final follows = List.generate(min(15, r.nextInt(50)),
+    (i) => storage.generateProfile());
+
+final contactList = storage.generateModel(
+  kind: 3,
+  pubkey: profile.pubkey,
+  pTags: follows.map((e) => e.event.pubkey).toList(),
+)!;
+
+// notes, likes, zaps
+final other = <Model>{};
+List.generate(r.nextInt(500), (i) {
+  final note = storage.generateModel(
+    kind: 1,
+    pubkey: follows[r.nextInt(follows.length)].pubkey,
+    createdAt: DateTime.now()
+        .subtract(Duration(minutes: r.nextInt(300))),
+  )!;
+  other.add(note);
+  final likes = List.generate(r.nextInt(50), (i) {
+    return storage.generateModel(
+        kind: 7, parentId: note.id)!;
+  });
+  final zaps = List.generate(r.nextInt(10), (i) {
+    return storage.generateModel(
+        kind: 9735,
+        parentId: note.id)!;
+  });
+  other.addAll(likes);
+  other.addAll(zaps);
+});
+
+await storage.save({profile, ...follows, contactList, ...other});
+```
+
 ## Design goals
 
  - Leverage the Dart language to provide maximum type safety and beautiful interfaces that make sense
@@ -73,7 +117,12 @@ Storage with a nostr relay API is at the core of this approach. Querying is done
 Example:
 
 ```dart
-ref.watch(query<Note>(authors: {'a1b2c3'}, since: DateTime.now().subtract(Duration(seconds: 5))));
+ref.watch(
+  query<Note>(
+    authors: {'a1b2c3'},
+    since: DateTime.now().subtract(Duration(seconds: 5)
+  )
+);
 ```
 
 Every single model coming through this watcher comes from local storage and never from a relay directly. 
@@ -154,6 +203,8 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Register types externally (+docs)
  - [x] Event metadata
  - [x] Eviction API to manage db size
+ - [ ] Add more models based on NIPs, hook up nostr MCP and ask agent
+ - [ ] `signedInProfilesProvider`, with ability to select a current one
  - [ ] Go through code and comment everything
  - [ ] Add tests, ask agent to detect missing
  - [ ] Generate docs site

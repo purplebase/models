@@ -75,7 +75,7 @@ class DummySigner extends Signer {
 
   E signSync<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) {
-    final pubkey = withPubkey ?? generate64Hex();
+    final pubkey = withPubkey ?? Utils.generateRandomHex64();
     return Model.getConstructorFor<E>()!.call({
       'id': partialModel.getEventId(pubkey),
       'pubkey': pubkey,
@@ -89,18 +89,6 @@ class DummySigner extends Signer {
       {String? withPubkey}) async {
     return signSync(partialModel, withPubkey: withPubkey);
   }
-}
-
-String generate64Hex() {
-  // Generate 32 random bytes; 32 bytes * 2 hex digits per byte = 64 hex characters
-  final random = Random.secure();
-  final bytes = List<int>.generate(32, (_) => random.nextInt(256));
-
-  // Convert the bytes to a hex string, making sure each byte is represented with two digits
-  final hex =
-      bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join('');
-
-  return hex;
 }
 
 final _dummySigner = DummySigner();

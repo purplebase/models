@@ -16,13 +16,16 @@ class DummyStorageNotifier extends StorageNotifier {
 
   final Map<RequestFilter, Timer> _timers = {};
 
+  final _queriedModels = <int, Set<String>>{};
+
   @override
   Future<void> initialize(StorageConfiguration config) async {
     await super.initialize(config);
+    _queriedModels.clear();
   }
 
   @override
-  Future<void> save(Set<Model> models,
+  Future<void> save(Set<Model<dynamic>> models,
       {String? relayGroup, bool publish = false}) async {
     // Publish in the background, before using metadata/transformMap
     if (publish && models.isNotEmpty) {
@@ -69,13 +72,12 @@ class DummyStorageNotifier extends StorageNotifier {
     });
   }
 
-  /// [onModels] is an extension in this implementation
   /// that allows filtering req on a specific set of models (other than _models)
   @override
   List<E> querySync<E extends Model<dynamic>>(RequestFilter<E> req,
-      {bool applyLimit = true, Set<String>? onIds, Set<Model>? onModels}) {
+      {bool applyLimit = true, Set<String>? onIds}) {
     // Results is of Model<dynamic>, but it will be casted once we have results of the right kind
-    List<Model> results = (onModels ?? _models).toList();
+    List<Model> results = _models.toList();
 
     // If onIds present then restrict req to those
     if (onIds != null) {
@@ -169,8 +171,6 @@ class DummyStorageNotifier extends StorageNotifier {
 
   // Dummy model generation
 
-  final _random = Random();
-
   @override
   Future<Set<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req) async {
     return fetchSync(req);
@@ -183,51 +183,6 @@ class DummyStorageNotifier extends StorageNotifier {
     var streamAmount =
         req.queryLimit != null ? req.queryLimit! - preEoseAmount : 0;
 
-    if (req.kinds.isEmpty || req.kinds.first == 7 || req.kinds.first == 9735) {
-      return {};
-    }
-    final profiles = req.authors.isNotEmpty
-        ? req.authors.map(generateProfile).toList()
-        : List.generate(10, (i) => generateProfile());
-    // Add already saved profiles
-    profiles.addAll(querySync(RequestFilter<Profile>()));
-
-    final follows = <Profile>{};
-    if (req.kinds.contains(3)) {
-      follows.addAll(List.generate(10, (i) => generateProfile()));
-    }
-
-    final baseModels = List.generate(preEoseAmount, (i) {
-      final profile = profiles.firstWhereOrNull(
-              (p) => p.pubkey == req.authors.shuffled().firstOrNull) ??
-          profiles[_random.nextInt(profiles.length)];
-
-      return generateModel(
-        kind: req.kinds.first,
-        pubkey: profile.pubkey,
-        createdAt:
-            DateTime.now().subtract(Duration(minutes: _random.nextInt(10))),
-        pTags: follows.map((e) => e.event.pubkey).toList(),
-      );
-    }).nonNulls.toSet();
-
-    final andModels = [
-      if (req.and != null)
-        for (final m in baseModels)
-          for (final r in req.and!(m))
-            ...List.generate(
-              _random.nextInt(20),
-              (i) => generateModel(
-                kind: r.req!.kinds.first,
-                pubkey: profiles[_random.nextInt(profiles.length)].pubkey,
-                parentId: m.id,
-              ),
-            ).nonNulls.toSet()
-    ];
-
-    final models = {...profiles, ...follows, ...baseModels, ...andModels};
-    Future.microtask(() => save(models));
-
     if (streamAmount > 0) {
       () {
         _timers[req] = Timer.periodic(config.streamingBufferWindow, (t) async {
@@ -236,37 +191,28 @@ class DummyStorageNotifier extends StorageNotifier {
               t.cancel();
               _timers.remove(req);
             } else {
+              final kind = req.kinds.first;
+              _queriedModels[kind] ??= {};
               final amt = streamAmount < 5 ? streamAmount : 5;
-              final baseModels = List.generate(
-                amt,
-                (i) {
-                  streamAmount--;
-                  return generateModel(
-                      kind: req.kinds.first,
-                      pubkey:
-                          profiles[_random.nextInt(profiles.length)].pubkey);
-                },
-              ).nonNulls.toSet();
-
-              final andModels = [
-                if (req.and != null)
-                  for (final m in baseModels)
-                    for (final r in req.and!(m))
-                      ...List.generate(
-                        _random.nextInt(20),
-                        (i) {
-                          return generateModel(
-                            kind: r.req!.kinds.first,
-                            pubkey: profiles[_random.nextInt(profiles.length)]
-                                .pubkey,
-                            parentId: m.id,
-                          );
-                        },
-                      ).nonNulls.toSet()
-              ];
-              Future.microtask(() {
-                save({...baseModels, ...andModels});
+              final models = _models
+                  .where((m) =>
+                      m.event.kind == kind &&
+                      !_queriedModels[kind]!.contains(m.id))
+                  .shuffled()
+                  .take(amt)
+                  .map((m) {
+                final map = m.toMap();
+                map['created_at'] =
+                    DateTime.now().millisecondsSinceEpoch ~/ 1000;
+                return Model.getConstructorForKind(map['kind'])!.call(map, ref);
               });
+              final ids = models.map((m) => m.id);
+              _queriedModels[kind]!.addAll(ids);
+              streamAmount = streamAmount - models.length;
+
+              // Since ids of manipulated models remain the same, need to remove from set
+              _models.removeAll(models);
+              await save(models.toSet());
             }
           } else {
             t.cancel();
@@ -275,7 +221,12 @@ class DummyStorageNotifier extends StorageNotifier {
         });
       }();
     }
-    return querySync(req.copyWith(remote: false), onModels: models).toSet();
+
+    final models =
+        querySync(req.copyWith(remote: false, limit: preEoseAmount)).toSet();
+    _queriedModels[req.kinds.first] ??= {};
+    _queriedModels[req.kinds.first]!.addAll(models.map((m) => m.id));
+    return models;
   }
 
   Profile generateProfile([String? pubkey]) {
@@ -292,6 +243,7 @@ class DummyStorageNotifier extends StorageNotifier {
       String? pubkey,
       DateTime? createdAt,
       List<String> pTags = const []}) {
+    pubkey ??= Utils.generateRandomHex64();
     return switch (kind) {
       0 => generateProfile(),
       3 => PartialContactList(followPubkeys: pTags).dummySign(pubkey),
@@ -301,7 +253,7 @@ class DummyStorageNotifier extends StorageNotifier {
           ? null
           : (PartialReaction()..event.addTag('e', [parentId])).dummySign(),
       9 => PartialChatMessage(faker.lorem.sentence()).dummySign(pubkey),
-      9735 => pubkey != null && parentId != null
+      9735 => parentId != null
           ? Zap.fromMap(
               _sampleZap(zapperPubkey: pubkey, eventId: parentId), ref)
           : null,
@@ -315,7 +267,7 @@ _sampleZap({required String zapperPubkey, required String eventId}) =>
 {
         "content": "✨",
         "created_at": ${DateTime.now().millisecondsSinceEpoch ~/ 1000},
-        "id": "${generate64Hex()}",
+        "id": "${Utils.generateRandomHex64()}",
         "kind": 9735,
         "pubkey": "79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432",
         "tags": [

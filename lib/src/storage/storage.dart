@@ -51,7 +51,7 @@ abstract class StorageNotifier extends StateNotifier<Set<String>?> {
 
   /// Save models to storage, use [publish] to send to relays
   /// Specifying [relayGroup] or fall back to default group
-  Future<void> save(Set<Model> models,
+  Future<void> save(Set<Model<dynamic>> models,
       {String? relayGroup, bool publish = false});
 
   /// Trigger a fetch on relays, returns pre-EOSE models

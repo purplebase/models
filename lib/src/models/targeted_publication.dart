@@ -33,7 +33,7 @@ class PartialTargetedPublication
     extends ParameterizableReplaceablePartialEvent<TargetedPublication> {
   PartialTargetedPublication(Model model,
       {required Set<Community> communities, Set<String>? relayUrls}) {
-    event.addTagValue('d', generate64Hex());
+    event.addTagValue('d', Utils.generateRandomHex64());
     event.addTagValue(model.event.addressableIdTagLetter, model.id);
     event.addTagValue('k', model.event.kind.toString());
     for (final community in communities) {

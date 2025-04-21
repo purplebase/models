@@ -4,6 +4,8 @@ import 'package:test/test.dart';
 import '../helpers.dart';
 
 void main() {
+  final generate64Hex = Utils.generateRandomHex64;
+
   // Test limits with identical filters
   test("identical filters except limit - bigger limit wins", () {
     final filter1 = RequestFilter(
