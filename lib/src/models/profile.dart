@@ -22,11 +22,32 @@ class Profile extends ReplaceableModel<Profile> {
     if (name == null || name.isEmpty) {
       name = map['displayName'] as String?;
     }
+
+    map['birthday'] = () {
+      final year = map['birthdayYear'] as int?;
+      final month = map['birthdayMonth'] as int?;
+      final day = map['birthdayDay'] as int?;
+
+      if (year != null && month != null && day != null) {
+        try {
+          return DateTime(year, month, day);
+        } catch (e) {
+          // Invalid date values
+          return null;
+        }
+      }
+      return null;
+    }();
+
     return {
       'name': name,
       'nip05': map['nip05'],
       'pictureUrl': map['picture'],
       'lud16': map['lud16'],
+      'about': map['about'],
+      'banner': map['banner'],
+      'website': map['website'],
+      'birthday': map['birthday'],
     };
   }
 
@@ -43,16 +64,47 @@ class Profile extends ReplaceableModel<Profile> {
   String? get nip05 => event.metadata['nip05'];
   String? get pictureUrl => event.metadata['picture'];
   String? get lud16 => event.metadata['lud16'];
+  String? get about => event.metadata['about'];
+  String? get banner => event.metadata['banner'];
+  String? get website => event.metadata['website'];
+  DateTime? get birthday => event.metadata['birthday'];
+
+  // External identities from NIP-39 as Record (platform, proofUrl)
+  Set<(String, String)> get externalIdentities {
+    final identities = <(String, String)>{};
+
+    for (final tag in event.getTagSet('i')) {
+      if (tag.length >= 3) {
+        identities.add((tag[1], tag[2]));
+      }
+    }
+
+    return identities;
+  }
 
   String get nameOrNpub => name ?? npub;
 
-  PartialProfile copyWith(
-      {String? name, String? nip05, String? pictureUrl, String? lud16}) {
+  PartialProfile copyWith({
+    String? name,
+    String? nip05,
+    String? pictureUrl,
+    String? lud16,
+    String? about,
+    String? banner,
+    String? website,
+    DateTime? birthday,
+    Set<(String, String)>? externalIdentities,
+  }) {
     return PartialProfile(
       name: name ?? this.name,
       nip05: nip05 ?? this.nip05,
       pictureUrl: pictureUrl ?? this.pictureUrl,
       lud16: lud16 ?? this.lud16,
+      about: about ?? this.about,
+      banner: banner ?? this.banner,
+      website: website ?? this.website,
+      birthday: birthday ?? this.birthday,
+      externalIdentities: externalIdentities ?? this.externalIdentities,
     );
   }
 
@@ -75,13 +127,53 @@ class Profile extends ReplaceableModel<Profile> {
 }
 
 class PartialProfile extends ReplaceablePartialModel<Profile> {
-  PartialProfile({this.name, this.nip05, this.pictureUrl, this.lud16}) {
-    event.content =
-        jsonEncode({'name': name, 'nip05': nip05, 'picture': pictureUrl});
+  PartialProfile({
+    this.name,
+    this.nip05,
+    this.pictureUrl,
+    this.lud16,
+    this.about,
+    this.banner,
+    this.website,
+    this.birthday,
+    this.externalIdentities,
+  }) {
+    final Map<String, dynamic> content = {
+      'name': name,
+      'nip05': nip05,
+      'picture': pictureUrl,
+      'lud16': lud16,
+      'about': about,
+      'banner': banner,
+      'website': website,
+    };
+
+    // Only add birthday if defined
+    if (birthday != null) {
+      content['birthday'] = {
+        'year': birthday!.year,
+        'month': birthday!.month,
+        'day': birthday!.day,
+      };
+    }
+
+    event.content = jsonEncode(content);
+
+    // Add external identity tags (NIP-39)
+    if (externalIdentities != null) {
+      for (final identity in externalIdentities!) {
+        event.addTag('i', [identity.$1, identity.$2]); // Access Record fields
+      }
+    }
   }
 
   String? name;
   String? nip05;
   String? pictureUrl;
   String? lud16;
+  String? about;
+  String? banner;
+  String? website;
+  DateTime? birthday;
+  Set<(String, String)>? externalIdentities;
 }
