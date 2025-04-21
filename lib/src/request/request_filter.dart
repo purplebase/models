@@ -59,7 +59,7 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
         ids.any((i) => i.length != 64 && !kReplaceableRegexp.hasMatch(i))) {
       throw UnsupportedError('Bad ids input: $ids');
     }
-    final authorsHex = authors?.map(Profile.hexFromNpub);
+    final authorsHex = authors?.map(Utils.hexFromNpub);
     if (authorsHex != null && authorsHex.any((a) => a.length != 64)) {
       throw UnsupportedError('Bad authors input: $authors');
     }

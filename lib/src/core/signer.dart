@@ -2,7 +2,6 @@ part of models;
 
 abstract class Signer {
   final Ref ref;
-  static final _signedInPubkeysProvider = StateProvider((ref) => <String>{});
 
   Signer(this.ref);
 
@@ -15,7 +14,7 @@ abstract class Signer {
 
   @protected
   void addSignedInPubkey(String pubkey) {
-    final n = ref.read(_signedInPubkeysProvider.notifier);
+    final n = ref.read(Profile._signedInPubkeysProvider.notifier);
     n.state = {...n.state, pubkey};
   }
 }
@@ -31,7 +30,7 @@ class Bip340PrivateKeySigner extends Signer {
 
   @override
   Future<String?> getPublicKey() async {
-    final pubkey = Profile.getPublicKey(privateKey);
+    final pubkey = Utils.getPublicKey(privateKey);
     addSignedInPubkey(pubkey);
     return pubkey;
   }
@@ -87,13 +86,6 @@ class DummySigner extends Signer {
     return signSync(partialModel, withPubkey: withPubkey);
   }
 }
-
-final signedInProfilesProvider = Provider((ref) {
-  final pubkeys = ref.watch(Signer._signedInPubkeysProvider);
-  return ref
-      .read(storageNotifierProvider.notifier)
-      .querySync(RequestFilter<Profile>(authors: pubkeys));
-});
 
 DummySigner? _dummySigner;
 

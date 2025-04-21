@@ -113,17 +113,29 @@ class Profile extends ReplaceableModel<Profile> {
     return '<Profile>$name [npub: $npub]';
   }
 
-  /// Attempts to convert this string (hex) to npub. Returns same if already npub.
-  static String npubFromHex(String hex) =>
-      hex.startsWith('npub') ? hex : bech32Encode('npub', hex);
+  // Signed-in related functions and providers
 
-  /// Attempts to convert this string (npub) to a hex pubkey. Returns same if already hex pubkey.
-  static String hexFromNpub(String npub) =>
-      npub.startsWith('npub') ? bech32Decode(npub) : npub;
+  static final _signedInPubkeysProvider = StateProvider<Set<String>>((_) => {});
+  // Wrapper so as not to expose the private notifier
+  static final signedInPubkeysProvider =
+      Provider((ref) => ref.watch(_signedInPubkeysProvider));
 
-  static String getPublicKey(String privateKey) {
-    return bip340.getPublicKey(privateKey).toLowerCase();
+  static final _currentPubkeyProvider = StateProvider<String?>((_) => null);
+  void setCurrent() {
+    ref.read(_currentPubkeyProvider.notifier).state = pubkey;
   }
+
+  static final currentProfileProvider = Provider((ref) {
+    final active = ref.watch(_currentPubkeyProvider);
+    final pubkeys = ref.watch(Profile._signedInPubkeysProvider);
+    if (active == null) {
+      return null;
+    }
+    return ref
+        .read(storageNotifierProvider.notifier)
+        .querySync(RequestFilter<Profile>(authors: pubkeys, remote: false))
+        .firstOrNull;
+  });
 }
 
 class PartialProfile extends ReplaceablePartialModel<Profile> {
