@@ -26,7 +26,7 @@ class Zap extends RegularModel<Zap> {
     // Remove bolt11, preimage, description
     (map['tags'] as List).removeWhere(
         (t) => ['bolt11', 'preimage', 'description'].contains(t[0]));
-    return map;
+    return super.transformMap(map);
   }
 
   /// Amount in sats

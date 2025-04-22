@@ -52,8 +52,8 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     // FIFO queue, ensure we don't go over config.maxModels
-    if (_models.length > config.maxModels) {
-      _models = _models.sortByCreatedAt().take(config.maxModels).toSet();
+    if (_models.length > config.keepMaxModels) {
+      _models = _models.sortByCreatedAt().take(config.keepMaxModels).toSet();
     }
 
     if (mounted) {
@@ -72,11 +72,12 @@ class DummyStorageNotifier extends StorageNotifier {
     });
   }
 
-  /// that allows filtering req on a specific set of models (other than _models)
+  /// [onIds] allows filtering req on a specific set of models (other than _models)
   @override
   List<E> querySync<E extends Model<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds}) {
-    // Results is of Model<dynamic>, but it will be casted once we have results of the right kind
+    // Results is of Model<dynamic> (as it starts with the complete _models database),
+    // it will be casted once we have results of the right kind
     List<Model> results = _models.toList();
 
     // If onIds present then restrict req to those
@@ -84,7 +85,7 @@ class DummyStorageNotifier extends StorageNotifier {
       req = req.copyWith(ids: onIds);
     }
 
-    final replaceableIds = req.ids.where(kReplaceableRegexp.hasMatch);
+    final replaceableIds = req.ids.where(_kReplaceableRegexp.hasMatch);
     final regularIds = {...req.ids}..removeAll(replaceableIds);
 
     if (regularIds.isNotEmpty) {
@@ -143,7 +144,7 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     if (req.where != null) {
-      results = results.where(req.where!).toList();
+      results = results.where((m) => req.where!(m as E)).toList();
     }
 
     return results.cast<E>();
@@ -160,22 +161,24 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> cancel([RequestFilter? req]) async {
+  void cancel([RequestFilter? req]) {
     if (req == null) {
       for (final t in _timers.values) {
         t.cancel();
       }
+      return;
     }
     _timers[req]?.cancel();
   }
-
-  // Dummy model generation
 
   @override
   Future<Set<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req) async {
     return fetchSync(req);
   }
 
+  /// Simulates a fetch, uses [req.limit] for pre-EOSE and [req.queryLimit]
+  /// for the total limit including streaming, which emits in batches of 5
+  /// Use [config.streamingBufferWindow]
   Set<E> fetchSync<E extends Model<dynamic>>(RequestFilter<E> req) {
     if (!req.remote) return {};
 
@@ -194,6 +197,7 @@ class DummyStorageNotifier extends StorageNotifier {
               final kind = req.kinds.first;
               _queriedModels[kind] ??= {};
               final amt = streamAmount < 5 ? streamAmount : 5;
+              // Grab models not queried yet and update their timestamp to now
               final models = _models
                   .where((m) =>
                       m.event.kind == kind &&
@@ -211,6 +215,7 @@ class DummyStorageNotifier extends StorageNotifier {
               streamAmount = streamAmount - models.length;
 
               // Since ids of manipulated models remain the same, need to remove from set
+              // in order to add them back again
               _models.removeAll(models);
               await save(models.toSet());
             }
@@ -229,6 +234,7 @@ class DummyStorageNotifier extends StorageNotifier {
     return models;
   }
 
+  /// Generates a fake profile
   Profile generateProfile([String? pubkey]) {
     return PartialProfile(
             name: faker.person.name(),
@@ -237,6 +243,7 @@ class DummyStorageNotifier extends StorageNotifier {
         .dummySign(pubkey);
   }
 
+  /// Generates a fake model, supported kinds: 0, 1, 3, 7, 9735
   Model? generateModel(
       {required int kind,
       String? parentId,
@@ -246,9 +253,9 @@ class DummyStorageNotifier extends StorageNotifier {
     pubkey ??= Utils.generateRandomHex64();
     return switch (kind) {
       0 => generateProfile(),
-      3 => PartialContactList(followPubkeys: pTags).dummySign(pubkey),
       1 => PartialNote(faker.lorem.sentence(), createdAt: createdAt)
           .dummySign(pubkey),
+      3 => PartialContactList(followPubkeys: pTags).dummySign(pubkey),
       7 => parentId == null
           ? null
           : (PartialReaction()..event.addTag('e', [parentId])).dummySign(),

@@ -28,7 +28,7 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   final String? relayGroup;
 
   /// Provide additional post-query filtering in Dart
-  final bool Function(Model)? where;
+  final bool Function(E)? where;
 
   /// Watch relationships
   final AndFunction and;
@@ -57,7 +57,7 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
         tags = tags ?? const {} {
     // IDs are either regular (64 character) or replaceable and match its regexp
     if (ids != null &&
-        ids.any((i) => i.length != 64 && !kReplaceableRegexp.hasMatch(i))) {
+        ids.any((i) => i.length != 64 && !_kReplaceableRegexp.hasMatch(i))) {
       throw UnsupportedError('Bad ids input: $ids');
     }
     final authorsHex = authors?.map(Utils.hexFromNpub);
@@ -160,4 +160,4 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   }
 }
 
-final kReplaceableRegexp = RegExp(r'(\d+):([0-9a-f]{64}):(.*)');
+final _kReplaceableRegexp = RegExp(r'(\d+):([0-9a-f]{64}):(.*)');

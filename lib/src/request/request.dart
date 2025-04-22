@@ -1,5 +1,8 @@
 part of models;
 
+/// A request notifier takes a [RequestFilter]
+/// that it uses to query and then filter incoming
+/// events from [StorageNotifier]
 class RequestNotifier<E extends Model<dynamic>>
     extends StateNotifier<StorageState<E>> {
   final Ref ref;
@@ -15,53 +18,30 @@ class RequestNotifier<E extends Model<dynamic>>
       return;
     }
 
-    // Fetch models from local storage and/or fire request to relays
-    Future<List<E>> fetchAndQuery(RequestFilter<E> req) async {
-      // Send req to relays in the background (pre-EOSE + streaming)
-      storage.fetch(req);
-
-      // And ensure query is run in local storage only
-      final models = await storage.query(req.copyWith(remote: false));
-
-      if (req.and != null) {
-        final reqs = {
-          for (final m in models) ...req.and!(m).map((r) => r.req).nonNulls
-        };
-        final mergedReqs = mergeMultipleRequests(reqs.toList());
-
-        for (final r in mergedReqs) {
-          // Fill the cache to prepare it for sync relationships.
-          // Query without hitting relays, we do that below
-          // (does not pass E type argument, as these are of any kind)
-          final relatedModels = await storage.query(r.copyWith(remote: false));
-          storage.requestCache[r.subscriptionId] ??= {};
-          storage.requestCache[r.subscriptionId]![r] = relatedModels.cast();
-
-          // Send request filters to relays
-          storage.fetch(r);
-        }
-      }
-      return models;
-    }
-
+    // Trigger initial fetch/query
     fetchAndQuery(req).then((models) {
       if (mounted) {
-        state = StorageData([...state.models, ...models]);
+        state = StorageData(models);
       }
     });
 
-    // Listen for storage updates
+    // Listen for storage which constantly emits updated IDs,
+    // and query it back with the current req
     final sub = ref.listen(storageNotifierProvider, (_, incomingIds) async {
       if (!mounted) return;
 
       if (incomingIds != null && incomingIds.isNotEmpty) {
         // Incoming are the IDs of *any* new models in local storage,
         // so restrict req to them and check if they apply
+        // Since only local storage should be checked pass `remote=false`,
+        // use `fetchAndQuery` as it will also check for watched relationships
         final updatedReq = req.copyWith(ids: incomingIds, remote: false);
         final updatedModels = await fetchAndQuery(updatedReq);
 
         if (updatedModels.isNotEmpty) {
-          // Take care of removing old versions of replaced events
+          // Replaceable events maintain their IDs across updates
+          // so make sure we remove any of these from the current state
+          // (otherwise they would be ignored when added to the Set)
           final updatedIds = updatedModels.map((m) => m.id);
           state.models.removeWhere((m) => updatedIds.contains(m.id));
 
@@ -75,13 +55,46 @@ class RequestNotifier<E extends Model<dynamic>>
       }
     });
 
+    // Clear cache related to this nostr sub when disposing the notifier
     ref.onDispose(() => storage.requestCache.remove(req.subscriptionId));
+    // Close subscription to storage notifier
     ref.onDispose(() => sub.close());
+    // Cancel active req subscriptions to relays
     ref.onDispose(() => storage.cancel(req));
   }
 
-  Future<void> save(Set<Model> models) async {
-    await storage.save(models);
+  // Fetch models from local storage and send request to relays
+  Future<List<E>> fetchAndQuery(RequestFilter<E> req) async {
+    // Send req to relays in the background (pre-EOSE + streaming)
+    // May be a no-op if `remote=false`
+    storage.fetch(req);
+
+    // Since a remote query was just performed, ensure storage.query
+    // is local via `remote=false`
+    final models = await storage.query(req.copyWith(remote: false));
+
+    // If relationship watchers were provided, find reqs and merge,
+    // then query local storage for
+    if (req.and != null) {
+      final reqs = {
+        for (final m in models) ...req.and!(m).map((r) => r.req).nonNulls
+      };
+      final mergedReqs = mergeMultipleRequests(reqs.toList());
+
+      for (final r in mergedReqs) {
+        // Fill the cache to prepare it for sync relationships.
+        // Query without hitting relays, we do that below
+        // (does not pass E type argument, as these are of any kind)
+        final relatedModels = await storage.query(r.copyWith(remote: false));
+        storage.requestCache[r.subscriptionId] ??= {};
+        storage.requestCache[r.subscriptionId]![r] = relatedModels.cast();
+
+        // Send request filters to relays
+        // TODO: Fetch may get new models that expire cache entries, is this covered?
+        storage.fetch(r);
+      }
+    }
+    return models;
   }
 }
 
@@ -91,7 +104,7 @@ final Map<RequestFilter,
 
 /// Family of notifier providers, one per request
 /// Manually caching since a factory function is needed to pass the type
-requestNotifierProvider<E extends Model<dynamic>>(RequestFilter<E> req) =>
+_requestNotifierProvider<E extends Model<dynamic>>(RequestFilter<E> req) =>
     _typedProviderCache[req] ??= StateNotifierProvider.autoDispose
         .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>(
       (ref, req) {
@@ -101,7 +114,7 @@ requestNotifierProvider<E extends Model<dynamic>>(RequestFilter<E> req) =>
     )(req);
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
-/// [remote] is true by default
+/// with default type ([Model]), [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   Set<String>? ids,
   Set<int>? kinds,
@@ -113,10 +126,9 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   int? limit,
   int? queryLimit,
   bool remote = true,
-  String? on,
-  bool restrictToRelays = false,
-  bool restrictToSubscription = false,
+  String? relayGroup,
   AndFunction and,
+  bool Function(Model<dynamic>)? where,
 }) {
   final req = RequestFilter(
     ids: ids,
@@ -129,14 +141,15 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
     limit: limit,
     queryLimit: queryLimit,
     remote: remote,
-    relayGroup: on,
+    relayGroup: relayGroup,
+    where: where,
     and: and,
   );
-  return requestNotifierProvider(req);
+  return _requestNotifierProvider(req);
 }
 
-/// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))` on one specific kind
-/// [remote] is true by default
+/// Syntax-sugar for `requestNotifierProvider(RequestFilter<E>(...))`
+/// with type [E] (one specific kind), [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     query<E extends Model<E>>({
   Set<String>? ids,
@@ -148,9 +161,8 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
   int? limit,
   int? queryLimit,
   bool remote = true,
-  String? on,
-  bool restrictToRelays = false,
-  bool restrictToSubscription = false,
+  String? relayGroup,
+  bool Function(Model<E>)? where,
   AndFunction<E> and,
 }) {
   final req = RequestFilter<E>(
@@ -163,21 +175,22 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     limit: limit,
     queryLimit: queryLimit,
     remote: remote,
-    relayGroup: on,
+    relayGroup: relayGroup,
+    where: where,
     and: _castAnd(and),
   );
-  return requestNotifierProvider<E>(req);
+  return _requestNotifierProvider<E>(req);
 }
 
-/// Syntax sugar for watching one model
+/// Syntax sugar for watching one model of type [E],
 /// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
     model<E extends Model<E>>(E model,
         {AndFunction<E> and, bool remote = true}) {
-  // Note: does not need kind as it queries by ID
+  // Note: does not need kind or other arguments as it queries by ID
   final req =
       RequestFilter<E>(ids: {model.id}, and: _castAnd(and), remote: remote);
-  return requestNotifierProvider(req);
+  return _requestNotifierProvider<E>(req);
 }
 
 AndFunction _castAnd<E extends Model<E>>(AndFunction<E> andFn) {

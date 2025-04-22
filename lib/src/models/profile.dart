@@ -55,7 +55,7 @@ class Profile extends ReplaceableModel<Profile> {
   Map<String, dynamic> transformMap(Map<String, dynamic> map) {
     // As content was processed into metadata, it can be safely removed
     map['content'] = '';
-    return map;
+    return super.transformMap(map);
   }
 
   String get pubkey => event.pubkey;
@@ -120,21 +120,24 @@ class Profile extends ReplaceableModel<Profile> {
   static final signedInPubkeysProvider =
       Provider((ref) => ref.watch(_signedInPubkeysProvider));
 
-  static final _currentPubkeyProvider = StateProvider<String?>((_) => null);
-  void setCurrent() {
-    ref.read(_currentPubkeyProvider.notifier).state = pubkey;
+  static final _activePubkeyProvider = StateProvider<String?>((_) => null);
+
+  /// Sets this profile to be the currently active one
+  void setAsActive() {
+    ref.read(_activePubkeyProvider.notifier).state = pubkey;
   }
 
-  static final currentProfileProvider = Provider((ref) {
-    final active = ref.watch(_currentPubkeyProvider);
-    final pubkeys = ref.watch(Profile._signedInPubkeysProvider);
-    if (active == null || !pubkeys.contains(active)) {
+  /// Notifies with the currently active signed in [Profile],
+  /// when set via [setAsActive] and profile is in local storage
+  static final signedInProfileProvider = Provider((ref) {
+    final activePubkeys = ref.watch(_activePubkeyProvider);
+    final pubkeys = ref.watch(Profile.signedInPubkeysProvider);
+    if (activePubkeys == null || !pubkeys.contains(activePubkeys)) {
       return null;
     }
-    return ref
-        .read(storageNotifierProvider.notifier)
-        .querySync(RequestFilter<Profile>(authors: {active}, remote: false))
-        .firstOrNull;
+    final state =
+        ref.watch(query<Profile>(authors: {activePubkeys}, remote: false));
+    return state.models.firstOrNull;
   });
 }
 

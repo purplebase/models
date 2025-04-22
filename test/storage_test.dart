@@ -47,7 +47,7 @@ void main() async {
 
     tearDown(() async {
       tester.dispose();
-      await storage.cancel();
+      storage.cancel();
       await storage.clear();
     });
 
@@ -170,7 +170,7 @@ void main() async {
       container = ProviderContainer();
       final config = StorageConfiguration(
         streamingBufferWindow: Duration.zero,
-        maxModels: 100,
+        keepMaxModels: 100,
       );
       await container.read(initializationProvider(config).future);
       storage = container.read(storageNotifierProvider.notifier)
@@ -201,7 +201,7 @@ void main() async {
     });
 
     test('max models config', () async {
-      final max = storage.config.maxModels;
+      final max = storage.config.keepMaxModels;
       final a = List.generate(max * 2, (_) => storage.generateModel(kind: 1)!);
       await storage.save(a.toSet());
       expect(storage.querySync(RequestFilter()), hasLength(max));

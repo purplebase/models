@@ -1,5 +1,7 @@
 part of models;
 
+/// Storage interface that notifies upon updates
+/// NOTE: Implementations SHOULD be singletons
 abstract class StorageNotifier extends StateNotifier<Set<String>?> {
   StorageNotifier() : super(null);
   late StorageConfiguration config;
@@ -13,6 +15,8 @@ abstract class StorageNotifier extends StateNotifier<Set<String>?> {
   @protected
   final Map<String, Map<RequestFilter, List<Model>>> requestCache = {};
 
+  /// Storage initialization, sets up [config] and registers types,
+  /// `super` MUST be called
   @mustCallSuper
   Future<void> initialize(StorageConfiguration config) async {
     // Regular
@@ -58,8 +62,9 @@ abstract class StorageNotifier extends StateNotifier<Set<String>?> {
   /// but streams in the background
   Future<Set<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req);
 
-  /// Cancel any subscriptions for [req]
-  Future<void> cancel(RequestFilter req);
+  /// Cancel any subscriptions for [req], this cannot be
+  /// done on [dispose] as we need to pass the req
+  void cancel(RequestFilter req);
 
   /// Remove all models from storage, or those matching [req]
   Future<void> clear([RequestFilter? req]);
@@ -95,6 +100,5 @@ final class StorageData<E extends Model<dynamic>> extends StorageState<E> {
 final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
   final Exception exception;
   final StackTrace? stackTrace;
-  StorageError(super.modelsWithMetadata,
-      {required this.exception, this.stackTrace});
+  StorageError(super.models, {required this.exception, this.stackTrace});
 }
