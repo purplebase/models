@@ -1,180 +1,516 @@
-# nostr-models
+# 𝌭 nostr-models
 
-Nostr model and local-first reactive relay interface in Dart.
+A simple and efficient local-first nostr framework. Written in Dart.
 
-It includes a dummy data implementation that can be used in tests and prototypes and can be overridden in one line of code.
-
-[Purplebase](https://github.com/purplebase/purplebase) is an implementation backed by SQLite and actual relays.
-
-## Adding your own models
-
-Add a joke model of kind 1055. Extend from `RegularModel` or `ReplaceableModel` etc as appropriate. Models are classes meant to wrap nostr event data and expose it as domain language, properly typed.
-
-The lower level object holding raw nostr event data is accessible at `event` in every model.
+It provides:
+ - Domain-specific models that wrap common nostr event kinds (with relationships between them)
+ - A local-first model storage and relay interface, leveraging reactive Riverpod providers
 
 ```dart
-/// This is a signed, immutable Joke model
-class Joke extends RegularModel<Joke> {
-  // Call super to deserialize from a map
-  Joke.fromMap(super.map, super.ref) : super.fromMap();
+// An offline-ready feed with reactions/zaps in a few lines of code
+Widget build(BuildContext context, WidgetRef ref) {
+  final value = ref.watch(
+    query<Note>(
+      limit: 10,
+      authors: {npub1, npub2, npub3, ...},
+      and: (note) => {note.author, note.reactions, note.zaps},
+    ),
+  );
+  // ...
+  Column(children: [
+    for (final note in value.models)
+      NoteCard(
+        userName: note.author.value!.nameOrNpub,
+        noteText: note.content,
+        timestamp: note.createdAt,
+        likes: note.reactions.length,
+        zaps: note.zaps.length,
+        zapAmount: note.zaps.toList().fold(0, (acc, e) => acc += e.amount),
+      )
+  ])
+```
 
-  // Getter to the title tag
-  String? get title => event.getFirstTagValue('title');
-  // Getter to published_at tag, converting to DateTime
-  DateTime? get publishedAt =>
-      event.getFirstTagValue('published_at')?.toInt()?.toDate();
-}
+This library is meant to be a common interface for Dart/Flutter nostr projects, diverse implementations are encouraged.
 
-/// This is a PartialJoke, unsigned and mutable model
-/// on which .signWith() is called to produce a Joke model
-class PartialJoke extends RegularPartialModel<Joke> {
-  PartialJoke(String title, String content, {DateTime? publishedAt}) {
-    event.addTagValue('title', title);
-    event.content = content;
-    event.addTagValue('published_at', publishedAt?.toSeconds().toString());
+Current implementations:
+  - Dummy: In-memory storage and relay fetch simulation, for testing and prototyping (default, included)
+  - [Purplebase](https://github.com/purplebase/purplebase): SQLite-powered storage and an efficient relay pool
+
+## Table of Contents 📜
+
+- [Features ✨](#features-)
+- [Installation 🛠️](#installation-️)
+- [Quickstart 🚀](#quickstart-)
+- [Advanced Usage 🧠](#advanced-usage-)
+  - [Querying with Relationships](#querying-with-relationships)
+  - [Adding Custom Models](#adding-custom-models)
+  - [Generating Dummy Data for Testing](#generating-dummy-data-for-testing)
+- [Recipes 🍳](#recipes-)
+- [Design Goals 🎯](#design-goals-)
+- [Design Notes 📝](#design-notes-)
+- [Contributing 🙏](#contributing-)
+- [License 📄](#license-)
+
+## Features ✨
+
+ - **Domain models**: Use natural domain language to interact with nostr concepts instead of NIP-jargon, typed classes for common nostr event kinds available (or bring your own) (e.g. `author.nip05`, `author.nameOrNpub`, everything is parsed, cached and ready to use)
+ - **Relationships**: Smoothly navigate local storage with model relationships (`note.reactions.first.author.zaps`) and query relays (`and: (note) => {note.reactions, note.zaps}`)
+ - **Watchable queries**: Reactive querying interface with a familiar nostr request filter API, loads from local storage and keeps updating with remote relay data
+ - **Signer API**: Construct new nostr events and sign them using Amber (Android) and other NIP-55 signers available via external packages, or when testing the built-in dummy signer
+ - **Reactive signed-in profile provider**: Keep track of the currently signed in pubkeys and the active user in your application with `signedInProfileProvider`
+ - **Publishing**: Publish events to specified relays
+ - **Dummy implementation**: Plug-and-play implementation for testing/prototyping, easily generate dummy profiles, notes, contact lists, etc.
+ - **Eviction strategy**: Specify `keepMaxEvents` to automatically remove older events (FIFO)
+ - **Raw events**: Access underlying nostr event data (`event` property on all models)
+ - and much more
+
+## Installation 🛠️
+
+Add the dependency to your `pubspec.yaml`:
+
+(Use git until we publish to pub.dev)
+
+```yaml
+dependencies:
+  models:
+    git:
+      url: https://github.com/purplebase/models
+      ref: 0.1.0
+```
+
+Then run `dart pub get` or `flutter pub get`.
+
+## Quickstart 🚀
+
+Here is a minimal Flutter/Riverpod app that generates and shows a nostr feed.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:models/models.dart';
+
+void main() => runApp(ProviderScope(child: MaterialApp(home: ProfileScreen())));
+
+class ProfileScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return switch (ref.watch(initializationProvider(StorageConfiguration()))) {
+      AsyncLoading() => Center(child: CircularProgressIndicator()),
+      AsyncError() => Center(child: Text('Error initializing')),
+      _ => Scaffold(
+        body: Consumer(
+          builder: (context, ref, _) {
+            final signedInProfile = ref.watch(Profile.signedInProfileProvider);
+            if (signedInProfile == null) {
+              return Center(
+                child: Text('Tap button to generate feed and sign in'),
+              );
+            }
+            final state = ref.watch(
+              query<Note>(
+                limit: 10, // total pre-EOSE
+                queryLimit: 100, // total including streaming
+                authors: signedInProfile.contactList.value!.followingPubkeys,
+                and: (note) => {note.author, note.reactions, note.zaps},
+              ),
+            );
+            return ListView(
+              children: [
+                for (final note in state.models)
+                  Card(
+                    child: ListTile(
+                      title: Text(note.content),
+                      subtitle: Text(
+                        '${note.author.value!.name}\n${note.createdAt.toIso8601String()}',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.favorite, size: 16),
+                          Text('${note.reactions.length}'),
+                          SizedBox(width: 8),
+                          Icon(Icons.flash_on, size: 16),
+                          Text(
+                            '${note.zaps.toList().fold(0, (acc, e) => acc += e.amount)}',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          child: Icon(Icons.login),
+          onPressed: () {
+            final storage =
+                ref.read(storageNotifierProvider.notifier)
+                    as DummyStorageNotifier;
+            storage.generateFeed();
+          },
+        ),
+      ),
+    };
   }
 }
 ```
 
-And in your initializer call:
+## Advanced Usage 🧠
+
+### Querying with Relationships
+
+Fetch notes by an author and automatically include their associated reactions (Kind 7 events):
 
 ```dart
-Model.register(kind: 1055, constructor: Joke.fromMap);
+final state = container.watch(
+  query<Note>(
+    authors: {'pubkey123'},
+    // Also watch for related models (e.g., reactions)
+    and: (note) => {note.reactions},
+    remote: true, // false if it should not hit relays
+  )
+);
+
+state.when(
+  data: (storageData) {
+    for (final note in storageData.models) {
+      print('Note: ${note.content}');
+      // Access related reactions directly
+      for (final reaction in note.reactions) {
+        print('  Reaction: ${reaction.content}');
+      }
+    }
+  },
+  // ... handle loading and error states
+);
 ```
 
-That's it. You can now use jokes in your app:
+The `and` parameter ensures the watcher updates not only when matching `Note`s change but also when related `Reaction`s linked to those notes change in storage.
+
+### Adding Custom Models
+
+Define a model for a custom event kind (e.g., Kind 1055 for Jokes).
+
+1.  **Define the Model Class:** Extend `RegularModel`, `ReplaceableModel`, etc.
+
+    ```dart
+    import 'package:nostr_models/nostr_models.dart';
+
+    /// Signed, immutable Joke model (Kind 1055)
+    class Joke extends RegularModel<Joke> {
+      Joke.fromMap(super.map, super.ref) : super.fromMap();
+
+      String? get title => event.getFirstTagValue('title');
+      DateTime? get publishedAt =>
+          event.getFirstTagValue('published_at')?.toInt()?.toDate();
+
+      // Register this model type
+      static void register() {
+        Model.register(kind: 1055, constructor: Joke.fromMap);
+      }
+    }
+    ```
+
+2.  **Define the Partial Model Class:** For creating and signing new events.
+
+    ```dart
+    /// Unsigned, mutable partial Joke for creation
+    class PartialJoke extends RegularPartialModel<Joke> {
+      PartialJoke(String title, String content, {DateTime? publishedAt}) {
+        event.kind = 1055; // Set the correct kind
+        event.content = content;
+        event.addTagValue('title', title);
+        if (publishedAt != null) {
+          event.addTagValue('published_at', publishedAt.toSeconds().toString());
+        }
+      }
+    }
+    ```
+
+3.  **Register the Model:** Call the `register` method during your app initialization.
+
+    ```dart
+    void main() {
+      Joke.register(); // Register the custom model
+      // ... rest of your app initialization
+      runApp(ProviderScope(child: MyApp()));
+    }
+    ```
+
+4.  **Use the Custom Model:**
+
+    ```dart
+    // Create and sign a joke
+    final partialJoke = PartialJoke(
+      'The Time Traveler',
+      'I was going to tell you a joke about time travel... but you didn't like it.',
+      publishedAt: DateTime.parse('2025-02-02'),
+    );
+    final signedJoke = await partialJoke.signWith(signer); // Use your signer
+
+    // Publish it
+    await storage.publish(signedJoke);
+
+    // Query for jokes
+    final jokesStream = container.watch(query<Joke>(kinds: {1055}));
+    jokesStream.when(
+      data: (storageData) {
+        for (final joke in storageData.models) {
+          print('Joke Title: ${joke.title}, Content: ${joke.content}');
+        }
+      },
+      // ... handle loading/error
+    );
+    ```
+
+### Generating Dummy Data for Testing
+
+Use the `DummyStorageNotifier` to populate storage with test data.
 
 ```dart
-final joke = PartialJoke('The Time Traveler',
-        'I was going to tell you a joke about time travel... but you didn\'t like it.',
-        publishedAt: DateTime.parse('2025-02-02'))
-    .dummySign();
-print(jsonEncode(joke.toMap()));
-// {id: c717b625dfd623f660847ec26c14de33b5cccb2f4cf3bad41297546dd7230941, content: I was going to tell you a joke about time travel... but you didn't like it., created_at: 1744851226, pubkey: f907e6c86c02efe9e26c2d028c6d5112e19308e3cc54a3ff016ac0e9e1af0ff1, kind: 1055, tags: [[title, The Time Traveler], [published_at, 1738465200]], sig: null}
+import 'dart:math';
+import 'package:nostr_models/nostr_models.dart';
 
-final joke2 = Joke.fromMap({'id': 'c717b625dfd623f660847ec26c14de33b5cccb2f4cf3bad41297546dd7230941', 'content': 'I was going to tell you a joke about time travel... but you didn\'t like it.', 'created_at': 1744851226, 'pubkey': 'f907e6c86c02efe9e26c2d028c6d5112e19308e3cc54a3ff016ac0e9e1af0ff1', 'kind': 1055, 'tags': [['title', 'The Time Traveler'], ['published_at', 1738465200]], 'sig': null}, ref);
-```
-
-## Generate dummy models
-
-This can go in the initializer, for example. Then query normally.
-
-```dart
+// Ensure you are using the DummyStorage implementation
+final storageNotifier = container.read(storageNotifierProvider.notifier);
+if (storageNotifier is! DummyStorageNotifier) {
+  throw Exception('Expected DummyStorageNotifier for data generation');
+}
+final storage = storageNotifier as DummyStorageNotifier;
 final r = Random();
-final storage = ref.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
 
-final profile = storage.generateProfile(franzap);
+// Generate a main profile and some followers
+final profile = storage.generateProfile();
 final follows = List.generate(min(15, r.nextInt(50)),
     (i) => storage.generateProfile());
 
+// Generate a contact list for the main profile
 final contactList = storage.generateModel(
   kind: 3,
   pubkey: profile.pubkey,
   pTags: follows.map((e) => e.event.pubkey).toList(),
 )!;
 
-// notes, likes, zaps
-final other = <Model>{};
-List.generate(r.nextInt(500), (i) {
+// Generate notes, likes, and zaps from followers
+final otherModels = <Model>{};
+List.generate(r.nextInt(200), (i) {
   final note = storage.generateModel(
     kind: 1,
     pubkey: follows[r.nextInt(follows.length)].pubkey,
-    createdAt: DateTime.now()
-        .subtract(Duration(minutes: r.nextInt(300))),
+    createdAt: DateTime.now().subtract(Duration(minutes: r.nextInt(300))),
   )!;
-  other.add(note);
-  final likes = List.generate(r.nextInt(50), (i) {
-    return storage.generateModel(
-        kind: 7, parentId: note.id)!;
+  otherModels.add(note);
+
+  // Generate related reactions (likes)
+  final likes = List.generate(r.nextInt(10), (i) {
+    return storage.generateModel(kind: 7, parentId: note.id)!;
   });
-  final zaps = List.generate(r.nextInt(10), (i) {
-    return storage.generateModel(
-        kind: 9735,
-        parentId: note.id)!;
+  // Generate related zaps
+  final zaps = List.generate(r.nextInt(3), (i) {
+    return storage.generateModel(kind: 9735, parentId: note.id)!;
   });
-  other.addAll(likes);
-  other.addAll(zaps);
+  otherModels.addAll(likes);
+  otherModels.addAll(zaps);
 });
 
-await storage.save({profile, ...follows, contactList, ...other});
+// Save all generated models to the dummy storage
+await storage.save({profile, ...follows, contactList, ...otherModels});
+
+print('Dummy data generated and saved.');
 ```
 
-## Design goals
+## Recipes 🍳
 
- - Leverage the Dart language to provide maximum type safety and beautiful interfaces that make sense
- - Allow consuming nostr events using domain language and not NIP technicality
- - Allow access to lower level interfaces
- - Allow defining new classes in an intuitive way
+This section contains more complete, practical examples using Flutter.
 
-## Design notes
+### Building a Basic Feed
 
-Built on Riverpod providers and StateNotifier notifiers.
-
-Aims to have as much test coverage as possible.
-
-Storage with a nostr relay API is at the core of this approach. Querying is done via a family provider where the argument is a nostr filter.
-
-Example:
+This example shows a minimal Flutter app using Riverpod to:
+- Simulate user sign-in with a `DummySigner`.
+- Fetch recent global notes (Kind 1).
+- Display the notes in a list.
+- Allow the "signed-in" user to publish new notes.
 
 ```dart
-ref.watch(
-  query<Note>(
-    authors: {'a1b2c3'},
-    since: DateTime.now().subtract(Duration(seconds: 5)
-  )
-);
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nostr_models/nostr_models.dart';
+
+// --- Providers ---
+
+// 1. Signer Provider (Simulates logged-in user)
+// Replace DummySigner with your actual signer implementation
+final signedInUserProvider = StateProvider<Signer?>((ref) => DummySigner());
+
+// 2. Initialization Provider (Ensures setup is complete)
+final initializationProvider = FutureProvider<void>((ref) async {
+  // Add any async initialization here (e.g., loading keys, registering models)
+  // Model.register(...); // If using custom models
+  await Future.delayed(Duration.zero); // Simulate potential async work
+});
+
+// 3. Feed Provider (Queries recent notes)
+final feedProvider = StreamProvider<StorageData<Note>>((ref) {
+  // Important: Ensure initialization is complete before querying
+  ref.watch(initializationProvider);
+
+  print('Watching feed query...');
+  return ref.watch(query<Note>(
+    kinds: {1}, // Fetch only notes
+    limit: 50, // Limit the number of notes
+    // Add other filters like authors (following) or since/until as needed
+  ));
+});
+
+// --- Main App ---
+
+void main() {
+  runApp(
+    // 1. Add ProviderScope at the top
+    ProviderScope(
+      child: MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Nostr Feed Example',
+      home: FeedScreen(),
+    );
+  }
+}
+
+// --- Feed Screen Widget ---
+
+class FeedScreen extends ConsumerWidget {
+  final _textController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Ensure initialization is complete before building the UI
+    final init = ref.watch(initializationProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Simple Nostr Feed')),
+      body: init.when(
+        loading: () => Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Initialization Error: $err')),
+        data: (_) => Column(
+          children: [
+            // --- Post Input Area ---
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _textController,
+                      decoration: InputDecoration(hintText: 'What\'s happening?'),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.send),
+                    onPressed: () async {
+                      final signer = ref.read(signedInUserProvider);
+                      final storage = ref.read(storageNotifierProvider.notifier);
+                      final content = _textController.text;
+
+                      if (signer != null && content.isNotEmpty) {
+                        try {
+                          final partialNote = PartialNote(content);
+                          final signedNote = await partialNote.signWith(signer);
+                          print('Publishing note: ${signedNote.id}');
+                          await storage.publish(signedNote); // Publish to relays
+                          _textController.clear();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Note published!')),
+                          );
+                        } catch (e) {
+                          print('Error publishing note: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Divider(),
+            // --- Feed Area ---
+            Expanded(
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final feedAsyncValue = ref.watch(feedProvider);
+                  return feedAsyncValue.when(
+                    data: (storageData) {
+                      final notes = storageData.models.toList();
+                      // Sort notes by creation date, newest first
+                      notes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                      if (notes.isEmpty) {
+                        return Center(child: Text('Feed is empty.'));
+                      }
+
+                      return ListView.builder(
+                        itemCount: notes.length,
+                        itemBuilder: (context, index) {
+                          final note = notes[index];
+                          return ListTile(
+                            title: Text(note.content),
+                            subtitle: Text(
+                                'By: ${note.pubkey.substring(0, 8)}... at ${note.createdAt.toLocal()}'),
+                          );
+                        },
+                      );
+                    },
+                    loading: () => Center(child: CircularProgressIndicator()),
+                    error: (err, stack) {
+                      print('Feed Error: $err\n$stack');
+                      return Center(child: Text('Error loading feed: $err')),
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 ```
 
-Every single model coming through this watcher comes from local storage and never from a relay directly. 
+### Watching Specific Events with `RequestFilter`
 
-Also, every call by default hits nostr relays (it can be disabled) and saves the returned models to local storage therefore immediately showing up via the watcher - if its filter matches.
+_(Coming Soon: Example demonstrating how to create a specific `RequestFilter` and use `ref.watch(query(...))` to reactively display matching events.)_
 
-The system is aware of previously loaded data so it will add different `since` filters to relay queries appropriately.
+### Interacting with DVMs (NIP-90)
 
-To prevent local storage bloat, an eviction policy callback will be made available to clients.
+_(Coming Soon: Example showcasing how to create DVM requests and process results using the library.)_
 
-The modelling layer intends to abstract away NIP jargon and be as domain language as possible. It will include a powerful relationship API, such that the following can be performed:
+## Design Goals 🎯
 
-```dart
-final note = await storage.query<Note>(authors: {'a'});
-final Note reply = await PartialNote('this is cool', replyTo: note).signWith(signer);
-print(note.replies.toList());
-// And maybe:
-await storage.publish(reply, to: {'big-relays'});
+ - Leverage Dart for maximum type safety and intuitive APIs.
+ - Abstract Nostr NIP details into domain-specific language.
+ - Provide access to lower-level interfaces (`Event`, `Tag`, etc.) when needed.
+ - Enable easy extension with custom event kinds and models.
+ - Offer a reactive, local-first approach to data handling.
 
-// Generic models for multiple kinds
-final models = await storage.queryKinds(kinds: {7, 9735}, authors: {'a'});
+## Design Notes 📝
 
-// The initial note could of course be retrieved like:
-final note = signedInProfile.notes.first;
-```
-
-And then:
-
-```dart
-final state = ref.watch(query<Note>(authors: {'a1b2c3'}, and: (note) => {note.replies}));
-
-// ...
-children: [
- if (state case StorageData(:final models))
-  for (final note in models)
-    for (final reply in note.replies)
-      ListTile(
-        title: Text('Note ${note.content} has reply: ${reply}'),
-      )
-]
-```
-
-What is important to note here is that the watcher will repaint the widget when any model in storage matches the regular filter. But a reply does not match the regular filter, as it is not a kind 1. That is where the `and` argument comes in, allowing now to repaint upon replies, but not any reply!, only those in a relationship with any matching kind 1 of the regular filter.
-
-Lastly, watching replaceable model will also be a thing:
-
-```dart
-final Profile signedInProfile = ref.watch(signedInProfileProvider);
-final state = ref.watch(query<Profile>(signedInProfile, and: (note) => {note.following}));
-```
-
-Relays can be configured in pools, e.g. `storage.configure('big-relays', {'wss://relay.damus.io', 'wss://relay.primal.net'})` and then addressed by label throughout the application; when no relay pools are supplied it is inferred that the outbox model must be utilized.
+- Built on Riverpod providers (`storageNotifierProvider`, `query`, etc.).
+- Aims for high test coverage.
+- The `Storage` interface acts similarly to a relay but is optimized for local use (e.g., storing replaceable event IDs, potentially storing decrypted data, managing eviction).
+- Queries (`ref.watch(query<...>(...))`) primarily interact with the local `Storage`.
+- By default, queries also trigger requests to configured remote relays. Results are saved to `Storage`, automatically updating watchers.
+- The system tracks query timestamps (`since`) to optimize subsequent fetches from relays.
+- Relay pools can be configured (e.g., `storage.configure('my-pool', {'wss://relay.example.com'})`) and used for publishing (`storage.publish(event, to: {'my-pool'})`).
 
 ### Storage vs relay
 
@@ -186,25 +522,10 @@ A storage is very close to a relay but has some key differences, it:
  - Has more efficient interfaces for mass deleting data
  - Can store decrypted DMs or cashu tokens, cache profile images, etc
 
-## TODO
+## Contributing 📩
 
- - [x] Relay, request and other basic interfaces
- - [x] Storage API and in-memory implementation
- - [x] Popular nostr models, at least those used in Zaplab
- - [x] Model relationships
- - [x] Buffered relay pool, with configurable duration
- - [x] Watchable relationships
- - [x] Allow typed queries `ref.watch(query<Note>(authors: {'a'}))` - specialized case, does not allow `kinds` in filter
- - [x] Remote relay configuration
- - [x] Relay metadata in response
- - [x] Cache relationship req results, make relationships check it before hitting sync
- - [x] Publish events
- - [x] Merge reqs for both local storage and relays
- - [x] Register types externally (+docs)
- - [x] Event metadata
- - [x] Eviction API to manage db size
- - [x] Add more models based on NIPs, hook up nostr MCP and ask agent
- - [x] `signedInProfilesProvider`, with ability to select a current one
- - [x] Go through code and comment everything
- - [ ] Generate docs site
- - [ ] Add tests, ask agent to detect missing
+Contributions are welcome. However, please open an issue to discuss your proposed changes *before* starting work on a pull request.
+
+## License 📄
+
+MIT
