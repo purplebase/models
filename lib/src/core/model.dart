@@ -5,11 +5,7 @@ mixin ModelBase<E extends Model<E>> {
   Map<String, dynamic> toMap();
 }
 
-typedef ModelConstructor<E extends Model<E>> = E Function(
-    Map<String, dynamic>, Ref ref);
-
-// Model
-
+/// A domain model entity that wraps a signed, finalized nostr event
 sealed class Model<E extends Model<E>>
     with EquatableMixin
     implements ModelBase<E> {
@@ -26,9 +22,12 @@ sealed class Model<E extends Model<E>>
 
   Model._(this.ref, this.event)
       : storage = ref.read(storageNotifierProvider.notifier) {
+    // Process metadata every time we construct
     if (event.metadata.isEmpty) {
       event.metadata.addAll(processMetadata());
     }
+
+    // Verify kind and subclasses match
     final kindCheck = switch (event.kind) {
       >= 10000 && < 20000 || 0 || 3 => this is ReplaceableModel,
       >= 20000 && < 30000 => this is EphemeralModel,
@@ -41,7 +40,7 @@ sealed class Model<E extends Model<E>>
           'Kind ${event.kind} does not match the type of model: regular, replaceable, etc. Check the model definition inherits the right one.');
     }
 
-    // Generic relationships
+    // Set up generic relationships
     author = BelongsTo(ref, RequestFilter<Profile>(authors: {event.pubkey}));
     reactions = HasMany(ref, RequestFilter(tags: event.addressableIdTagMap));
     zaps = HasMany(ref, RequestFilter(tags: event.addressableIdTagMap));
@@ -55,13 +54,20 @@ sealed class Model<E extends Model<E>>
   Model.fromMap(Map<String, dynamic> map, Ref ref)
       : this._(ref, ImmutableEvent<E>(map));
 
+  // General wrapper getters
+
   String get id => event.addressableId;
   DateTime get createdAt => event.createdAt;
 
+  /// Parse once in-event data that requires expensive decoding,
+  /// for instance zap amounts
   Map<String, dynamic> processMetadata() {
     return {};
   }
 
+  /// Map transformations before the event is fed into the constructor,
+  /// for instance to strip signatures
+  @mustCallSuper
   Map<String, dynamic> transformMap(Map<String, dynamic> map) {
     if (!storage.config.keepSignatures) {
       map['sig'] = null;
@@ -71,17 +77,10 @@ sealed class Model<E extends Model<E>>
 
   @override
   Map<String, dynamic> toMap() {
-    return {
-      'id': event.id,
-      'content': event.content,
-      'created_at': event.createdAt.toSeconds(),
-      'pubkey': event.pubkey,
-      'kind': event.kind,
-      'tags': event.tags,
-      'sig': event.signature,
-    };
+    return event.toMap();
   }
 
+  /// Models are equal when they event IDs are (not their addressable IDs)
   @override
   List<Object?> get props => [event.id];
 
@@ -92,15 +91,17 @@ sealed class Model<E extends Model<E>>
 
   // Storage-related
 
-  Future<void> save() {
-    return storage.save({this});
+  /// Save this model to storage, optionally publish to relays
+  Future<void> save({String? relayGroup, bool publish = false}) {
+    return storage.save({this}, relayGroup: relayGroup, publish: publish);
   }
 
-  // Registry related functions
+  // Registry-related
 
   static final Map<String, ({int kind, ModelConstructor constructor})>
       _modelRegistry = {};
 
+  /// Registers a new kind and associates it with its domain model
   static void register<E extends Model<E>>(
       {required int kind, required ModelConstructor<E> constructor}) {
     _modelRegistry[E.toString()] = (kind: kind, constructor: constructor);
@@ -117,6 +118,7 @@ sealed class Model<E extends Model<E>>
     return kind;
   }
 
+  /// Finds the constructor for type parameter [E]
   static ModelConstructor<E>? getConstructorFor<E extends Model<E>>() {
     final constructor =
         _modelRegistry[E.toString()]?.constructor as ModelConstructor<E>?;
@@ -126,6 +128,7 @@ sealed class Model<E extends Model<E>>
     return constructor;
   }
 
+  /// Finds the constructor for kind [kind]
   static ModelConstructor<Model<dynamic>>? getConstructorForKind(int kind) {
     final constructor = _modelRegistry.values
         .firstWhereOrNull((v) => v.kind == kind)
@@ -137,26 +140,15 @@ sealed class Model<E extends Model<E>>
   }
 }
 
+/// A mutable domain model entity that wraps a partial nostr event
+/// which is meant to be signed
 sealed class PartialModel<E extends Model<E>>
     with Signable<E>
     implements ModelBase<E> {
   @override
   final PartialEvent event = PartialEvent<E>();
 
-  String getEventId(String pubkey) {
-    final data = [
-      0,
-      pubkey.toLowerCase(),
-      event.createdAt.toSeconds(),
-      event.kind,
-      event.tags,
-      event.content
-    ];
-    final digest =
-        sha256.convert(Uint8List.fromList(utf8.encode(json.encode(data))));
-    return digest.toString();
-  }
-
+  /// Add an a/e tag of the passed model
   void linkModel(Model model,
       {String? relayUrl, String? marker, String? pubkey}) {
     if (model is ReplaceableModel) {
@@ -171,21 +163,20 @@ sealed class PartialModel<E extends Model<E>>
     }
   }
 
+  /// Remove a/e tags of the passed model
   void unlinkModel(Model model) {
     event.removeTagWithValue(model is ReplaceableModel ? 'a' : 'e', model.id);
   }
 
+  /// Add p tag of the passed profile
   void linkProfile(Profile p) => event.setTagValue('p', p.pubkey);
+
+  /// Remove p tag of the passed profile
   void unlinkProfile(Profile u) => event.removeTagWithValue('p', u.pubkey);
 
   @override
   Map<String, dynamic> toMap() {
-    return {
-      'content': event.content,
-      'created_at': event.createdAt.toSeconds(),
-      'kind': event.kind,
-      'tags': event.tags,
-    };
+    return event.toMap();
   }
 
   @override
@@ -199,14 +190,17 @@ sealed class PartialModel<E extends Model<E>>
 // Create an empty mixin in order to use the = class definitions
 mixin _EmptyMixin {}
 
+/// A base domain model class of a regular event
 abstract class RegularModel<E extends Model<E>> = Model<E> with _EmptyMixin;
 abstract class RegularPartialModel<E extends Model<E>> = PartialModel<E>
     with _EmptyMixin;
 
+/// A base domain model class of an ephemeral event
 abstract class EphemeralModel<E extends Model<E>> = Model<E> with _EmptyMixin;
 abstract class EphemeralPartialModel<E extends Model<E>> = PartialModel<E>
     with _EmptyMixin;
 
+/// A base domain model class of a replaceable event
 abstract class ReplaceableModel<E extends Model<E>> extends Model<E> {
   @override
   ImmutableReplaceableEvent<E> get event =>
@@ -222,6 +216,7 @@ abstract class ReplaceableModel<E extends Model<E>> extends Model<E> {
 abstract class ReplaceablePartialModel<E extends Model<E>> = PartialModel<E>
     with _EmptyMixin;
 
+/// A base domain model class of a parameterizable replaceable event (d tag)
 abstract class ParameterizableReplaceableModel<E extends Model<E>>
     extends ReplaceableModel<E> {
   @override
@@ -241,3 +236,6 @@ abstract class ParameterizableReplaceablePartialEvent<E extends Model<E>>
   String? get identifier => event.getFirstTagValue('d');
   set identifier(String? value) => event.setTagValue('d', value);
 }
+
+typedef ModelConstructor<E extends Model<E>> = E Function(
+    Map<String, dynamic>, Ref ref);

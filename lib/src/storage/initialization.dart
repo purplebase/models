@@ -1,5 +1,12 @@
 part of models;
 
+final initializationProvider =
+    FutureProvider.family<bool, StorageConfiguration>((ref, config) async {
+  _dummySigner = DummySigner(ref);
+  await ref.read(storageNotifierProvider.notifier).initialize(config);
+  return true;
+});
+
 class StorageConfiguration extends Equatable {
   final String databasePath;
   final bool keepSignatures;

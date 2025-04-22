@@ -4,7 +4,7 @@ Nostr model and local-first reactive relay interface in Dart.
 
 It includes a dummy data implementation that can be used in tests and prototypes and can be overridden in one line of code.
 
-[Purplebase](https://github.com/purplebase/purplebase) will be one such real implementation.
+[Purplebase](https://github.com/purplebase/purplebase) is an implementation backed by SQLite and actual relays.
 
 ## Adding your own models
 
@@ -204,7 +204,7 @@ A storage is very close to a relay but has some key differences, it:
  - [x] Event metadata
  - [x] Eviction API to manage db size
  - [x] Add more models based on NIPs, hook up nostr MCP and ask agent
- - [ ] `signedInProfilesProvider`, with ability to select a current one
- - [ ] Go through code and comment everything
- - [ ] Add tests, ask agent to detect missing
+ - [x] `signedInProfilesProvider`, with ability to select a current one
+ - [x] Go through code and comment everything
  - [ ] Generate docs site
+ - [ ] Add tests, ask agent to detect missing

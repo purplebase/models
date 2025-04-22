@@ -14,10 +14,8 @@ import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
 
-part 'src/core/config.dart';
-part 'src/core/encoding.dart';
+part 'src/utils/encoding.dart';
 part 'src/core/model.dart';
-part 'src/core/extensions.dart';
 part 'src/core/event.dart';
 part 'src/core/relationship.dart';
 part 'src/core/signer.dart';
@@ -39,9 +37,11 @@ part 'src/models/zap.dart';
 
 part 'src/request/request.dart';
 part 'src/request/request_filter.dart';
-part 'src/request/merge.dart';
+part 'src/request/merge_request_filter.dart';
 
+part 'src/storage/initialization.dart';
 part 'src/storage/storage.dart';
 part 'src/storage/dummy_storage.dart';
 
+part 'src/utils/extensions.dart';
 part 'src/utils/utils.dart';

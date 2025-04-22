@@ -1,5 +1,6 @@
 part of models;
 
+/// Base class for all signers
 abstract class Signer {
   final Ref ref;
 
@@ -12,6 +13,7 @@ abstract class Signer {
   Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey});
 
+  /// To be used by signer implementations to indicate a "sign in" by a new pubkey
   @protected
   void addSignedInPubkey(String pubkey) {
     final n = ref.read(Profile._signedInPubkeysProvider.notifier);
@@ -19,6 +21,7 @@ abstract class Signer {
   }
 }
 
+/// A private key signer implementation
 class Bip340PrivateKeySigner extends Signer {
   final String privateKey;
   Bip340PrivateKeySigner(this.privateKey, super.ref);
@@ -47,7 +50,7 @@ class Bip340PrivateKeySigner extends Signer {
   Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) async {
     final pubkey = (await getPublicKey())!;
-    final id = partialModel.getEventId(pubkey);
+    final id = Utils.getEventId(partialModel.event, pubkey);
     final aux = hex.encode(List<int>.generate(32, (i) => 1));
     final signature = bip340.sign(privateKey, id.toString(), aux);
     final map = _prepare(partialModel.toMap(), id, pubkey, signature);
@@ -55,6 +58,8 @@ class Bip340PrivateKeySigner extends Signer {
   }
 }
 
+/// A dummy signer implementation which does not actually sign,
+/// but copies fields and leaves the signature blank
 class DummySigner extends Signer {
   DummySigner(super.ref);
   String? pubkey;
@@ -73,13 +78,14 @@ class DummySigner extends Signer {
       {String? withPubkey}) {
     pubkey = withPubkey ?? Utils.generateRandomHex64();
     return Model.getConstructorFor<E>()!.call({
-      'id': partialModel.getEventId(pubkey!),
+      'id': Utils.getEventId(partialModel.event, pubkey!),
       'pubkey': pubkey,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ...partialModel.toMap(),
     }, ref);
   }
 
+  /// Simulate signing with the passed pubkey or an auto-generated one
   @override
   Future<E> sign<E extends Model<E>>(PartialModel<E> partialModel,
       {String? withPubkey}) async {
@@ -89,6 +95,7 @@ class DummySigner extends Signer {
 
 DummySigner? _dummySigner;
 
+/// Signable mixin to make the [signWith] method available on all models
 mixin Signable<E extends Model<E>> {
   Future<E> signWith(Signer signer, {String? withPubkey}) {
     return signer.sign<E>(this as PartialModel<E>, withPubkey: withPubkey);
@@ -97,10 +104,3 @@ mixin Signable<E extends Model<E>> {
   E dummySign([String? withPubkey]) =>
       _dummySigner!.signSync(this as PartialModel<E>, withPubkey: withPubkey);
 }
-
-final initializationProvider =
-    FutureProvider.family<bool, StorageConfiguration>((ref, config) async {
-  _dummySigner = DummySigner(ref);
-  await ref.read(storageNotifierProvider.notifier).initialize(config);
-  return true;
-});

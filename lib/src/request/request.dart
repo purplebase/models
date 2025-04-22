@@ -186,33 +186,3 @@ AndFunction _castAnd<E extends Model<E>>(AndFunction<E> andFn) {
 
 typedef AndFunction<E extends Model<dynamic>> = Set<Relationship<Model>>
     Function(E)?;
-
-// State
-
-sealed class StorageState<E extends Model<dynamic>> with EquatableMixin {
-  final List<E> models;
-  const StorageState(this.models);
-
-  @override
-  List<Object?> get props => [models];
-
-  @override
-  String toString() {
-    return '[$runtimeType] $models';
-  }
-}
-
-final class StorageLoading<E extends Model<dynamic>> extends StorageState<E> {
-  StorageLoading(super.models);
-}
-
-final class StorageData<E extends Model<dynamic>> extends StorageState<E> {
-  StorageData(super.models);
-}
-
-final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
-  final Exception exception;
-  final StackTrace? stackTrace;
-  StorageError(super.modelsWithMetadata,
-      {required this.exception, this.stackTrace});
-}

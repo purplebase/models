@@ -231,10 +231,7 @@ void main() async {
       expect(r1.kinds.first, 7);
       expect(r1, equals(r2));
       expect(r1.toMap(), equals(r2.toMap()));
-      expect(r1.hash, equals(r2.hash));
-
       expect(r1.toMap(), isNot(equals(r3.toMap())));
-      expect(r1.hash, isNot(equals(r3.hash)));
 
       // Filter with extra arguments
       final r4 = RequestFilter<Reaction>(
@@ -246,7 +243,6 @@ void main() async {
         remote: false,
       );
 
-      expect(r1.hash, equals(r4.hash));
       expect(r1, equals(r4));
     });
 

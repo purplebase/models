@@ -6,23 +6,28 @@ sealed class EventBase<E extends Model<E>> {
   String get content;
   List<List<String>> get tags;
 
-  String? getFirstTagValue(String key) {
-    return getFirstTag(key)?[1];
-  }
+  Map<String, dynamic> toMap();
 
-  List<String>? getFirstTag(String key) {
-    return tags.firstWhereOrNull((t) => t[0] == key);
-  }
-
-  Set<String> getTagSetValues(String key) =>
-      getTagSet(key).map((e) => e[1]).toSet();
+  // Read tag utilities
 
   Set<List<String>> getTagSet(String key) =>
       tags.where((e) => e[0] == key).toSet();
 
   bool containsTag(String key) => tags.any((t) => t[0] == key);
+
+  List<String>? getFirstTag(String key) {
+    return tags.firstWhereOrNull((t) => t[0] == key);
+  }
+
+  String? getFirstTagValue(String key) {
+    return getFirstTag(key)?[1];
+  }
+
+  Set<String> getTagSetValues(String key) =>
+      getTagSet(key).map((e) => e[1]).toSet();
 }
 
+/// A finalized (signed) nostr event
 final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
   final String id;
   @override
@@ -35,8 +40,11 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
   // Signature is nullable as it may be removed as optimization
   final String? signature;
 
-  // Metadata
+  /// Metadata is used to hold additional arbitrary data/metadata,
+  /// useful to parse once in-event data that requires expensive decoding
   final Map<String, dynamic> metadata;
+
+  /// Keep track of which relays this event was fetched from
   final Set<String> relays;
 
   ImmutableEvent(Map<String, dynamic> map)
@@ -58,6 +66,7 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
     }
   }
 
+  /// Addressable event ID to use in tags
   String get addressableId {
     return switch (this) {
       ImmutableParameterizableReplaceableEvent(:final identifier) =>
@@ -67,6 +76,14 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
     };
   }
 
+  String get addressableIdTagLetter =>
+      this is ImmutableReplaceableEvent ? 'a' : 'e';
+
+  Map<String, Set<String>> get addressableIdTagMap => {
+        '#$addressableIdTagLetter': {id}
+      };
+
+  /// NIP-19
   String get shareableId {
     switch (this) {
       case ImmutableParameterizableReplaceableEvent(:final identifier):
@@ -97,19 +114,27 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
     }
   }
 
-  String get addressableIdTagLetter =>
-      this is ImmutableReplaceableEvent ? 'a' : 'e';
-
-  Map<String, Set<String>> get addressableIdTagMap => {
-        '#$addressableIdTagLetter': {id}
-      };
+  @override
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'content': content,
+      'created_at': createdAt.toSeconds(),
+      'pubkey': pubkey,
+      'kind': kind,
+      'tags': tags,
+      'sig': signature,
+    };
+  }
 }
 
+/// A finalized (signed) nostr replaceable event
 final class ImmutableReplaceableEvent<E extends Model<E>>
     extends ImmutableEvent<E> {
   ImmutableReplaceableEvent(super.map);
 }
 
+/// A finalized (signed) nostr parameterized replaceable event
 final class ImmutableParameterizableReplaceableEvent<E extends Model<E>>
     extends ImmutableReplaceableEvent<E> {
   ImmutableParameterizableReplaceableEvent(super.map);
@@ -117,6 +142,7 @@ final class ImmutableParameterizableReplaceableEvent<E extends Model<E>>
   String get identifier => getFirstTagValue('d')!;
 }
 
+/// A partial, mutable, unsigned nostr event
 final class PartialEvent<E extends Model<E>> extends EventBase<E> {
   // No ID, pubkey or signature
   // Kind is inherited
@@ -130,7 +156,17 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
   // Metadata
   Map<String, dynamic> metadata = {};
 
-  // Tag utilities
+  @override
+  Map<String, dynamic> toMap() {
+    return {
+      'content': content,
+      'created_at': createdAt.toSeconds(),
+      'kind': kind,
+      'tags': tags,
+    };
+  }
+
+  // Tag mutation utilities
 
   void addTagValue(String key, String? value) {
     if (value != null) {

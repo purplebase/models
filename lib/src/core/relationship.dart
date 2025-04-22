@@ -1,5 +1,6 @@
 part of models;
 
+/// Relationship to other models established via a [RequestFilter]
 sealed class Relationship<E extends Model<dynamic>> {
   final RequestFilter<E>? req;
   final Ref ref;
@@ -23,6 +24,7 @@ sealed class Relationship<E extends Model<dynamic>> {
   }
 }
 
+/// A relationship with one value
 final class BelongsTo<E extends Model<dynamic>> extends Relationship<E> {
   BelongsTo(super.ref, super.req);
 
@@ -38,6 +40,7 @@ final class BelongsTo<E extends Model<dynamic>> extends Relationship<E> {
   }
 }
 
+/// A relationship with multiple values
 final class HasMany<E extends Model<dynamic>> extends Relationship<E> {
   HasMany(super.ref, super.req);
 
