@@ -275,11 +275,15 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   /// Generate a feed with related models for [pubkey]
-  void generateFeed(String pubkey) {
+  void generateFeed([String? pubkey]) {
+    pubkey ??= Utils.generateRandomHex64();
     final r = Random();
-    if (querySync(RequestFilter<Profile>()).isEmpty) {
-      final models = <Model>{};
+    // Only generate if storage is empty
+    if (_models.isEmpty) {
       final profile = generateProfile(pubkey);
+      // Assume we want to "sign in" this user when generating a dummy feed
+      signer.addSignedInPubkey(pubkey);
+      profile.setAsActive();
 
       final follows =
           List.generate(min(15, r.nextInt(50)), (i) => generateProfile());
@@ -291,6 +295,7 @@ class DummyStorageNotifier extends StorageNotifier {
       )!;
 
       // 500 notes from random follows and their likes and zaps
+      final models = <Model>{};
       List.generate(r.nextInt(500), (i) {
         final note = generateModel(
           kind: 1,
