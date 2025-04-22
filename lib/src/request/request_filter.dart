@@ -28,10 +28,10 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   final String? relayGroup;
 
   /// Provide additional post-query filtering in Dart
-  final bool Function(E)? where;
+  final WhereFunction where; // do not pass <E>
 
   /// Watch relationships
-  final AndFunction and;
+  final AndFunction and; // do not pass <E>
 
   RequestFilter({
     Set<String>? ids,

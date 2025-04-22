@@ -128,7 +128,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   bool remote = true,
   String? relayGroup,
   AndFunction and,
-  bool Function(Model<dynamic>)? where,
+  WhereFunction where,
 }) {
   final req = RequestFilter(
     ids: ids,
@@ -162,7 +162,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
   int? queryLimit,
   bool remote = true,
   String? relayGroup,
-  bool Function(Model<E>)? where,
+  WhereFunction<E> where,
   AndFunction<E> and,
 }) {
   final req = RequestFilter<E>(
@@ -176,7 +176,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     queryLimit: queryLimit,
     remote: remote,
     relayGroup: relayGroup,
-    where: where,
+    where: _castWhere(where),
     and: _castAnd(and),
   );
   return _requestNotifierProvider<E>(req);
@@ -193,9 +193,15 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
   return _requestNotifierProvider<E>(req);
 }
 
+typedef AndFunction<E extends Model<dynamic>> = Set<Relationship<Model>>
+    Function(E)?;
+
+typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
+
 AndFunction _castAnd<E extends Model<E>>(AndFunction<E> andFn) {
   return andFn == null ? null : (e) => andFn(e as E);
 }
 
-typedef AndFunction<E extends Model<dynamic>> = Set<Relationship<Model>>
-    Function(E)?;
+WhereFunction _castWhere<E extends Model<E>>(WhereFunction<E> whereFn) {
+  return whereFn == null ? null : (e) => whereFn(e as E);
+}

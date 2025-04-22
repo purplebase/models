@@ -249,14 +249,29 @@ void main() async {
     group('with notifier', () {
       late StateNotifierTester tester;
 
+      setUp(() async {
+        final [franzap, niel] = [
+          storage.generateProfile(franzapPubkey),
+          storage.generateProfile(nielPubkey)
+        ];
+        await storage.save({
+          franzap,
+          niel,
+          ...List.generate(20,
+              (i) => storage.generateModel(kind: 1, pubkey: franzapPubkey)!),
+          ...List.generate(
+              20, (i) => storage.generateModel(kind: 1, pubkey: nielPubkey)!),
+        });
+      });
+
       tearDown(() async {
         tester.dispose();
       });
 
       test('relay request should notify with models', () async {
-        tester = container.testerFor(
-            query<Note>(authors: {nielPubkey, franzapPubkey}, limit: 2));
-        await tester.expectModels(isEmpty);
+        tester = container.testerFor(query<Note>(
+            authors: {nielPubkey, franzapPubkey}, limit: 1, queryLimit: 2));
+        await tester.expectModels(hasLength(1));
         await tester.expectModels(hasLength(2));
       });
 
@@ -266,7 +281,6 @@ void main() async {
           limit: 5,
           queryLimit: 21,
         ));
-        await tester.expectModels(isEmpty); // nothing was in local storage
         await tester.expectModels(hasLength(5)); // limit=5
         // stream starts in batches of 5, until queryLimit=21
         await tester.expectModels(hasLength(10));
