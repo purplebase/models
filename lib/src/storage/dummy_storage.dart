@@ -15,8 +15,9 @@ class DummyStorageNotifier extends StorageNotifier {
   DummyStorageNotifier._(this.ref);
 
   final Map<RequestFilter, Timer> _timers = {};
-
   final _queriedModels = <int, Set<String>>{};
+
+  DummySigner get signer => _dummySigner!;
 
   @override
   Future<void> initialize(StorageConfiguration config) async {
