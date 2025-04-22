@@ -28,6 +28,11 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<void> save(Set<Model<dynamic>> models,
       {String? relayGroup, bool publish = false}) async {
+    return saveSync(models, relayGroup: relayGroup, publish: publish);
+  }
+
+  void saveSync(Set<Model<dynamic>> models,
+      {String? relayGroup, bool publish = false}) async {
     // Publish in the background, before using metadata/transformMap
     if (publish && models.isNotEmpty) {
       final relayUrls =
@@ -267,6 +272,48 @@ class DummyStorageNotifier extends StorageNotifier {
           : null,
       _ => null,
     };
+  }
+
+  /// Generate a feed with related models for [pubkey]
+  void generateFeed(String pubkey) {
+    final r = Random();
+    if (querySync(RequestFilter<Profile>()).isEmpty) {
+      final models = <Model>{};
+      final profile = generateProfile(pubkey);
+
+      final follows =
+          List.generate(min(15, r.nextInt(50)), (i) => generateProfile());
+
+      final contactList = generateModel(
+        kind: 3,
+        pubkey: profile.pubkey,
+        pTags: follows.map((e) => e.event.pubkey).toList(),
+      )!;
+
+      // 500 notes from random follows and their likes and zaps
+      List.generate(r.nextInt(500), (i) {
+        final note = generateModel(
+          kind: 1,
+          pubkey: follows[r.nextInt(follows.length)].pubkey,
+          createdAt: DateTime.now().subtract(
+            Duration(minutes: r.nextInt(300)),
+          ),
+        )!;
+        models.add(note);
+        models.addAll(
+          List.generate(r.nextInt(50), (i) {
+            return generateModel(kind: 7, parentId: note.id)!;
+          }),
+        );
+        models.addAll(
+          List.generate(r.nextInt(10), (i) {
+            return generateModel(kind: 9735, parentId: note.id)!;
+          }),
+        );
+      });
+
+      saveSync({profile, ...follows, contactList, ...models});
+    }
   }
 }
 
