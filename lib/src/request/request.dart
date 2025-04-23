@@ -91,7 +91,8 @@ class RequestNotifier<E extends Model<dynamic>>
 
         // Send request filters to relays
         // TODO: Fetch may get new models that expire cache entries, is this covered?
-        storage.fetch(r);
+        // Remote should be the exact same as the original req
+        storage.fetch(r.copyWith(remote: req.remote));
       }
     }
     return models;
