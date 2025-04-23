@@ -42,7 +42,7 @@ class Profile extends ReplaceableModel<Profile> {
     return {
       'name': name,
       'nip05': map['nip05'],
-      'pictureUrl': map['picture'],
+      'picture': map['picture'],
       'lud16': map['lud16'],
       'about': map['about'],
       'banner': map['banner'],
