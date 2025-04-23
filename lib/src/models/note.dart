@@ -10,7 +10,7 @@ class Note extends RegularModel<Note> {
 
   Note.fromMap(super.map, super.ref) : super.fromMap() {
     final tagsWithRoot =
-        event.getTagSet('e').where((t) => t.length > 2 && t[2] == 'root');
+        event.getTagSet('e').where((t) => t.length > 3 && t[3] == 'root');
     isRoot = tagsWithRoot.isEmpty;
 
     root = BelongsTo(
