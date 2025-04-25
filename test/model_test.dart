@@ -90,6 +90,7 @@ void main() {
           .read(storageNotifierProvider.notifier)
           .save({replyNote, replyToReplyNote});
 
+      expect(c.isRoot, isTrue);
       expect(c.root.value, isNull);
       expect(replyNote.root.value, c);
       expect(replyToReplyNote.root.value, c);
@@ -129,6 +130,19 @@ void main() {
 
       expect(nielProfile.contactList.value!.following.toList(),
           {franzapProfile, verbirichaProfile});
+    });
+
+    test('article', () {
+      final article = PartialArticle(
+        'title',
+        'Content of the article',
+        slug: 'yo',
+        summary: 'summary',
+        publishedAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      ).dummySign(verbirichaPubkey);
+      expect(article.imageUrl, isNull);
+      expect(article.slug, 'yo');
+      expect(article.title, 'title');
     });
 
     test('app', () {

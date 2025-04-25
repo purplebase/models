@@ -27,7 +27,7 @@ class Note extends RegularModel<Note> {
           // Passes if its matching e tag with ID has a root marker
           final tags = e.event.getTagSet('e');
           return tags
-              .any((e) => e.length > 2 && e[1] == event.id && e[2] == 'root');
+              .any((e) => e.length > 3 && e[1] == event.id && e[3] == 'root');
         },
       ),
     );
@@ -42,8 +42,8 @@ class Note extends RegularModel<Note> {
           // Only returns events with a single e tag with a root marker
           final tags = e.event.getTagSet('e');
           return tags.length == 1 &&
-              tags.first.length > 2 &&
-              tags.first[2] == 'root';
+              tags.first.length > 3 &&
+              tags.first[3] == 'root';
         },
       ),
     );

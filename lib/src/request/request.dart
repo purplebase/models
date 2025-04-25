@@ -60,7 +60,9 @@ class RequestNotifier<E extends Model<dynamic>>
     // Close subscription to storage notifier
     ref.onDispose(() => sub.close());
     // Cancel active req subscriptions to relays
+    // TODO: Include req.and reqs too! `cancel` should take a list<req>
     ref.onDispose(() => storage.cancel(req));
+    ref.onDispose(() => print('disposing provider'));
   }
 
   // Fetch models from local storage and send request to relays
@@ -109,7 +111,6 @@ _requestNotifierProvider<E extends Model<dynamic>>(RequestFilter<E> req) =>
     _typedProviderCache[req] ??= StateNotifierProvider.autoDispose
         .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>(
       (ref, req) {
-        ref.onDispose(() => print('disposing provider'));
         return RequestNotifier(ref, req);
       },
     )(req);

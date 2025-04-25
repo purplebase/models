@@ -152,14 +152,19 @@ sealed class PartialModel<E extends Model<E>>
   void linkModel(Model model,
       {String? relayUrl, String? marker, String? pubkey}) {
     if (model is ReplaceableModel) {
-      event.addTag('a', [model.id]);
+      event.addTag('a', [model.id, if (relayUrl != null) relayUrl]);
     } else {
-      event.addTag('e', [
-        model.id,
-        if (relayUrl != null) relayUrl,
-        if (marker != null) marker,
-        if (pubkey != null) pubkey
-      ]);
+      // Need to construct array such that nulls are "" until the last non-null value
+      // e.g. ["id", "", "reply"]
+      final value = [model.id, relayUrl ?? '', marker ?? '', pubkey ?? ''];
+      for (final e in value.reversed.toList()) {
+        if (e == '') {
+          value.removeLast();
+        } else {
+          break;
+        }
+      }
+      event.addTag('e', value);
     }
   }
 
