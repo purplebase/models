@@ -180,10 +180,6 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
     }
   }
 
-  void addTag(String key, List<String> tag) {
-    tags.add([key, ...tag]);
-  }
-
   void removeTagWithValue(String key, [String? value]) {
     if (value != null) {
       tags.removeWhere((t) => t[1] == value);
@@ -197,5 +193,25 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
       removeTagWithValue(key);
       addTagValue(key, value);
     }
+  }
+
+  void setTagValues(String key, Set<String> value) {
+    for (final v in value) {
+      removeTagWithValue(key);
+      addTagValue(key, v);
+    }
+  }
+
+  void addTag(String key, List<String> tag) {
+    tags.add([key, ...tag]);
+  }
+
+  void removeTag(String key) {
+    tags.removeWhere((t) => t[0] == key);
+  }
+
+  void setTag(String key, List<String> tag) {
+    removeTag(key);
+    addTag(key, tag);
   }
 }

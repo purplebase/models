@@ -179,6 +179,11 @@ sealed class PartialModel<E extends Model<E>>
   /// Remove p tag of the passed profile
   void unlinkProfile(Profile u) => event.removeTagWithValue('p', u.pubkey);
 
+  Set<String> get tags => event.getTagSetValues('t');
+  set tags(Set<String> values) {
+    event.addTagValues('t', values.toList());
+  }
+
   @override
   Map<String, dynamic> toMap() {
     return event.toMap();
