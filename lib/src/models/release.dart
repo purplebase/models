@@ -8,5 +8,9 @@ class Release extends ParameterizableReplaceableModel<Release> {
 }
 
 class PartialRelease extends ParameterizableReplaceablePartialEvent<Release> {
+  set url(String? value) => event.setTagValue('url', value);
   set releaseNotes(String value) => event.content = value;
+  set version(String? value) => event.setTagValue('d',
+      '${event.getFirstTagValue('d')!.split('@').firstOrNull ?? ''}@$value');
+  String? get version => event.getFirstTagValue('d')?.split('@').last;
 }

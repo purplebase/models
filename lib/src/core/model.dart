@@ -119,7 +119,7 @@ sealed class Model<E extends Model<E>>
   }
 
   /// Finds the constructor for type parameter [E]
-  static ModelConstructor<E>? getConstructorFor<E extends Model<E>>() {
+  static ModelConstructor<E>? getConstructorFor<E extends Model<dynamic>>() {
     final constructor =
         _modelRegistry[E.toString()]?.constructor as ModelConstructor<E>?;
     if (constructor == null) {
@@ -247,5 +247,5 @@ abstract class ParameterizableReplaceablePartialEvent<E extends Model<E>>
   set identifier(String? value) => event.setTagValue('d', value);
 }
 
-typedef ModelConstructor<E extends Model<E>> = E Function(
+typedef ModelConstructor<E extends Model<dynamic>> = E Function(
     Map<String, dynamic>, Ref ref);

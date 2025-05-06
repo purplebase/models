@@ -21,15 +21,16 @@ void main() {
       final signer = Bip340PrivateKeySigner(pk, container.read(refProvider));
 
       final t = DateTime.parse('2024-07-26');
-      final signedModel = await signer.sign(PartialApp()
-        ..name = 'tr'
-        ..event.createdAt = t
-        ..identifier = 's1');
-
-      final signedModel2 = await signer.sign(PartialApp()
-        ..name = 'tr'
-        ..identifier = 's1'
-        ..event.createdAt = t);
+      final [signedModel, signedModel2] = await signer.sign([
+        PartialApp()
+          ..name = 'tr'
+          ..event.createdAt = t
+          ..identifier = 's1',
+        PartialApp()
+          ..name = 'tr'
+          ..identifier = 's1'
+          ..event.createdAt = t
+      ]);
 
       expect(signedModel, signedModel2);
     });
