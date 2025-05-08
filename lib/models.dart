@@ -24,6 +24,7 @@ part 'src/core/signer.dart';
 
 part 'src/models/app.dart';
 part 'src/models/article.dart';
+part 'src/models/blossom_authorization.dart';
 part 'src/models/chat_message.dart';
 part 'src/models/community.dart';
 part 'src/models/contact_list.dart';

@@ -36,6 +36,7 @@ class PartialFileMetadata extends RegularPartialModel<FileMetadata> {
   Set<String> get platforms => event.getTagSetValues('f').toSet();
   Set<String> get apkSignatureHashes =>
       event.getTagSetValues('apk_signature_hash');
+
   String? get identifier {
     final i = event.getFirstTagValue('i');
     if (i != null) {

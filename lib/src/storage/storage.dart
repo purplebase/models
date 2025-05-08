@@ -34,6 +34,9 @@ abstract class StorageNotifier extends StateNotifier<Set<String>?> {
     // Replaceable
     Model.register(kind: 10222, constructor: Community.fromMap);
 
+    // Ephemeral
+    Model.register(kind: 24242, constructor: BlossomAuthorization.fromMap);
+
     // Parameterized replaceable
     Model.register(kind: 30023, constructor: Article.fromMap);
     Model.register(kind: 30063, constructor: Release.fromMap);
