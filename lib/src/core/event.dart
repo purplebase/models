@@ -166,6 +166,12 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
     };
   }
 
+  // TODO: This should be improved and look like its immutable counterpart
+  /// Addressable event ID to use in tags
+  String addressableIdFor(String pubkey, {String? identifier}) {
+    return '$kind:$pubkey:${identifier ?? getFirstTagValue('d')}';
+  }
+
   // Tag mutation utilities
 
   void addTagValue(String key, String? value) {
@@ -197,7 +203,7 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
 
   void setTagValues(String key, Set<String> value) {
     for (final v in value) {
-      removeTagWithValue(key);
+      removeTagWithValue(key, v);
       addTagValue(key, v);
     }
   }
