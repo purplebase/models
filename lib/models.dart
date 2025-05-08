@@ -14,8 +14,6 @@ import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
 
-// TODO: Port NIP-46 from some codebase? nak, nostrudel?
-
 part 'src/utils/encoding.dart';
 part 'src/core/model.dart';
 part 'src/core/event.dart';
@@ -25,6 +23,7 @@ part 'src/core/signer.dart';
 part 'src/models/app.dart';
 part 'src/models/article.dart';
 part 'src/models/blossom_authorization.dart';
+part 'src/models/bunker_authorization.dart';
 part 'src/models/chat_message.dart';
 part 'src/models/community.dart';
 part 'src/models/contact_list.dart';
