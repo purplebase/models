@@ -20,6 +20,10 @@ abstract class Signer {
     final n = ref.read(Profile._signedInPubkeysProvider.notifier);
     n.state = {...n.state, pubkey};
   }
+
+  // TODO: Implement nip04Encrypt, nip04Decrypt, nip44Encrypt, nip44Decrypt
+
+  Future<void> dispose() async {}
 }
 
 /// A private key signer implementation
@@ -121,4 +125,10 @@ mixin Signable<E extends Model<E>> {
 
   E dummySign([String? withPubkey]) =>
       _dummySigner!.signSync(this as PartialModel<E>, withPubkey: withPubkey);
+}
+
+extension SignerExtension<E extends Model<dynamic>> on Iterable<PartialModel> {
+  Future<List<Model>> signWith(Signer signer, {String? withPubkey}) async {
+    return await signer.sign(toList(), withPubkey: withPubkey);
+  }
 }
