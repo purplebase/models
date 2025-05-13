@@ -8,7 +8,7 @@ class BlossomAuthorization extends EphemeralModel<BlossomAuthorization> {
   String? get mimeType => event.getFirstTagValue('m');
 
   String toBase64() {
-    return base64Encode(utf8.encode(toMap().toString()));
+    return base64Encode(utf8.encode(jsonEncode(toMap())));
   }
 }
 
