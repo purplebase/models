@@ -18,8 +18,7 @@ sealed class Relationship<E extends Model<dynamic>> {
   Future<List<E>> _modelsAsync({int? limit}) async {
     if (req == null) return [];
     final updatedReq = req!.copyWith(limit: limit, remote: false);
-    final models =
-        await ref.read(storageNotifierProvider.notifier).query<E>(updatedReq);
+    final models = await storage.query<E>(updatedReq);
     return models;
   }
 }

@@ -178,15 +178,15 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<Set<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req) async {
+  Future<List<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req) async {
     return fetchSync(req);
   }
 
   /// Simulates a fetch, uses [req.limit] for pre-EOSE and [req.queryLimit]
   /// for the total limit including streaming, which emits in batches of 5
   /// Use [config.streamingBufferWindow]
-  Set<E> fetchSync<E extends Model<dynamic>>(RequestFilter<E> req) {
-    if (!req.remote) return {};
+  List<E> fetchSync<E extends Model<dynamic>>(RequestFilter<E> req) {
+    if (!req.remote) return [];
 
     final preEoseAmount = req.limit ?? req.queryLimit ?? 10;
     var streamAmount =
@@ -233,8 +233,7 @@ class DummyStorageNotifier extends StorageNotifier {
       }();
     }
 
-    final models =
-        querySync(req.copyWith(remote: false, limit: preEoseAmount)).toSet();
+    final models = querySync(req.copyWith(remote: false, limit: preEoseAmount));
     _queriedModels[req.kinds.first] ??= {};
     _queriedModels[req.kinds.first]!.addAll(models.map((m) => m.id));
     return models;
@@ -255,7 +254,7 @@ class DummyStorageNotifier extends StorageNotifier {
       String? parentId,
       String? pubkey,
       DateTime? createdAt,
-      List<String> pTags = const []}) {
+      Set<String> pTags = const {}}) {
     pubkey ??= Utils.generateRandomHex64();
     return switch (kind) {
       0 => generateProfile(),
@@ -291,7 +290,7 @@ class DummyStorageNotifier extends StorageNotifier {
       final contactList = generateModel(
         kind: 3,
         pubkey: profile.pubkey,
-        pTags: follows.map((e) => e.event.pubkey).toList(),
+        pTags: follows.map((e) => e.event.pubkey).toSet(),
       )!;
 
       // 500 notes from random follows and their likes and zaps

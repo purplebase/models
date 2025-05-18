@@ -80,7 +80,7 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
       this is ImmutableReplaceableEvent ? 'a' : 'e';
 
   Map<String, Set<String>> get addressableIdTagMap => {
-        '#$addressableIdTagLetter': {id}
+        '#$addressableIdTagLetter': {addressableId}
       };
 
   /// NIP-19
@@ -180,7 +180,7 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
     }
   }
 
-  void addTagValues(String key, List<String> values) {
+  void addTagValues(String key, Set<String> values) {
     for (final value in values) {
       tags.add([key, value]);
     }
@@ -201,11 +201,9 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
     }
   }
 
-  void setTagValues(String key, Set<String> value) {
-    for (final v in value) {
-      removeTagWithValue(key, v);
-      addTagValue(key, v);
-    }
+  void setTagValues(String key, Set<String> values) {
+    removeTag(key);
+    addTagValues(key, values);
   }
 
   void addTag(String key, List<String> tag) {

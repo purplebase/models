@@ -1,12 +1,19 @@
 part of models;
 
 class App extends ParameterizableReplaceableModel<App> {
-  App.fromMap(super.map, super.ref) : super.fromMap();
+  late final HasMany<Release> releases;
+  late final BelongsTo<Release> latestRelease;
+  App.fromMap(super.map, super.ref) : super.fromMap() {
+    releases = HasMany(ref, RequestFilter(tags: event.addressableIdTagMap));
+    latestRelease = BelongsTo(
+        ref, RequestFilter.fromReplaceable(event.getFirstTagValue('a')!));
+  }
 
   String? get name => event.getFirstTagValue('name');
   String? get summary => event.getFirstTagValue('summary');
   String? get repository => event.getFirstTagValue('repository');
   String get description => event.content;
+  String get identifier => event.identifier;
   String? get url => event.getFirstTagValue('url');
   String? get license => event.getFirstTagValue('license');
   Set<String> get icons => event.getTagSetValues('icon');
@@ -37,6 +44,8 @@ class PartialApp extends ParameterizableReplaceablePartialEvent<App> {
   set repository(String? value) => event.setTagValue('repository', value);
   set url(String? value) => event.setTagValue('url', value);
   set platforms(Set<String> value) => event.setTagValues('f', value);
+  set icons(Set<String> value) => event.setTagValues('icon', value);
+  set images(Set<String> value) => event.setTagValues('image', value);
   set summary(String? value) => event.setTagValue('summary', value);
   set license(String? value) => event.setTagValue('license', value);
 

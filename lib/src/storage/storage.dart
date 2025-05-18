@@ -31,6 +31,10 @@ abstract class StorageNotifier extends StateNotifier<Set<String>?> {
     Model.register(kind: 9734, constructor: ZapRequest.fromMap);
     Model.register(kind: 9735, constructor: Zap.fromMap);
 
+    // DVM
+    Model.register(kind: 5312, constructor: VerifyReputationRequest.fromMap);
+    Model.register(kind: 6312, constructor: VerifyReputationResponse.fromMap);
+
     // Replaceable
     Model.register(kind: 10222, constructor: Community.fromMap);
 
@@ -48,30 +52,35 @@ abstract class StorageNotifier extends StateNotifier<Set<String>?> {
     this.config = config;
   }
 
-  /// Query storage asynchronously
-  /// Passing [remote]=`true` hits relays only until EOSE
+  // TODO: Explain wtf is applyLimit
+
+  /// Query storage asynchronously.
+  /// Passing [remote]=`true` in addition hits relays via [fetch]
+  /// but only until EOSE.
   Future<List<E>> query<E extends Model<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds});
 
-  /// Query storage asynchronously
-  /// [remote] is ignored and always false
+  /// Query storage asynchronously.
+  /// [remote] is ignored and always false.
   List<E> querySync<E extends Model<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds});
 
   /// Save models to storage, use [publish] to send to relays
-  /// Specifying [relayGroup] or fall back to default group
+  /// and wait for response.
+  /// Specifying [relayGroup] or fall back to default group.
   Future<void> save(Set<Model<dynamic>> models,
       {String? relayGroup, bool publish = false});
 
-  /// Trigger a fetch on relays, returns pre-EOSE models
-  /// but streams in the background
-  Future<Set<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req);
+  /// Fetches from relays until EOSE and keeps streaming
+  /// in the background.
+  /// A [req] with `remote`=false will turn this into a no-op.
+  Future<List<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req);
 
   /// Cancel any subscriptions for [req], this cannot be
-  /// done on [dispose] as we need to pass the req
+  /// done on [dispose] as we need to pass the req.
   void cancel(RequestFilter req);
 
-  /// Remove all models from storage, or those matching [req]
+  /// Remove all models from storage, or those matching [req].
   Future<void> clear([RequestFilter? req]);
 }
 

@@ -1,18 +1,28 @@
 part of models;
 
 class Release extends ParameterizableReplaceableModel<Release> {
-  Release.fromMap(super.map, super.ref) : super.fromMap();
+  late final BelongsTo<App> app;
+  late final HasMany<FileMetadata> fileMetadatas;
 
-  String get releaseNotes => event.content;
+  Release.fromMap(super.map, super.ref) : super.fromMap() {
+    app = BelongsTo(
+        ref, RequestFilter.fromReplaceable(event.getFirstTagValue('a')!));
+    fileMetadatas =
+        HasMany(ref, RequestFilter(ids: event.getTagSetValues('e').toSet()));
+  }
+
+  String? get releaseNotes => event.content.isEmpty ? null : event.content;
+  String get appIdentifier => event.getFirstTagValue('i')!;
   String get version => event.identifier.split('@').last;
+  String? get url => event.getFirstTagValue('url');
 }
 
 class PartialRelease extends ParameterizableReplaceablePartialEvent<Release> {
+  String? get releaseNotes => event.content.isEmpty ? null : event.content;
   set url(String? value) => event.setTagValue('url', value);
-  set releaseNotes(String value) => event.content = value;
-  // TODO: set identifier() => event.tag('i')
-  // This will allow us to deprecate the `a` to release in app (to find the latest)
-  // as we can now do req{pubkey=app.pubkey,i=app.dTag,kind=30063}
+  set releaseNotes(String? value) => event.content = value ?? '';
+
+  set appIdentifier(String? value) => event.setTagValue('i', value);
   set version(String? value) => event.setTagValue('d',
       '${event.getFirstTagValue('d')!.split('@').firstOrNull ?? ''}@$value');
   String? get version => event.getFirstTagValue('d')?.split('@').last;

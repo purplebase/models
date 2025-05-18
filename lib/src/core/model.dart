@@ -181,7 +181,7 @@ sealed class PartialModel<E extends Model<E>>
 
   Set<String> get tags => event.getTagSetValues('t');
   set tags(Set<String> values) {
-    event.addTagValues('t', values.toList());
+    event.addTagValues('t', values);
   }
 
   @override

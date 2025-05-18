@@ -11,12 +11,12 @@ class ContactList extends ReplaceableModel<ContactList> {
 }
 
 class PartialContactList extends ReplaceablePartialModel<ContactList> {
-  PartialContactList({List<String> followPubkeys = const []}) {
+  PartialContactList({Set<String> followPubkeys = const {}}) {
     addFollowPubkeys(followPubkeys);
   }
 
   void addFollow(Profile profile) => event.addTagValue('p', profile.pubkey);
-  void addFollowPubkeys(List<String> pubkeys) =>
+  void addFollowPubkeys(Set<String> pubkeys) =>
       event.addTagValues('p', pubkeys);
   void removeFollow(Profile profile) =>
       event.removeTagWithValue('p', profile.pubkey);
