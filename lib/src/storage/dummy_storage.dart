@@ -26,22 +26,7 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> save(Set<Model<dynamic>> models,
-      {String? relayGroup, bool publish = false}) async {
-    return saveSync(models, relayGroup: relayGroup, publish: publish);
-  }
-
-  void saveSync(Set<Model<dynamic>> models,
-      {String? relayGroup, bool publish = false}) async {
-    // Publish in the background, before using metadata/transformMap
-    if (publish && models.isNotEmpty) {
-      final relayUrls =
-          config.getRelays(relayGroup: relayGroup, useDefault: true);
-      for (final relayUrl in relayUrls) {
-        print('Fake publishing ${models.length} models to $relayUrl');
-      }
-    }
-
+  Future<void> save(Set<Model<dynamic>> models) async {
     for (final model in models) {
       // Need to deconstruct to remove useless content, then construct again
       final transformedModel = model.transformMap(model.toMap());
@@ -65,6 +50,25 @@ class DummyStorageNotifier extends StorageNotifier {
     if (mounted) {
       state = {for (final e in models) e.id};
     }
+  }
+
+  @override
+  Future<Set<PublishedStatus>> publish(Set<Model<dynamic>> models,
+      {String? relayGroup}) async {
+    final result = <PublishedStatus>{};
+    // Publish in the background, before using metadata/transformMap
+    if (models.isNotEmpty) {
+      final relayUrls =
+          config.getRelays(relayGroup: relayGroup, useDefault: true);
+      for (final relayUrl in relayUrls) {
+        final message = 'Fake publishing ${models.length} models to $relayUrl';
+        for (final model in models) {
+          result.add(PublishedStatus(
+              eventId: model.event.id, accepted: true, message: message));
+        }
+      }
+    }
+    return result;
   }
 
   @override
@@ -316,7 +320,7 @@ class DummyStorageNotifier extends StorageNotifier {
         );
       });
 
-      saveSync({profile, ...follows, contactList, ...models});
+      save({profile, ...follows, contactList, ...models});
     }
   }
 }

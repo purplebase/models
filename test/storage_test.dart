@@ -42,7 +42,8 @@ void main() async {
           .dummySign(nielProfile.pubkey);
 
       await storage.save({a, b, c, d, e, f, g, replyToA, replyToB});
-      await storage.save({nielProfile}, relayGroup: 'big-relays');
+      await storage.save({nielProfile});
+      await storage.publish({nielProfile}, relayGroup: 'big-relays');
     });
 
     tearDown(() async {

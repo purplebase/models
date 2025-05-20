@@ -55,7 +55,7 @@ class PartialApp extends ParameterizableReplaceablePartialEvent<App> {
   String? get name => event.getFirstTagValue('name');
   String? get summary => event.getFirstTagValue('summary');
   String? get repository => event.getFirstTagValue('repository');
-  String get description => event.content;
+  String? get description => event.content.isEmpty ? null : event.content;
   String? get url => event.getFirstTagValue('url');
   String? get license => event.getFirstTagValue('license');
   Set<String> get icons => event.getTagSetValues('icon');

@@ -92,8 +92,11 @@ sealed class Model<E extends Model<E>>
   // Storage-related
 
   /// Save this model to storage, optionally publish to relays
-  Future<void> save({String? relayGroup, bool publish = false}) {
-    return storage.save({this}, relayGroup: relayGroup, publish: publish);
+  Future<void> save({String? relayGroup, bool publish = false}) async {
+    await storage.save({this});
+    if (publish) {
+      await storage.publish({this}, relayGroup: relayGroup);
+    }
   }
 
   // Registry-related
@@ -108,12 +111,12 @@ sealed class Model<E extends Model<E>>
   }
 
   static Exception _unregisteredException<T>() => Exception(
-      'Type $T has not been registered. Make sure to register it with Model.registerModel.');
+      'Type $T has not been registered. Are you sure you initialized the storage? Otherwise register it with Model.registerModel.');
 
   static int _kindFor<E extends Model<dynamic>>() {
     final kind = Model._modelRegistry[E.toString()]?.kind;
     if (kind == null) {
-      throw _unregisteredException();
+      throw _unregisteredException<E>();
     }
     return kind;
   }

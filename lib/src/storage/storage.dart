@@ -65,11 +65,13 @@ abstract class StorageNotifier extends StateNotifier<Set<String>?> {
   List<E> querySync<E extends Model<dynamic>>(RequestFilter<E> req,
       {bool applyLimit = true, Set<String>? onIds});
 
-  /// Save models to storage, use [publish] to send to relays
-  /// and wait for response.
+  /// Save models to storage
+  Future<void> save(Set<Model<dynamic>> models);
+
+  /// Sends to relays and waits for response.
   /// Specifying [relayGroup] or fall back to default group.
-  Future<void> save(Set<Model<dynamic>> models,
-      {String? relayGroup, bool publish = false});
+  Future<Set<PublishedStatus>> publish(Set<Model<dynamic>> models,
+      {String? relayGroup});
 
   /// Fetches from relays until EOSE and keeps streaming
   /// in the background.
@@ -115,4 +117,13 @@ final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
   final Exception exception;
   final StackTrace? stackTrace;
   StorageError(super.models, {required this.exception, this.stackTrace});
+}
+
+final class PublishedStatus {
+  final String eventId;
+  final bool accepted;
+  final String message;
+
+  PublishedStatus(
+      {required this.eventId, required this.accepted, required this.message});
 }

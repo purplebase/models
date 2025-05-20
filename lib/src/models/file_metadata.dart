@@ -54,7 +54,17 @@ class PartialFileMetadata extends RegularPartialModel<FileMetadata> {
     return null;
   }
 
-  String? get version =>
-      event.getFirstTagValue('version') ?? event.content.split('@').lastOrNull;
+  String? get version {
+    final v = event.getFirstTagValue('version');
+    if (v != null) {
+      return v;
+    }
+    final iv = event.content.split('@');
+    if (iv.lastOrNull?.isNotEmpty ?? false) {
+      return iv.first;
+    }
+    return null;
+  }
+
   String? get mimeType => event.getFirstTagValue('m');
 }
