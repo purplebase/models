@@ -34,6 +34,7 @@ abstract class StorageNotifier extends StateNotifier<Set<String>?> {
     // DVM
     Model.register(kind: 5312, constructor: VerifyReputationRequest.fromMap);
     Model.register(kind: 6312, constructor: VerifyReputationResponse.fromMap);
+    Model.register(kind: 7000, constructor: DVMError.fromMap);
 
     // Replaceable
     Model.register(kind: 10222, constructor: Community.fromMap);

@@ -91,10 +91,10 @@ sealed class Model<E extends Model<E>>
 
   // Storage-related
 
-  /// Save this model to storage, optionally publish to relays
-  Future<void> save({String? relayGroup, bool publish = false}) async {
+  /// Save this model to storage, if [relayGroup] then publish to it
+  Future<void> save({String? relayGroup}) async {
     await storage.save({this});
-    if (publish) {
+    if (relayGroup != null) {
       await storage.publish({this}, relayGroup: relayGroup);
     }
   }
@@ -137,7 +137,7 @@ sealed class Model<E extends Model<E>>
         .firstWhereOrNull((v) => v.kind == kind)
         ?.constructor;
     if (constructor == null) {
-      throw _unregisteredException();
+      throw Exception('Could not find constructor for kind $kind');
     }
     return constructor;
   }

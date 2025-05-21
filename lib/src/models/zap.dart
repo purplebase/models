@@ -7,18 +7,22 @@ class Zap extends RegularModel<Zap> {
       BelongsTo(ref, RequestFilter(authors: {event.getFirstTagValue('P')!}));
   late final BelongsTo<Model> zappedModel;
   late final BelongsTo<Profile> recipient;
+  late final BelongsTo<ZapRequest> zapRequest;
 
   Zap.fromMap(super.map, super.ref) : super.fromMap() {
     recipient =
         BelongsTo(ref, RequestFilter(authors: {event.getFirstTagValue('p')!}));
     zappedModel =
         BelongsTo(ref, RequestFilter(ids: {event.getFirstTagValue('e')!}));
+    zapRequest =
+        BelongsTo(ref, RequestFilter(ids: {event.metadata['zapRequestId']!}));
   }
 
   @override
   Map<String, dynamic> processMetadata() {
     final amount = getSatsFromBolt11(event.getFirstTagValue('bolt11')!);
-    return {'amount': amount};
+    final description = jsonDecode(event.getFirstTagValue('description')!);
+    return {'amount': amount, 'zapRequestId': description['id']};
   }
 
   @override
