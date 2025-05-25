@@ -17,8 +17,6 @@ class DummyStorageNotifier extends StorageNotifier {
   final Map<RequestFilter, Timer> _timers = {};
   final _queriedModels = <int, Set<String>>{};
 
-  DummySigner get signer => _dummySigner!;
-
   @override
   Future<void> initialize(StorageConfiguration config) async {
     await super.initialize(config);
@@ -285,8 +283,7 @@ class DummyStorageNotifier extends StorageNotifier {
     if (_models.isEmpty) {
       final profile = generateProfile(pubkey);
       // Assume we want to "sign in" this user when generating a dummy feed
-      signer.addSignedInPubkey(pubkey);
-      profile.setAsActive();
+      DummySigner(ref, pubkey: pubkey).initialize(active: true);
 
       final follows =
           List.generate(min(15, r.nextInt(50)), (i) => generateProfile());

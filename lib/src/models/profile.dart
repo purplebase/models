@@ -112,33 +112,6 @@ class Profile extends ReplaceableModel<Profile> {
   String toString() {
     return '<Profile>$name [npub: $npub]';
   }
-
-  // Signed-in related functions and providers
-
-  static final _signedInPubkeysProvider = StateProvider<Set<String>>((_) => {});
-  // Wrapper so as not to expose the private notifier
-  static final signedInPubkeysProvider =
-      Provider((ref) => ref.watch(_signedInPubkeysProvider));
-
-  static final _activePubkeyProvider = StateProvider<String?>((_) => null);
-
-  /// Sets this profile to be the currently active one
-  void setAsActive() {
-    ref.read(_activePubkeyProvider.notifier).state = pubkey;
-  }
-
-  /// Notifies with the currently active signed in [Profile],
-  /// when set via [setAsActive] and profile is in local storage
-  static final signedInProfileProvider = Provider((ref) {
-    final activePubkeys = ref.watch(_activePubkeyProvider);
-    final pubkeys = ref.watch(Profile.signedInPubkeysProvider);
-    if (activePubkeys == null || !pubkeys.contains(activePubkeys)) {
-      return null;
-    }
-    final state =
-        ref.watch(query<Profile>(authors: {activePubkeys}, remote: false));
-    return state.models.firstOrNull;
-  });
 }
 
 class PartialProfile extends ReplaceablePartialModel<Profile> {
