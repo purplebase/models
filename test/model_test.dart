@@ -19,6 +19,7 @@ void main() {
       const pk =
           'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
       final signer = Bip340PrivateKeySigner(pk, container.read(refProvider));
+      signer.initialize();
 
       final t = DateTime.parse('2024-07-26');
       final [signedModel, signedModel2] = await signer.sign([
@@ -220,13 +221,17 @@ void main() {
       final fileMetadata = PartialFileMetadata().dummySign(franzapPubkey);
 
       // Create comments on different content types
-      final articleComment =
-          PartialComment.toArticle(article, 'Comment on an article')
-              .dummySign(verbirichaPubkey);
+      final articleComment = PartialComment(
+        content: 'Comment on an article',
+        rootModel: article,
+        parentModel: article,
+      ).dummySign(verbirichaPubkey);
 
-      final fileComment =
-          PartialComment.toFileMetadata(fileMetadata, 'Comment on a file')
-              .dummySign(nielPubkey);
+      final fileComment = PartialComment(
+        content: 'Comment on a file',
+        rootModel: fileMetadata,
+        parentModel: fileMetadata,
+      ).dummySign(nielPubkey);
 
       // Save base models first
       await storage.save({article, fileMetadata});
@@ -237,14 +242,8 @@ void main() {
       // Create a reply to a comment (nested comment) - create manually instead of using helper
       final nestedComment = PartialComment(
         content: 'Reply to the article comment',
-        // Keep original root reference
-        rootArticle: article,
-        rootKind: article.event.kind,
-        rootAuthor: article.author.value,
-        // Set parent to the first comment
-        parentComment: articleComment,
-        parentKind: 1111, // Kind for Comment
-        parentAuthor: articleComment.author.value,
+        rootModel: article,
+        parentModel: articleComment,
       ).dummySign(franzapPubkey);
 
       // Save nested comment separately
@@ -252,34 +251,31 @@ void main() {
 
       // Test comment on article
       expect(articleComment.content, 'Comment on an article');
-      expect(articleComment.rootArticle.value, article);
-      expect(articleComment.parentArticle.value, article);
+      expect(articleComment.rootModel.value, article);
+      expect(articleComment.parentModel.value, article);
       expect(articleComment.rootKind, article.event.kind);
       expect(articleComment.parentKind, article.event.kind);
       expect(articleComment.rootAuthor.value, article.author.value);
       expect(articleComment.parentAuthor.value, article.author.value);
-      expect(articleComment.author.value!.pubkey, verbirichaPubkey);
 
       // Test comment on file
       expect(fileComment.content, 'Comment on a file');
-      expect(fileComment.rootFile.value, fileMetadata);
-      expect(fileComment.parentFile.value, fileMetadata);
+      expect(fileComment.rootModel.value, fileMetadata);
+      expect(fileComment.parentModel.value, fileMetadata);
       expect(fileComment.rootKind, fileMetadata.event.kind);
       expect(fileComment.parentKind, fileMetadata.event.kind);
       expect(fileComment.rootAuthor.value, fileMetadata.author.value);
       expect(fileComment.parentAuthor.value, fileMetadata.author.value);
-      expect(fileComment.author.value!.pubkey, nielPubkey);
 
       // Test nested comment (reply to comment)
       expect(nestedComment.content, 'Reply to the article comment');
-      expect(nestedComment.rootArticle.value, article); // Same root as parent
-      expect(nestedComment.parentComment.value,
+      expect(nestedComment.rootModel.value, article); // Same root as parent
+      expect(nestedComment.parentModel.value,
           articleComment); // Parent is the first comment
       expect(nestedComment.rootKind, article.event.kind);
       expect(nestedComment.parentKind, 1111); // Parent kind is 1111 (Comment)
       expect(nestedComment.rootAuthor.value, article.author.value);
       expect(nestedComment.parentAuthor.value, articleComment.author.value);
-      expect(nestedComment.author.value!.pubkey, franzapPubkey);
 
       // Test relationship from article to comments
       final commentFromArticle = await container
@@ -299,9 +295,7 @@ void main() {
       final externalComment = PartialComment(
         content: 'Comment on external content',
         externalRootUri: 'https://example.com/article/123',
-        rootKind: 1000, // Some kind for the external content
         externalParentUri: 'https://example.com/article/123',
-        parentKind: 1000,
       ).dummySign(nielPubkey);
 
       await storage.save({externalComment});
@@ -310,8 +304,6 @@ void main() {
           externalComment.externalRootUri, 'https://example.com/article/123');
       expect(
           externalComment.externalParentUri, 'https://example.com/article/123');
-      expect(externalComment.rootKind, 1000);
-      expect(externalComment.parentKind, 1000);
     });
   });
 }

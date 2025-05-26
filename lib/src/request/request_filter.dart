@@ -89,6 +89,9 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   }
 
   factory RequestFilter.fromReplaceable(String addressableId) {
+    if (!addressableId.contains(':')) {
+      throw UnsupportedError('Addressable ID must contain `:`');
+    }
     final [kind, author, ...rest] = addressableId.split(':');
     var req = RequestFilter<E>(
       kinds: {int.parse(kind)},

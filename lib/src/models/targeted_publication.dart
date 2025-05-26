@@ -15,14 +15,8 @@ class TargetedPublication
       model = BelongsTo(ref, RequestFilter.fromReplaceable(addressableId));
     }
 
-    // This is only possible because communities are replaceable events
-    // without a parameter, PREs would be impossible to combine into one req
-    final communityReqs = event
-        .getTagSetValues('p')
-        .nonNulls
-        .map(RequestFilter<Community>.fromReplaceable);
-    final req =
-        mergeMultipleRequests<Community>(communityReqs.toList()).firstOrNull;
+    // This is only possible because communities are replaceable events (without a d tag)
+    final req = RequestFilter<Community>(authors: communityPubkeys);
     communities = HasMany(ref, req);
   }
 

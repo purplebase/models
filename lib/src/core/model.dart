@@ -242,6 +242,8 @@ abstract class ParameterizableReplaceableModel<E extends Model<E>>
       throw Exception('Model must contain a `d` tag');
     }
   }
+
+  String get identifier => event.identifier;
 }
 
 abstract class ParameterizableReplaceablePartialEvent<E extends Model<E>>

@@ -21,7 +21,6 @@ abstract class Signer {
     ref.read(Signer._signerProvider(_pubkey!).notifier).state = this;
     ref.read(Signer._signedInPubkeysProvider.notifier).state =
         ref.read(Signer._signedInPubkeysProvider)..add(_pubkey!);
-    print('just set: ${ref.read(Signer._signedInPubkeysProvider)}');
 
     if (active) {
       setActive();
@@ -111,6 +110,9 @@ class Bip340PrivateKeySigner extends Signer {
   @override
   Future<List<E>> sign<E extends Model<dynamic>>(
       List<PartialModel<Model<dynamic>>> partialModels) async {
+    if (!isInitialized) {
+      throw StateError('Signer has not been initialized');
+    }
     return partialModels
         .map((partialModel) {
           final id = Utils.getEventId(partialModel.event, pubkey);

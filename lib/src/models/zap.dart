@@ -21,7 +21,7 @@ class Zap extends RegularModel<Zap> {
 
   @override
   Map<String, dynamic> processMetadata() {
-    final amount = getSatsFromBolt11(event.getFirstTagValue('bolt11')!);
+    final amount = _getSatsFromBolt11(event.getFirstTagValue('bolt11')!);
     final description = jsonDecode(event.getFirstTagValue('description')!);
     return {'amount': amount, 'zapRequestId': description['id']};
   }
@@ -53,7 +53,7 @@ class PartialZapRequest extends RegularPartialModel<ZapRequest> {
 
 final kBolt11Regexp = RegExp(r'lnbc(\d+)([munp])');
 
-int getSatsFromBolt11(String bolt11) {
+int _getSatsFromBolt11(String bolt11) {
   try {
     final m = kBolt11Regexp.allMatches(bolt11);
     final [baseAmountInBitcoin, multiplier] = m.first.groups([1, 2]);
