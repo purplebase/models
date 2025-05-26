@@ -252,3 +252,12 @@ abstract class ParameterizableReplaceablePartialEvent<E extends Model<E>>
 
 typedef ModelConstructor<E extends Model<dynamic>> = E Function(
     Map<String, dynamic>, Ref ref);
+
+/// Annotation to mark a model class for automatic partial model generation.
+///
+/// When applied to a model class that extends RegularModel, EphemeralModel,
+/// ReplaceableModel, or ParameterizableReplaceableModel, the code generator
+/// will create a corresponding partial model class.
+class GeneratePartialModel {
+  const GeneratePartialModel();
+}

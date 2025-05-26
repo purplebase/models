@@ -1,0 +1,16 @@
+targets:
+  $default:
+    builders:
+      models|partial_model_generator:
+        enabled: true
+        generate_for:
+          - lib/models.dart
+
+builders:
+  partial_model_generator:
+    import: "codegen/partial_model_generator.dart"
+    builder_factories: ["partialModelGeneratorFactory"]
+    build_extensions: {".dart": [".partial_models.g.part"]}
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen|combining_builder"] 

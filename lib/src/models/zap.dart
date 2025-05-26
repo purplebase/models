@@ -1,6 +1,7 @@
 part of models;
 
 /// Zap is technically a kind 9735 Zap Receipt
+
 class Zap extends RegularModel<Zap> {
   @override
   BelongsTo<Profile> get author =>

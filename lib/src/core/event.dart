@@ -172,6 +172,8 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
     return '$kind:$pubkey:${identifier ?? getFirstTagValue('d')}';
   }
 
+  String? get identifier => getFirstTagValue('d');
+
   // Tag mutation utilities
 
   void addTagValue(String key, String? value) {

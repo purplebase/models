@@ -1,5 +1,6 @@
 part of models;
 
+@GeneratePartialModel()
 class DirectMessage extends RegularModel<DirectMessage> {
   DirectMessage.fromMap(super.map, super.ref) : super.fromMap();
 
@@ -7,12 +8,13 @@ class DirectMessage extends RegularModel<DirectMessage> {
   String get content => event.content;
 }
 
-class PartialDirectMessage extends RegularPartialModel<DirectMessage> {
+class PartialDirectMessage extends RegularPartialModel<DirectMessage>
+    with PartialDirectMessageMixin {
   PartialDirectMessage({
     required String content,
     required String receiver,
   }) {
-    event.content = content;
-    event.setTagValue('p', Utils.hexFromNpub(receiver));
+    this.content = content;
+    this.receiver = Utils.hexFromNpub(receiver);
   }
 }

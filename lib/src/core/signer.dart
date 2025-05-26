@@ -5,7 +5,7 @@ abstract class Signer {
   final Ref ref;
 
   String? _pubkey;
-  String? get pubkey => _pubkey;
+  String get pubkey => _pubkey!;
   @protected
   void internalSetPubkey(String pubkey) => _pubkey = pubkey;
 
@@ -113,10 +113,10 @@ class Bip340PrivateKeySigner extends Signer {
       List<PartialModel<Model<dynamic>>> partialModels) async {
     return partialModels
         .map((partialModel) {
-          final id = Utils.getEventId(partialModel.event, pubkey!);
+          final id = Utils.getEventId(partialModel.event, pubkey);
           final aux = hex.encode(List<int>.generate(32, (i) => 1));
           final signature = bip340.sign(_privateKey, id.toString(), aux);
-          final map = _prepare(partialModel.toMap(), id, pubkey!, signature);
+          final map = _prepare(partialModel.toMap(), id, pubkey, signature);
           return Model.getConstructorForKind(partialModel.event.kind)!
               .call(map, ref);
         })
@@ -129,12 +129,13 @@ class Bip340PrivateKeySigner extends Signer {
 /// but copies fields and leaves the signature blank
 class DummySigner extends Signer {
   // ignore: overridden_fields
-  String? _pubkey;
-  DummySigner(super.ref, {String? pubkey}) : _pubkey = pubkey;
+  final String __pubkey;
+  DummySigner(super.ref, {String? pubkey})
+      : __pubkey = pubkey ?? Utils.generateRandomHex64();
 
   @override
   Future<void> initialize({bool active = true}) async {
-    internalSetPubkey(_pubkey ?? Utils.generateRandomHex64());
+    internalSetPubkey(__pubkey);
     return super.initialize(active: active);
   }
 

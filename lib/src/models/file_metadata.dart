@@ -1,70 +1,47 @@
 part of models;
 
+@GeneratePartialModel()
 class FileMetadata extends RegularModel<FileMetadata> {
   FileMetadata.fromMap(super.map, super.ref) : super.fromMap();
+
   Set<String> get urls => event.getTagSetValues('url').toSet();
   String? get mimeType => event.getFirstTagValue('m');
   String get hash => event.getFirstTagValue('x')!;
   int? get size => event.getFirstTagValue('size').toInt();
-  String get version => event.getFirstTagValue('version')!;
-  int? get versionCode =>
-      int.tryParse(event.getFirstTagValue('version_code') ?? '');
+
   String? get repository => event.getFirstTagValue('repository');
   Set<String> get platforms => event.getTagSetValues('f').toSet();
-  Set<String> get executable => event.getTagSetValues('executable').toSet();
-  String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
   Set<String> get executables => event.getTagSetValues('executable');
-}
 
-class PartialFileMetadata extends RegularPartialModel<FileMetadata> {
   int? get versionCode =>
       int.tryParse(event.getFirstTagValue('version_code') ?? '');
-  set url(String? value) => event.setTagValue('url', value);
-  set versionCode(int? value) =>
-      event.setTagValue('version_code', value.toString());
-  set minSdkVersion(String? value) =>
-      event.setTagValue('min_sdk_version', value);
-  set targetSdkVersion(String? value) =>
-      event.setTagValue('target_sdk_version', value);
-  set mimeType(String? value) => event.setTagValue('m', value);
-  set hash(String? value) => event.setTagValue('x', value);
-  set size(int value) => event.setTagValue('size', value.toString());
-  set identifier(String? value) => event.setTagValue('i', value);
-  set version(String? value) => event.setTagValue('version', value);
+  String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
+  String get minSdkVersion => event.getFirstTagValue('min_sdk_version')!;
+  String get targetSdkVersion => event.getFirstTagValue('target_sdk_version')!;
 
-  set platforms(Set<String> value) => event.setTagValues('f', value);
-  set executables(Set<String> value) => event.setTagValues('executable', value);
-  set apkSignatureHashes(Set<String> value) =>
-      event.setTagValues('apk_signature_hash', value);
+  String get identifier {
+    // With fallback to legacy method
+    return event.getFirstTagValue('i') ?? event.content.split('@').first;
+  }
 
-  Set<String> get urls => event.getTagSetValues('url').toSet();
-  Set<String> get platforms => event.getTagSetValues('f').toSet();
-  Set<String> get apkSignatureHashes =>
-      event.getTagSetValues('apk_signature_hash');
+  String get version {
+    // With fallback to legacy method
+    return event.getFirstTagValue('version') ?? event.content.split('@').last;
+  }
+}
 
+class PartialFileMetadata extends RegularPartialModel<FileMetadata>
+    with PartialFileMetadataMixin {
+  @override
   String? get identifier {
-    final i = event.getFirstTagValue('i');
-    if (i != null) {
-      return i;
-    }
-    final iv = event.content.split('@');
-    if (iv.firstOrNull?.isNotEmpty ?? false) {
-      return iv.first;
-    }
-    return null;
+    // With fallback to legacy method
+    return event.getFirstTagValue('i') ?? event.content.split('@').firstOrNull;
   }
 
+  @override
   String? get version {
-    final v = event.getFirstTagValue('version');
-    if (v != null) {
-      return v;
-    }
-    final iv = event.content.split('@');
-    if (iv.lastOrNull?.isNotEmpty ?? false) {
-      return iv.first;
-    }
-    return null;
+    // With fallback to legacy method
+    return event.getFirstTagValue('version') ??
+        event.content.split('@').lastOrNull;
   }
-
-  String? get mimeType => event.getFirstTagValue('m');
 }

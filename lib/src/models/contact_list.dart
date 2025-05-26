@@ -1,5 +1,6 @@
 part of models;
 
+@GeneratePartialModel()
 class ContactList extends ReplaceableModel<ContactList> {
   late final HasMany<Profile> following;
   late final HasMany<Profile> followers;
@@ -10,16 +11,14 @@ class ContactList extends ReplaceableModel<ContactList> {
   Set<String> get followingPubkeys => event.getTagSetValues('p');
 }
 
-class PartialContactList extends ReplaceablePartialModel<ContactList> {
+class PartialContactList extends ReplaceablePartialModel<ContactList>
+    with PartialContactListMixin {
   PartialContactList({Set<String> followPubkeys = const {}}) {
-    addFollowPubkeys(followPubkeys);
+    for (final pubkey in followPubkeys) {
+      addFollowingPubkey(pubkey);
+    }
   }
 
-  void addFollow(Profile profile) => event.addTagValue('p', profile.pubkey);
-  void addFollowPubkeys(Set<String> pubkeys) =>
-      event.addTagValues('p', pubkeys);
-  void removeFollow(Profile profile) =>
-      event.removeTagWithValue('p', profile.pubkey);
-  void removeFollowPubkey(String pubkey) =>
-      event.removeTagWithValue('p', pubkey);
+  void addFollow(Profile profile) => addFollowingPubkey(profile.pubkey);
+  void removeFollow(Profile profile) => removeFollowingPubkey(profile.pubkey);
 }

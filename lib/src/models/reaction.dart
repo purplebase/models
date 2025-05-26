@@ -1,5 +1,6 @@
 part of models;
 
+@GeneratePartialModel()
 class Reaction extends RegularModel<Reaction> with EmojiMixin {
   late final BelongsTo<Model> reactedOn;
   late final BelongsTo<Profile> reactedOnAuthor;
@@ -14,7 +15,8 @@ class Reaction extends RegularModel<Reaction> with EmojiMixin {
   }
 }
 
-class PartialReaction extends RegularPartialModel<Reaction> with EmojiMixin {
+class PartialReaction extends RegularPartialModel<Reaction>
+    with PartialReactionMixin, EmojiMixin {
   PartialReaction(
       {String? content,
       Model? reactedOn,

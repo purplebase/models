@@ -1,5 +1,6 @@
 part of models;
 
+@GeneratePartialModel()
 class Release extends ParameterizableReplaceableModel<Release> {
   late final BelongsTo<App> app;
   late final HasMany<FileMetadata> fileMetadatas;
@@ -12,18 +13,19 @@ class Release extends ParameterizableReplaceableModel<Release> {
   }
 
   String? get releaseNotes => event.content.isEmpty ? null : event.content;
-  String get appIdentifier => event.getFirstTagValue('i')!;
-  String get version => event.identifier.split('@').last;
   String? get url => event.getFirstTagValue('url');
+
+  String get appIdentifier {
+    // With fallback to legacy method
+    return event.getFirstTagValue('i') ?? event.identifier.split('@').first;
+  }
+
+  String get version {
+    // With fallback to legacy method
+    return event.getFirstTagValue('version') ??
+        event.identifier.split('@').last;
+  }
 }
 
-class PartialRelease extends ParameterizableReplaceablePartialEvent<Release> {
-  String? get releaseNotes => event.content.isEmpty ? null : event.content;
-  set url(String? value) => event.setTagValue('url', value);
-  set releaseNotes(String? value) => event.content = value ?? '';
-
-  set appIdentifier(String? value) => event.setTagValue('i', value);
-  set version(String? value) => event.setTagValue('d',
-      '${event.getFirstTagValue('d')!.split('@').firstOrNull ?? ''}@$value');
-  String? get version => event.getFirstTagValue('d')?.split('@').last;
-}
+class PartialRelease extends ParameterizableReplaceablePartialEvent<Release>
+    with PartialReleaseMixin {}

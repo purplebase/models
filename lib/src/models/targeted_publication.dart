@@ -1,5 +1,6 @@
 part of models;
 
+@GeneratePartialModel()
 class TargetedPublication
     extends ParameterizableReplaceableModel<TargetedPublication> {
   late final BelongsTo<Model> model;
@@ -27,26 +28,22 @@ class TargetedPublication
 
   int get targetedKind => int.parse(event.getFirstTagValue('k')!);
   Set<String> get relayUrls => event.getTagSetValues('r');
+  Set<String> get communityPubkeys => event.getTagSetValues('p');
 }
 
 class PartialTargetedPublication
-    extends ParameterizableReplaceablePartialEvent<TargetedPublication> {
+    extends ParameterizableReplaceablePartialEvent<TargetedPublication>
+    with PartialTargetedPublicationMixin {
   PartialTargetedPublication(Model model,
       {required Set<Community> communities, Set<String>? relayUrls}) {
+    linkModel(model);
+
     event.addTagValue('d', Utils.generateRandomHex64());
-    event.addTagValue(model.event.addressableIdTagLetter, model.id);
-    event.addTagValue('k', model.event.kind.toString());
-    for (final community in communities) {
-      event.addTagValue('p', community.id);
-    }
+    targetedKind = model.event.kind;
+
+    communityPubkeys = communities.map((c) => c.event.pubkey).toSet();
     if (relayUrls != null) {
-      for (final relayUrl in relayUrls) {
-        event.addTagValue('r', relayUrl);
-      }
+      this.relayUrls = relayUrls;
     }
   }
-
-  void addCommunityPubkey(String value) => event.addTagValue('p', value);
-  set eventId(String value) => event.addTagValue('e', value);
-  set eventKind(int value) => event.addTagValue('k', value.toString());
 }

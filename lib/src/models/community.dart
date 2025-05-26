@@ -1,5 +1,6 @@
 part of models;
 
+@GeneratePartialModel()
 class Community extends ReplaceableModel<Community> {
   Community.fromMap(super.map, super.ref) : super.fromMap();
 
@@ -70,7 +71,8 @@ class Community extends ReplaceableModel<Community> {
   String? get termsOfService => event.getFirstTagValue('tos');
 }
 
-class PartialCommunity extends ReplaceablePartialModel<Community> {
+class PartialCommunity extends ReplaceablePartialModel<Community>
+    with PartialCommunityMixin {
   PartialCommunity(
       {required String name,
       DateTime? createdAt,

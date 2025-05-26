@@ -49,3 +49,5 @@ part 'src/storage/dummy_storage.dart';
 
 part 'src/utils/extensions.dart';
 part 'src/utils/utils.dart';
+
+part 'models.g.dart';

@@ -1,5 +1,6 @@
 part of models;
 
+@GeneratePartialModel()
 class ChatMessage extends RegularModel<ChatMessage> {
   late final BelongsTo<ChatMessage> quotedMessage;
   late final BelongsTo<Community> community;
@@ -22,7 +23,8 @@ class ChatMessage extends RegularModel<ChatMessage> {
   String get content => event.content;
 }
 
-class PartialChatMessage extends RegularPartialModel<ChatMessage> {
+class PartialChatMessage extends RegularPartialModel<ChatMessage>
+    with PartialChatMessageMixin {
   PartialChatMessage(String content,
       {DateTime? createdAt, ChatMessage? quotedMessage, Community? community}) {
     event.content = content;

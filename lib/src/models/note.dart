@@ -1,5 +1,6 @@
 part of models;
 
+@GeneratePartialModel()
 class Note extends RegularModel<Note> {
   String get content => event.content;
 
@@ -50,7 +51,7 @@ class Note extends RegularModel<Note> {
   }
 }
 
-class PartialNote extends RegularPartialModel<Note> {
+class PartialNote extends RegularPartialModel<Note> with PartialNoteMixin {
   PartialNote(String content,
       {DateTime? createdAt, Note? replyTo, Set<String> tags = const {}}) {
     event.content = content;
