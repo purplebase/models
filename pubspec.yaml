@@ -16,7 +16,6 @@ dependencies:
   crypto: ^3.0.6
   faker: ^2.2.0
   meta: ^1.16.0
-  # path: ^1.8.0
 
 dev_dependencies:
   analyzer: ^6.0.0

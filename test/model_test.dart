@@ -164,6 +164,26 @@ void main() {
       expect(App.fromMap(app.toMap(), ref), app);
     });
 
+    test('release', () {
+      final partialRelease = PartialRelease()
+        ..appIdentifier = 'com.example.app'
+        ..version = '0.1.2';
+      final release = partialRelease.dummySign(
+          'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
+      expect(release.identifier, 'com.example.app@0.1.2');
+      expect(release.appIdentifier, 'com.example.app');
+      expect(release.version, '0.1.2');
+
+      final newPartialRelease = PartialRelease(oldFormat: false)
+        ..appIdentifier = 'com.example.app'
+        ..version = '0.1.2';
+      final newRelease = newPartialRelease.dummySign(
+          'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
+      expect(newRelease.identifier, 'com.example.app@0.1.2');
+      expect(newRelease.appIdentifier, 'com.example.app');
+      expect(newRelease.version, '0.1.2');
+    });
+
     test('zaps', () async {
       final author = PartialProfile().dummySign(
           'd3f94b353542a632962062f3c914638d0deeba64af1f980d93907ee1b3e0d4f9');

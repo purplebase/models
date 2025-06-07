@@ -173,6 +173,7 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
   }
 
   String? get identifier => getFirstTagValue('d');
+  set identifier(String? value) => setTagValue('d', value);
 
   // Tag mutation utilities
 

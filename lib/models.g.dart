@@ -6,6 +6,8 @@ part of 'models.dart';
 // PartialModelGenerator
 // **************************************************************************
 
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for App
 mixin PartialAppMixin on ParameterizableReplaceablePartialEvent<App> {
   String? get name => event.getFirstTagValue('name');
@@ -14,7 +16,7 @@ mixin PartialAppMixin on ParameterizableReplaceablePartialEvent<App> {
   set summary(String? value) => event.setTagValue('summary', value);
   String? get repository => event.getFirstTagValue('repository');
   set repository(String? value) => event.setTagValue('repository', value);
-  String? get description => event.content;
+  String? get description => event.content.isEmpty ? null : event.content;
   set description(String? value) => event.content = value ?? '';
   String? get url => event.getFirstTagValue('url');
   set url(String? value) => event.setTagValue('url', value);
@@ -34,11 +36,13 @@ mixin PartialAppMixin on ParameterizableReplaceablePartialEvent<App> {
   void removePlatform(String? value) => event.removeTagWithValue('f', value);
 }
 
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for Article
 mixin PartialArticleMixin on ParameterizableReplaceablePartialEvent<Article> {
   String? get title => event.getFirstTagValue('title');
   set title(String? value) => event.setTagValue('title', value);
-  String? get content => event.content;
+  String? get content => event.content.isEmpty ? null : event.content;
   set content(String? value) => event.content = value ?? '';
   String? get slug => event.getFirstTagValue('d');
   set slug(String? value) => event.setTagValue('d', value);
@@ -52,10 +56,12 @@ mixin PartialArticleMixin on ParameterizableReplaceablePartialEvent<Article> {
       event.setTagValue('published_at', value?.toSeconds().toString());
 }
 
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for BlossomAuthorization
 mixin PartialBlossomAuthorizationMixin
     on EphemeralPartialModel<BlossomAuthorization> {
-  String? get content => event.content;
+  String? get content => event.content.isEmpty ? null : event.content;
   set content(String? value) => event.content = value ?? '';
   String? get hash => event.getFirstTagValue('x');
   set hash(String? value) => event.setTagValue('x', value);
@@ -69,11 +75,15 @@ mixin PartialBlossomAuthorizationMixin
   set server(String? value) => event.setTagValue('server', value);
 }
 
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for ChatMessage
 mixin PartialChatMessageMixin on RegularPartialModel<ChatMessage> {
-  String? get content => event.content;
+  String? get content => event.content.isEmpty ? null : event.content;
   set content(String? value) => event.content = value ?? '';
 }
+
+// ignore_for_file: annotate_overrides
 
 /// Generated partial model mixin for Community
 mixin PartialCommunityMixin on ReplaceablePartialModel<Community> {
@@ -99,6 +109,8 @@ mixin PartialCommunityMixin on ReplaceablePartialModel<Community> {
   set termsOfService(String? value) => event.setTagValue('tos', value);
 }
 
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for ContactList
 mixin PartialContactListMixin on ReplaceablePartialModel<ContactList> {
   Set<String> get followingPubkeys => event.getTagSetValues('p');
@@ -108,13 +120,17 @@ mixin PartialContactListMixin on ReplaceablePartialModel<ContactList> {
       event.removeTagWithValue('p', value);
 }
 
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for DirectMessage
 mixin PartialDirectMessageMixin on RegularPartialModel<DirectMessage> {
   String? get receiver => event.getFirstTagValue('p');
   set receiver(String? value) => event.setTagValue('p', value);
-  String? get content => event.content;
+  String? get content => event.content.isEmpty ? null : event.content;
   set content(String? value) => event.content = value ?? '';
 }
+
+// ignore_for_file: annotate_overrides
 
 /// Generated partial model mixin for FileMetadata
 mixin PartialFileMetadataMixin on RegularPartialModel<FileMetadata> {
@@ -139,6 +155,16 @@ mixin PartialFileMetadataMixin on RegularPartialModel<FileMetadata> {
   void addExecutable(String? value) => event.addTagValue('executable', value);
   void removeExecutable(String? value) =>
       event.removeTagWithValue('executable', value);
+  String? get minSdkVersion => event.getFirstTagValue('min_sdk_version');
+  set minSdkVersion(String? value) =>
+      event.setTagValue('min_sdk_version', value);
+  String? get targetSdkVersion => event.getFirstTagValue('target_sdk_version');
+  set targetSdkVersion(String? value) =>
+      event.setTagValue('target_sdk_version', value);
+  String? get appIdentifier => event.content.isEmpty ? null : event.content;
+  set appIdentifier(String? value) => event.content = value ?? '';
+  String? get version => event.content.isEmpty ? null : event.content;
+  set version(String? value) => event.content = value ?? '';
   int? get versionCode =>
       int.tryParse(event.getFirstTagValue('version_code') ?? '');
   set versionCode(int? value) =>
@@ -146,17 +172,9 @@ mixin PartialFileMetadataMixin on RegularPartialModel<FileMetadata> {
   String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
   set apkSignatureHash(String? value) =>
       event.setTagValue('apk_signature_hash', value);
-  String? get minSdkVersion => event.getFirstTagValue('min_sdk_version');
-  set minSdkVersion(String? value) =>
-      event.setTagValue('min_sdk_version', value);
-  String? get targetSdkVersion => event.getFirstTagValue('target_sdk_version');
-  set targetSdkVersion(String? value) =>
-      event.setTagValue('target_sdk_version', value);
-  String? get identifier => event.getFirstTagValue('i');
-  set identifier(String? value) => event.setTagValue('i', value);
-  String? get version => event.getFirstTagValue('version');
-  set version(String? value) => event.setTagValue('version', value);
 }
+
+// ignore_for_file: annotate_overrides
 
 /// Generated partial model mixin for AppCurationSet
 mixin PartialAppCurationSetMixin
@@ -164,20 +182,26 @@ mixin PartialAppCurationSetMixin
   // No event-based getters found in AppCurationSet
 }
 
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for Note
 mixin PartialNoteMixin on RegularPartialModel<Note> {
-  String? get content => event.content;
+  String? get content => event.content.isEmpty ? null : event.content;
   set content(String? value) => event.content = value ?? '';
 }
+
+// ignore_for_file: annotate_overrides
 
 /// Generated partial model mixin for Reaction
 mixin PartialReactionMixin on RegularPartialModel<Reaction> {
   // No event-based getters found in Reaction
 }
 
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for Release
 mixin PartialReleaseMixin on ParameterizableReplaceablePartialEvent<Release> {
-  String? get releaseNotes => event.content;
+  String? get releaseNotes => event.content.isEmpty ? null : event.content;
   set releaseNotes(String? value) => event.content = value ?? '';
   String? get url => event.getFirstTagValue('url');
   set url(String? value) => event.setTagValue('url', value);
@@ -186,6 +210,39 @@ mixin PartialReleaseMixin on ParameterizableReplaceablePartialEvent<Release> {
   String? get version => event.getFirstTagValue('version');
   set version(String? value) => event.setTagValue('version', value);
 }
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Comment
+mixin PartialCommentMixin on RegularPartialModel<Comment> {
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+  String? get externalRootUri => event.getFirstTagValue('I');
+  set externalRootUri(String? value) => event.setTagValue('I', value);
+  String? get externalParentUri => event.getFirstTagValue('i');
+  set externalParentUri(String? value) => event.setTagValue('i', value);
+  int? get rootKind => int.tryParse(event.getFirstTagValue('K') ?? '');
+  set rootKind(int? value) => event.setTagValue('K', value?.toString());
+  int? get parentKind => int.tryParse(event.getFirstTagValue('k') ?? '');
+  set parentKind(int? value) => event.setTagValue('k', value?.toString());
+}
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for SoftwareAsset
+mixin PartialSoftwareAssetMixin on PartialFileMetadata {
+  String? get minOSVersion => event.getFirstTagValue('min_os_version');
+  set minOSVersion(String? value) => event.setTagValue('min_os_version', value);
+  String? get targetOSVersion => event.getFirstTagValue('target_os_version');
+  set targetOSVersion(String? value) =>
+      event.setTagValue('target_os_version', value);
+  String? get appIdentifier => event.getFirstTagValue('i');
+  set appIdentifier(String? value) => event.setTagValue('i', value);
+  String? get version => event.getFirstTagValue('version');
+  set version(String? value) => event.setTagValue('version', value);
+}
+
+// ignore_for_file: annotate_overrides
 
 /// Generated partial model mixin for TargetedPublication
 mixin PartialTargetedPublicationMixin

@@ -57,6 +57,8 @@ class PartialModelGenerator
     final methods = _generateMethods(classElement, getterImplementations);
 
     return '''
+// ignore_for_file: annotate_overrides
+
 /// Generated partial model mixin for $className
 mixin $partialMixinName on $partialBaseClass<$className> {
 ${methods.join('\n')}
@@ -244,7 +246,7 @@ ${methods.join('\n')}
 
   String _generateContentGetter(String propertyName, String returnType) {
     final nullableType = _makeNullable(returnType);
-    return '  $nullableType get $propertyName => event.content;';
+    return '  $nullableType get $propertyName => event.content.isEmpty ? null : event.content;';
   }
 
   String _generateContentSetter(String propertyName, String returnType) {

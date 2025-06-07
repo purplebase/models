@@ -4,13 +4,22 @@ part of models;
 class App extends ParameterizableReplaceableModel<App> {
   late final HasMany<Release> releases;
   late final BelongsTo<Release> latestRelease;
+
   App.fromMap(super.map, super.ref) : super.fromMap() {
     releases = HasMany(ref, RequestFilter(tags: event.addressableIdTagMap));
     latestRelease = BelongsTo(
         ref,
+        // Legacy format
         event.containsTag('a')
             ? RequestFilter.fromReplaceable(event.getFirstTagValue('a')!)
-            : null);
+            // New format
+            : RequestFilter(
+                authors: {event.pubkey},
+                tags: {
+                  '#i': {event.identifier}
+                },
+                limit: 1,
+              ));
   }
 
   String? get name => event.getFirstTagValue('name');

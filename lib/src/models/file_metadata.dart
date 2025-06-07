@@ -9,39 +9,37 @@ class FileMetadata extends RegularModel<FileMetadata> {
   String get hash => event.getFirstTagValue('x')!;
   int? get size => event.getFirstTagValue('size').toInt();
 
+  // TODO: Remove all fields below when switching to kind 3063 and make it subclass this
   String? get repository => event.getFirstTagValue('repository');
   Set<String> get platforms => event.getTagSetValues('f').toSet();
   Set<String> get executables => event.getTagSetValues('executable');
 
-  int? get versionCode =>
-      int.tryParse(event.getFirstTagValue('version_code') ?? '');
-  String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
   String get minSdkVersion => event.getFirstTagValue('min_sdk_version')!;
   String get targetSdkVersion => event.getFirstTagValue('target_sdk_version')!;
 
-  String get identifier {
-    // With fallback to legacy method
-    return event.getFirstTagValue('i') ?? event.content.split('@').first;
-  }
+  String get appIdentifier => event.content.split('@').first;
+  String get version => event.content.split('@').last;
 
-  String get version {
-    // With fallback to legacy method
-    return event.getFirstTagValue('version') ?? event.content.split('@').last;
-  }
+  // Android-specific
+  int? get versionCode =>
+      int.tryParse(event.getFirstTagValue('version_code') ?? '');
+  String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
 }
 
 class PartialFileMetadata extends RegularPartialModel<FileMetadata>
     with PartialFileMetadataMixin {
   @override
-  String? get identifier {
-    // With fallback to legacy method
-    return event.getFirstTagValue('i') ?? event.content.split('@').firstOrNull;
+  String? get appIdentifier => event.content.split('@').firstOrNull;
+  @override
+  String? get version => event.content.split('@').lastOrNull;
+
+  @override
+  set appIdentifier(String? value) {
+    event.content = '$value@$version';
   }
 
   @override
-  String? get version {
-    // With fallback to legacy method
-    return event.getFirstTagValue('version') ??
-        event.content.split('@').lastOrNull;
+  set version(String? value) {
+    event.content = '$appIdentifier@$value';
   }
 }

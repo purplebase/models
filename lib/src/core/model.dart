@@ -105,7 +105,7 @@ sealed class Model<E extends Model<E>>
       _modelRegistry = {};
 
   /// Registers a new kind and associates it with its domain model
-  static void register<E extends Model<E>>(
+  static void register<E extends Model<dynamic>>(
       {required int kind, required ModelConstructor<E> constructor}) {
     _modelRegistry[E.toString()] = (kind: kind, constructor: constructor);
   }
@@ -150,6 +150,8 @@ sealed class PartialModel<E extends Model<E>>
     implements ModelBase<E> {
   @override
   final PartialEvent event = PartialEvent<E>();
+
+  final transientData = <String, dynamic>{};
 
   /// Add an a/e tag of the passed model
   void linkModel(Model model,

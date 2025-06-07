@@ -35,6 +35,7 @@ part 'src/models/profile.dart';
 part 'src/models/reaction.dart';
 part 'src/models/release.dart';
 part 'src/models/comment.dart';
+part 'src/models/asset.dart';
 part 'src/models/targeted_publication.dart';
 part 'src/models/verify_reputation_dvm.dart';
 part 'src/models/zap.dart';
