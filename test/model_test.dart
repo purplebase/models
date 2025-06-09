@@ -166,17 +166,15 @@ void main() {
 
     test('release', () {
       final partialRelease = PartialRelease()
-        ..appIdentifier = 'com.example.app'
-        ..version = '0.1.2';
+        ..identifier = 'com.example.app@0.1.2';
       final release = partialRelease.dummySign(
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
       expect(release.identifier, 'com.example.app@0.1.2');
       expect(release.appIdentifier, 'com.example.app');
       expect(release.version, '0.1.2');
 
-      final newPartialRelease = PartialRelease(oldFormat: false)
-        ..appIdentifier = 'com.example.app'
-        ..version = '0.1.2';
+      final newPartialRelease = PartialRelease(newFormat: false)
+        ..identifier = 'com.example.app@0.1.2';
       final newRelease = newPartialRelease.dummySign(
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1');
       expect(newRelease.identifier, 'com.example.app@0.1.2');

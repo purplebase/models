@@ -24,6 +24,7 @@ class Release extends ParameterizableReplaceableModel<Release> {
 
   String? get releaseNotes => event.content.isEmpty ? null : event.content;
   String? get url => event.getFirstTagValue('url');
+  String? get channel => event.getFirstTagValue('c');
 
   @override
   String get identifier {
@@ -44,12 +45,12 @@ class Release extends ParameterizableReplaceableModel<Release> {
 
 class PartialRelease extends ParameterizableReplaceablePartialEvent<Release>
     with PartialReleaseMixin {
-  final bool oldFormat;
-  PartialRelease({this.oldFormat = true});
+  final bool newFormat;
+  PartialRelease({this.newFormat = false});
 
   @override
   String? get appIdentifier {
-    if (oldFormat) {
+    if (!newFormat) {
       final value = event.identifier?.split('@').firstOrNull;
       if (value == null) return null;
       return value.isEmpty ? null : value;
@@ -59,7 +60,7 @@ class PartialRelease extends ParameterizableReplaceablePartialEvent<Release>
 
   @override
   String? get version {
-    if (oldFormat) {
+    if (!newFormat) {
       final value = event.identifier?.split('@').lastOrNull;
       if (value == null) return null;
       return value.isEmpty ? null : value;
@@ -69,11 +70,17 @@ class PartialRelease extends ParameterizableReplaceablePartialEvent<Release>
 
   @override
   set appIdentifier(String? value) {
-    throw UnimplementedError('Use identifier setter');
+    if (!newFormat) {
+      throw UnimplementedError('Use identifier setter');
+    }
+    event.setTagValue('i', value);
   }
 
   @override
   set version(String? value) {
-    throw UnimplementedError('Use identifier setter');
+    if (!newFormat) {
+      throw UnimplementedError('Use identifier setter');
+    }
+    event.setTagValue('version', value);
   }
 }
