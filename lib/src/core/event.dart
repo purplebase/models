@@ -153,12 +153,18 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
   @override
   List<List<String>> tags = [];
 
+  String? pubkey;
+
+  String? get id => pubkey != null ? Utils.getEventId(this, pubkey!) : null;
+
   // Metadata
   Map<String, dynamic> metadata = {};
 
   @override
   Map<String, dynamic> toMap() {
     return {
+      if (id != null) 'id': id,
+      if (pubkey != null) 'pubkey': pubkey,
       'content': content,
       'created_at': createdAt.toSeconds(),
       'kind': kind,
