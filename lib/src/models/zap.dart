@@ -4,19 +4,25 @@ part of models;
 
 class Zap extends RegularModel<Zap> {
   @override
-  BelongsTo<Profile> get author =>
-      BelongsTo(ref, RequestFilter(authors: {event.getFirstTagValue('P')!}));
+  BelongsTo<Profile> get author => BelongsTo(
+      ref,
+      RequestFilter<Profile>(authors: {event.getFirstTagValue('P')!})
+          .toRequest());
   late final BelongsTo<Model> zappedModel;
   late final BelongsTo<Profile> recipient;
   late final BelongsTo<ZapRequest> zapRequest;
 
   Zap.fromMap(super.map, super.ref) : super.fromMap() {
-    recipient =
-        BelongsTo(ref, RequestFilter(authors: {event.getFirstTagValue('p')!}));
-    zappedModel =
-        BelongsTo(ref, RequestFilter(ids: {event.getFirstTagValue('e')!}));
-    zapRequest =
-        BelongsTo(ref, RequestFilter(ids: {event.metadata['zapRequestId']!}));
+    recipient = BelongsTo(
+        ref,
+        RequestFilter<Profile>(authors: {event.getFirstTagValue('p')!})
+            .toRequest());
+    zappedModel = BelongsTo(ref,
+        RequestFilter<Model>(ids: {event.getFirstTagValue('e')!}).toRequest());
+    zapRequest = BelongsTo(
+        ref,
+        RequestFilter<ZapRequest>(ids: {event.metadata['zapRequestId']!})
+            .toRequest());
   }
 
   @override

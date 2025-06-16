@@ -1,209 +1,312 @@
 part of models;
 
-/// A request notifier takes a [RequestFilter]
-/// that it uses to query and then filter incoming
-/// events from [StorageNotifier]
-class RequestNotifier<E extends Model<dynamic>>
-    extends StateNotifier<StorageState<E>> {
-  final Ref ref;
-  final RequestFilter<E> req;
-  final StorageNotifier storage;
-  var applyLimit = true;
+class Request<E extends Model<dynamic>> {
+  static final _random = Random();
 
-  RequestNotifier(this.ref, this.req)
-      : storage = ref.read(storageNotifierProvider.notifier),
-        super(StorageLoading([])) {
-    // If no filters were provided, do nothing
-    if (req.toMap().isEmpty) {
-      return;
+  final List<RequestFilter<E>> filters;
+
+  /// Provide a specific subscription ID
+  late final String subscriptionId;
+
+  Request(this.filters, {String? subscriptionId}) {
+    this.subscriptionId = subscriptionId ?? 'sub-${_random.nextInt(999999)}';
+  }
+
+  List<Map<String, dynamic>> toMaps() {
+    return filters.map((f) => f.toMap()).toList();
+  }
+}
+
+/// A nostr request filter, with additional arguments for querying a [StorageNotifier]
+class RequestFilter<E extends Model<dynamic>> extends Equatable {
+  final Set<String> ids;
+  final Set<int> kinds;
+  final Set<String> authors;
+  final Map<String, Set<String>> tags;
+  final DateTime? since;
+  final DateTime? until;
+  final int? limit;
+  final String? search;
+
+  /// Provide additional post-query filtering in Dart
+  final WhereFunction where; // Important: do not pass <E>
+
+  /// Watch relationships
+  final AndFunction and; // Important: do not pass <E>
+
+  RequestFilter({
+    Set<String>? ids,
+    Set<int>? kinds,
+    Set<String>? authors,
+    Map<String, Set<String>>? tags,
+    this.since,
+    this.until,
+    this.limit,
+    this.search,
+    this.where,
+    this.and,
+  })  : ids = ids ?? const {},
+        authors = authors ?? const {},
+        kinds =
+            _isModelOfDynamic<E>() ? kinds ?? const {} : {Model._kindFor<E>()},
+        tags = tags ?? const {} {
+    // IDs are either regular (64 character) or replaceable and match its regexp
+    if (ids != null &&
+        ids.any((i) => i.length != 64 && !_kReplaceableRegexp.hasMatch(i))) {
+      throw UnsupportedError('Bad ids input: $ids');
+    }
+    final authorsHex = authors?.map(Utils.hexFromNpub);
+    if (authorsHex != null && authorsHex.any((a) => a.length != 64)) {
+      throw UnsupportedError('Bad authors input: $authors');
+    }
+  }
+
+  factory RequestFilter.fromMap(Map<String, dynamic> map) {
+    return RequestFilter<E>(
+      ids: {...?map['ids']},
+      kinds:
+          _isModelOfDynamic<E>() ? {...?map['kinds']} : {Model._kindFor<E>()},
+      authors: {...?map['authors']},
+      tags: {
+        for (final e in map.entries)
+          if (e.key.startsWith('#')) e.key: {...e.value}
+      },
+      search: map['search'],
+      since: map['since'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['since'] * 1000)
+          : null,
+      until: map['until'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['until'] * 1000)
+          : null,
+      limit: map['limit'],
+    );
+  }
+
+  factory RequestFilter.fromReplaceable(String addressableId) {
+    if (!addressableId.contains(':')) {
+      throw UnsupportedError('Addressable ID must contain `:`');
+    }
+    final [kind, author, ...rest] = addressableId.split(':');
+    var req = RequestFilter<E>(
+      kinds: {int.parse(kind)},
+      authors: {author},
+    );
+    if (rest.isNotEmpty && rest.first.isNotEmpty) {
+      req = req.copyWith(tags: {
+        '#d': {rest.first}
+      });
+    }
+    return req;
+  }
+
+  static bool _isModelOfDynamic<E extends Model<dynamic>>() =>
+      <Model<dynamic>>[] is List<E>;
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (ids.isNotEmpty) 'ids': ids.sorted(),
+      if (kinds.isNotEmpty) 'kinds': kinds.sorted((i, j) => i.compareTo(j)),
+      if (authors.isNotEmpty) 'authors': authors.sorted(),
+      for (final e in tags.entries.sortedBy((e) => e.key))
+        if (e.value.isNotEmpty) e.key: e.value.sorted(),
+      if (since != null) 'since': since!.toSeconds(),
+      if (until != null) 'until': until!.toSeconds(),
+      if (limit != null) 'limit': limit,
+      if (search != null) 'search': search,
+    };
+  }
+
+  RequestFilter<E> copyWith({
+    Set<String>? ids,
+    Set<String>? authors,
+    Set<int>? kinds,
+    Map<String, Set<String>>? tags,
+    String? search,
+    DateTime? since,
+    DateTime? until,
+    int? limit,
+  }) {
+    return RequestFilter(
+      ids: ids ?? this.ids,
+      authors: authors ?? this.authors,
+      kinds: kinds ?? this.kinds,
+      tags: tags ?? this.tags,
+      search: search ?? this.search,
+      since: since ?? this.since,
+      until: until ?? this.until,
+      where: where,
+      and: and,
+    );
+  }
+
+  Request<E> toRequest() => Request([this]);
+
+  @override
+  List<Object?> get props =>
+      [ids, kinds, authors, tags, search, since, until, limit];
+
+  @override
+  String toString() => toMap().toString();
+
+  // Static
+
+  /// Merges multiple requests into same or fewer amount of requests,
+  /// with equivalent results from relays, which can help save in
+  /// bandwidth and processing
+  static List<RequestFilter> mergeMultiple(List<RequestFilter> filters) {
+    if (filters.length <= 1) {
+      return List.from(filters); // Return a copy
     }
 
-    // Trigger initial fetch/query
-    fetchAndQuery(req).then((models) {
-      if (mounted) {
-        state = StorageData(models);
-      }
-    });
+    List<RequestFilter> currentFilters = List.from(filters);
+    bool changed = true; // Start assuming changes might happen
 
-    // Listen for storage which constantly emits updated IDs,
-    // and query it back with the current req
-    final sub = ref.listen(storageNotifierProvider, (_, incomingIds) async {
-      if (!mounted) return;
+    while (changed) {
+      changed = false;
+      List<RequestFilter> nextFilters = [];
+      List<bool> merged = List.filled(
+        currentFilters.length,
+        false,
+      ); // Track consumed filters
 
-      if (incomingIds != null && incomingIds.isNotEmpty) {
-        // Incoming are the IDs of *any* new models in local storage,
-        // so restrict req to them and check if they apply
-        // Since only local storage should be checked pass `remote=false`,
-        // use `fetchAndQuery` as it will also check for watched relationships
-        final updatedReq = req.copyWith(ids: incomingIds, remote: false);
-        final updatedModels = await fetchAndQuery(updatedReq);
+      for (int i = 0; i < currentFilters.length; i++) {
+        if (merged[i]) continue; // Already consumed
 
-        if (updatedModels.isNotEmpty) {
-          // Replaceable events maintain their IDs across updates
-          // so make sure we remove any of these from the current state
-          // (otherwise they would be ignored when added to the Set)
-          final updatedIds = updatedModels.map((m) => m.id);
-          state.models.removeWhere((m) => updatedIds.contains(m.id));
+        RequestFilter accumulator = currentFilters[i];
 
-          // Concat and sort
-          final sortedModels =
-              {...state.models, ...updatedModels}.sortByCreatedAt();
-          if (mounted) {
-            state = StorageData(sortedModels);
+        // Try merging with subsequent filters
+        for (int j = i + 1; j < currentFilters.length; j++) {
+          if (merged[j]) continue; // Already consumed
+
+          List<RequestFilter> mergeResult = merge(
+            accumulator,
+            currentFilters[j],
+          );
+
+          if (mergeResult.length == 1) {
+            // Merge succeeded
+            accumulator = mergeResult[0]; // Update accumulator
+            merged[j] = true; // Mark j as consumed
+            changed = true; // A merge happened
           }
         }
+        nextFilters
+            .add(accumulator); // Add the final result for this accumulator
+        merged[i] = true; // Mark i as processed (placed in nextFilters)
       }
-    });
 
-    // Clear cache related to this nostr sub when disposing the notifier
-    ref.onDispose(() => storage.requestCache.remove(req.subscriptionId));
-    // Close subscription to storage notifier
-    ref.onDispose(() => sub.close());
-    // Cancel active req subscriptions to relays
-    // TODO: Include req.and reqs too! `cancel` should take a list<req>
-    ref.onDispose(() => storage.cancel(req));
-    ref.onDispose(() => print('disposing provider'));
-  }
-
-  // Fetch models from local storage and send request to relays
-  Future<List<E>> fetchAndQuery(RequestFilter<E> req) async {
-    // Send req to relays in the background (pre-EOSE + streaming)
-    // May be a no-op if `remote=false`
-    storage.fetch(req);
-
-    // Since a remote query was just performed, ensure storage.query
-    // is local via `remote=false`
-    final models = await storage.query(req.copyWith(remote: false));
-
-    // If relationship watchers were provided, find reqs and merge,
-    // then query local storage for
-    if (req.and != null) {
-      final reqs = {
-        for (final m in models) ...req.and!(m).map((r) => r.req).nonNulls
-      };
-      final mergedReqs = mergeMultipleRequests(reqs.toList());
-
-      for (final r in mergedReqs) {
-        // Fill the cache to prepare it for sync relationships.
-        // Query without hitting relays, we do that below
-        // (does not pass E type argument, as these are of any kind)
-        final relatedModels = await storage.query(r.copyWith(remote: false));
-        storage.requestCache[r.subscriptionId] ??= {};
-        storage.requestCache[r.subscriptionId]![r] = relatedModels.cast();
-
-        // Send request filters to relays
-        // TODO: Fetch may get new models that expire cache entries, is this covered?
-        // Remote should be the exact same as the original req
-        storage.fetch(r.copyWith(remote: req.remote));
-      }
+      currentFilters = nextFilters; // Prepare for next iteration
     }
-    return models;
+
+    return currentFilters.cast();
+  }
+
+  static List<RequestFilter> merge(RequestFilter req1, RequestFilter req2) {
+    final map1 = req1.toMap();
+    final map2 = req2.toMap();
+    final result = _merge(map1, map2);
+    return (result != null ? [result] : [map1, map2])
+        .map(RequestFilter.fromMap)
+        .toList();
   }
 }
 
-final Map<RequestFilter,
-        AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>>
-    _typedProviderCache = {};
+final _kReplaceableRegexp = RegExp(r'(\d+):([0-9a-f]{64}):(.*)');
 
-/// Family of notifier providers, one per request
-/// Manually caching since a factory function is needed to pass the type
-_requestNotifierProvider<E extends Model<dynamic>>(RequestFilter<E> req) =>
-    _typedProviderCache[req] ??= StateNotifierProvider.autoDispose
-        .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>(
-      (ref, req) {
-        return RequestNotifier(ref, req);
-      },
-    )(req);
-
-/// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
-/// with default type ([Model]), [remote] is true by default
-AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
-  Set<String>? ids,
-  Set<int>? kinds,
-  Set<String>? authors,
-  Map<String, Set<String>>? tags,
-  String? search,
-  DateTime? since,
-  DateTime? until,
-  int? limit,
-  int? queryLimit,
-  bool remote = true,
-  String? relayGroup,
-  AndFunction and,
-  WhereFunction where,
-}) {
-  final req = RequestFilter(
-    ids: ids,
-    kinds: kinds,
-    authors: authors,
-    tags: tags,
-    search: search,
-    since: since,
-    until: until,
-    limit: limit,
-    queryLimit: queryLimit,
-    remote: remote,
-    relayGroup: relayGroup,
-    where: where,
-    and: and,
-  );
-  return _requestNotifierProvider(req);
+extension RequestFilterIterableExt<E extends Model<dynamic>>
+    on Iterable<RequestFilter<E>> {
+  Request<E> toRequest() => Request<E>(toList());
 }
 
-/// Syntax-sugar for `requestNotifierProvider(RequestFilter<E>(...))`
-/// with type [E] (one specific kind), [remote] is true by default
-AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
-    query<E extends Model<E>>({
-  Set<String>? ids,
-  Set<String>? authors,
-  Map<String, Set<String>>? tags,
-  String? search,
-  DateTime? since,
-  DateTime? until,
-  int? limit,
-  int? queryLimit,
-  bool remote = true,
-  String? relayGroup,
-  WhereFunction<E> where,
-  AndFunction<E> and,
-}) {
-  final req = RequestFilter<E>(
-    ids: ids,
-    authors: authors,
-    tags: tags,
-    search: search,
-    since: since,
-    until: until,
-    limit: limit,
-    queryLimit: queryLimit,
-    remote: remote,
-    relayGroup: relayGroup,
-    where: _castWhere(where),
-    and: _castAnd(and),
-  );
-  return _requestNotifierProvider<E>(req);
+Map<String, dynamic>? _merge(
+  Map<String, dynamic> f1,
+  Map<String, dynamic> f2,
+) {
+  final Set<String> allKeys = {...f1.keys, ...f2.keys};
+  final Set<String> arrayKeys = {
+    'ids',
+    'authors',
+    'kinds',
+    ...allKeys.where((k) => k.startsWith('#')),
+  };
+
+  Set<String> differingKeys = {};
+
+  // Check for differing keys
+  for (final key in allKeys) {
+    if (arrayKeys.contains(key)) {
+      if (f1[key] == null || f2[key] == null) {
+        // If one of the arrays is not present, its unbounded, can't merge
+        return null;
+      }
+      if (!_eq.equals(f1[key], f2[key])) differingKeys.add(key);
+    } else {
+      // Just their presence means its differing
+      differingKeys.add(key);
+    }
+  }
+
+  if (differingKeys.contains('search')) {
+    return null;
+  }
+
+  final differingArrayKeys = differingKeys.intersection(arrayKeys);
+  if (differingArrayKeys.length > 1) {
+    return null;
+  }
+
+  Map<String, int?> intValues = {};
+
+  // If we have limit and another differing key
+  if (differingKeys.contains('limit')) {
+    final limit1 = f1['limit'] as num? ?? double.infinity;
+    final limit2 = f2['limit'] as num? ?? double.infinity;
+    if (differingKeys.contains('ids')) {
+      if (f1['ids'].length > limit1 || f2['ids'].length > limit2) {
+        return null;
+      }
+    } else if (differingKeys.length > 1) {
+      return null;
+    } else {
+      // We only have limit as differing
+      final maxLimit = max(limit1, limit2);
+      intValues['limit'] =
+          maxLimit == double.infinity ? null : maxLimit.toInt();
+    }
+  }
+
+  if (differingKeys.contains('since') || differingKeys.contains('until')) {
+    final num f1Since = f1['since'] ?? 0;
+    final num f1Until = f1['until'] ?? double.infinity;
+    final num f2Since = f2['since'] ?? 0;
+    final num f2Until = f2['until'] ?? double.infinity;
+
+    // Only way we keep going with differingArrayKeys is if since/until are the same
+    if (differingArrayKeys.isNotEmpty &&
+        (f1Since != f2Since || f1Until != f2Until)) {
+      return null;
+    }
+
+    if (f1Since <= f2Until && f2Since <= f1Until) {
+      final sinceNum = min(f1Since, f2Since);
+      intValues['since'] = sinceNum == 0 ? null : sinceNum.toInt();
+      final untilNum = max(f1Until, f2Until);
+      intValues['until'] =
+          untilNum == double.infinity ? null : untilNum.toInt();
+    } else {
+      return null;
+    }
+  }
+
+  final differingArrayKey = differingKeys.intersection(arrayKeys).firstOrNull;
+
+  return {
+    for (final k in arrayKeys)
+      // Merge differing keys, others take from f1
+      k: differingArrayKey == k ? <dynamic>{...?f1[k], ...?f2[k]} : f1[k],
+    ...intValues,
+    if (f1.containsKey('search')) 'search': f1['search'].toString(),
+  };
 }
 
-/// Syntax sugar for watching one model of type [E],
-/// [remote] is true by default
-AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
-    model<E extends Model<E>>(E model,
-        {AndFunction<E> and, bool remote = true}) {
-  // Note: does not need kind or other arguments as it queries by ID
-  final req =
-      RequestFilter<E>(ids: {model.id}, and: _castAnd(and), remote: remote);
-  return _requestNotifierProvider<E>(req);
-}
-
-typedef AndFunction<E extends Model<dynamic>> = Set<Relationship<Model>>
-    Function(E)?;
-
-typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
-
-AndFunction _castAnd<E extends Model<E>>(AndFunction<E> andFn) {
-  return andFn == null ? null : (e) => andFn(e as E);
-}
-
-WhereFunction _castWhere<E extends Model<E>>(WhereFunction<E> whereFn) {
-  return whereFn == null ? null : (e) => whereFn(e as E);
-}
+final _eq = DeepCollectionEquality();

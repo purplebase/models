@@ -41,14 +41,17 @@ sealed class Model<E extends Model<E>>
     }
 
     // Set up generic relationships
-    author = BelongsTo(ref, RequestFilter<Profile>(authors: {event.pubkey}));
-    reactions = HasMany(ref, RequestFilter(tags: event.addressableIdTagMap));
-    zaps = HasMany(ref, RequestFilter(tags: event.addressableIdTagMap));
+    author = BelongsTo(
+        ref, RequestFilter<Profile>(authors: {event.pubkey}).toRequest());
+    reactions = HasMany(ref,
+        RequestFilter<Reaction>(tags: event.addressableIdTagMap).toRequest());
+    zaps = HasMany(
+        ref, RequestFilter<Zap>(tags: event.addressableIdTagMap).toRequest());
     targetedPublications = HasMany(
         ref,
-        RequestFilter(tags: {
+        RequestFilter<TargetedPublication>(tags: {
           '#d': {id}
-        }));
+        }).toRequest());
   }
 
   Model.fromMap(Map<String, dynamic> map, Ref ref)
@@ -91,11 +94,12 @@ sealed class Model<E extends Model<E>>
 
   // Storage-related
 
-  /// Save this model to storage, if [relayGroup] then publish to it
-  Future<void> save({String? relayGroup}) async {
+  /// Save this model to storage, and optionally publish
+  // TODO: Set more source defaults this way with const
+  Future<void> save({Source? source = const LocalSource()}) async {
     await storage.save({this});
-    if (relayGroup != null) {
-      await storage.publish({this}, relayGroup: relayGroup);
+    if (source is RemoteSource) {
+      await storage.publish({this}, source: source);
     }
   }
 

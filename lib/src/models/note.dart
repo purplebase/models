@@ -15,11 +15,14 @@ class Note extends RegularModel<Note> {
     isRoot = tagsWithRoot.isEmpty;
 
     root = BelongsTo(
-        ref, isRoot ? null : RequestFilter(ids: {tagsWithRoot.first[1]}));
+        ref,
+        isRoot
+            ? null
+            : RequestFilter<Note>(ids: {tagsWithRoot.first[1]}).toRequest());
 
     allReplies = HasMany(
       ref,
-      RequestFilter(
+      RequestFilter<Note>(
         tags: {
           '#e': {event.id}
         },
@@ -30,11 +33,11 @@ class Note extends RegularModel<Note> {
           return tags
               .any((e) => e.length > 3 && e[1] == event.id && e[3] == 'root');
         },
-      ),
+      ).toRequest(),
     );
     replies = HasMany(
       ref,
-      RequestFilter(
+      RequestFilter<Note>(
         tags: {
           '#e': {event.id}
         },
@@ -46,7 +49,7 @@ class Note extends RegularModel<Note> {
               tags.first.length > 3 &&
               tags.first[3] == 'root';
         },
-      ),
+      ).toRequest(),
     );
   }
 }

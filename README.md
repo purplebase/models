@@ -104,7 +104,6 @@ class ProfileScreen extends ConsumerWidget {
             final state = ref.watch(
               query<Note>(
                 limit: 10, // total pre-EOSE
-                queryLimit: 100, // total including streaming
                 authors: signedInProfile.contactList.value!.followingPubkeys,
                 and: (note) => {note.author, note.reactions, note.zaps},
               ),

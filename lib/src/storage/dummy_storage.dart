@@ -4,7 +4,6 @@ part of models;
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
   Set<Model> _models = {};
-  var applyLimit = true;
 
   static DummyStorageNotifier? _instance;
 
@@ -24,7 +23,7 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> save(Set<Model<dynamic>> models) async {
+  Future<bool> save(Set<Model<dynamic>> models) async {
     for (final model in models) {
       // Need to deconstruct to remove useless content, then construct again
       final transformedModel = model.transformMap(model.toMap());
@@ -46,120 +45,129 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     if (mounted) {
-      state = {for (final e in models) e.id};
+      state = InternalStorageData({for (final e in models) e.id});
     }
+
+    return true;
   }
 
   @override
-  Future<Set<PublishedStatus>> publish(Set<Model<dynamic>> models,
-      {String? relayGroup}) async {
-    final result = <PublishedStatus>{};
+  Future<PublishResponse> publish(Set<Model<dynamic>> models,
+      {Source? source}) async {
+    final response = PublishResponse();
     // Publish in the background, before using metadata/transformMap
     if (models.isNotEmpty) {
-      final relayUrls =
-          config.getRelays(relayGroup: relayGroup, useDefault: true);
+      final relayUrls = config.getRelays(source: source, useDefault: true);
       for (final relayUrl in relayUrls) {
         final message = 'Fake publishing ${models.length} models to $relayUrl';
         for (final model in models) {
-          result.add(PublishedStatus(
-              eventId: model.event.id, accepted: true, message: message));
+          response.addEvent(model.event.id,
+              relayUrl: relayUrl, accepted: true, message: message);
         }
       }
     }
-    return result;
+    return response;
   }
 
   @override
-  Future<List<E>> query<E extends Model<dynamic>>(RequestFilter<E> req,
-      {bool applyLimit = true, Set<String>? onIds}) async {
-    final results = querySync<E>(req, applyLimit: applyLimit, onIds: onIds);
+  Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
+      {Source? source, Set<String>? onIds}) async {
+    final results = querySync<E>(req, onIds: onIds);
     return Future.microtask(() {
-      // No queryLimit disables streaming
-      final fetched = fetchSync<E>(req.copyWith(queryLimit: null));
+      final fetched = fetchSync<E>(req);
       return [...results, ...fetched];
     });
   }
 
   /// [onIds] allows filtering req on a specific set of models (other than _models)
   @override
-  List<E> querySync<E extends Model<dynamic>>(RequestFilter<E> req,
-      {bool applyLimit = true, Set<String>? onIds}) {
-    // Results is of Model<dynamic> (as it starts with the complete _models database),
-    // it will be casted once we have results of the right kind
-    List<Model> results = _models.toList();
+  List<E> querySync<E extends Model<dynamic>>(Request<E> req,
+      {Set<String>? onIds}) {
+    List<Model> allResults = _models.toList();
 
-    // If onIds present then restrict req to those
-    if (onIds != null) {
-      req = req.copyWith(ids: onIds);
+    for (var filter in req.filters) {
+      // Results is of Model<dynamic> (as it starts with the complete _models database),
+      // it will be casted once we have results of the right kind
+      List<Model> results = _models.toList();
+
+      // If onIds present then restrict req to those
+      if (onIds != null) {
+        filter = filter.copyWith(ids: onIds);
+      }
+
+      final replaceableIds = filter.ids.where(_kReplaceableRegexp.hasMatch);
+      final regularIds = {...filter.ids}..removeAll(replaceableIds);
+
+      if (regularIds.isNotEmpty) {
+        results = results.where((e) => regularIds.contains(e.id)).toList();
+      }
+
+      if (replaceableIds.isNotEmpty) {
+        results = [
+          ...results,
+          ...results.where((e) {
+            return e is ReplaceableModel &&
+                replaceableIds.contains(e.event.addressableId);
+          })
+        ];
+      }
+
+      if (filter.authors.isNotEmpty) {
+        results = results
+            .where((m) => filter.authors.contains(m.event.pubkey))
+            .toList();
+      }
+
+      if (filter.kinds.isNotEmpty) {
+        results =
+            results.where((m) => filter.kinds.contains(m.event.kind)).toList();
+      }
+
+      if (filter.since != null) {
+        results = results
+            .where((m) => m.event.createdAt.isAfter(filter.since!))
+            .toList();
+      }
+
+      if (filter.until != null) {
+        results = results
+            .where((m) => m.event.createdAt.isBefore(filter.until!))
+            .toList();
+      }
+
+      if (filter.tags.isNotEmpty) {
+        results = results.where((m) {
+          // filteruested tags should behave like AND: use fold with initial true and acc &&
+          return filter.tags.entries.fold(true, (acc, entry) {
+            final wantedTagKey = entry.key.substring(1); // remove leading '#'
+            final wantedTagValues = entry.value;
+            // Event tags should behave like OR: use fold with initial false and acc ||
+            return acc &&
+                m.event.getTagSetValues(wantedTagKey).fold(false,
+                    (acc, currentTagValue) {
+                  return acc || wantedTagValues.contains(currentTagValue);
+                });
+          });
+        }).toList();
+      }
+
+      results.sort((a, b) => b.event.createdAt.compareTo(a.event.createdAt));
+
+      if (filter.limit != null && results.length > filter.limit!) {
+        results = results.sublist(0, filter.limit!);
+      }
+
+      if (filter.where != null) {
+        results = results.where((m) => filter.where!(m as E)).toList();
+      }
+
+      allResults.addAll(results);
     }
-
-    final replaceableIds = req.ids.where(_kReplaceableRegexp.hasMatch);
-    final regularIds = {...req.ids}..removeAll(replaceableIds);
-
-    if (regularIds.isNotEmpty) {
-      results = results.where((e) => regularIds.contains(e.id)).toList();
-    }
-
-    if (replaceableIds.isNotEmpty) {
-      results = [
-        ...results,
-        ...results.where((e) {
-          return e is ReplaceableModel &&
-              replaceableIds.contains(e.event.addressableId);
-        })
-      ];
-    }
-
-    if (req.authors.isNotEmpty) {
-      results =
-          results.where((m) => req.authors.contains(m.event.pubkey)).toList();
-    }
-
-    if (req.kinds.isNotEmpty) {
-      results = results.where((m) => req.kinds.contains(m.event.kind)).toList();
-    }
-
-    if (req.since != null) {
-      results =
-          results.where((m) => m.event.createdAt.isAfter(req.since!)).toList();
-    }
-
-    if (req.until != null) {
-      results =
-          results.where((m) => m.event.createdAt.isBefore(req.until!)).toList();
-    }
-
-    if (req.tags.isNotEmpty) {
-      results = results.where((m) {
-        // Requested tags should behave like AND: use fold with initial true and acc &&
-        return req.tags.entries.fold(true, (acc, entry) {
-          final wantedTagKey = entry.key.substring(1); // remove leading '#'
-          final wantedTagValues = entry.value;
-          // Event tags should behave like OR: use fold with initial false and acc ||
-          return acc &&
-              m.event.getTagSetValues(wantedTagKey).fold(false,
-                  (acc, currentTagValue) {
-                return acc || wantedTagValues.contains(currentTagValue);
-              });
-        });
-      }).toList();
-    }
-
-    results.sort((a, b) => b.event.createdAt.compareTo(a.event.createdAt));
-
-    if (applyLimit && req.limit != null && results.length > req.limit!) {
-      results = results.sublist(0, req.limit!);
-    }
-
-    if (req.where != null) {
-      results = results.where((m) => req.where!(m as E)).toList();
-    }
-
-    return results.cast<E>();
+    return allResults.cast<E>();
   }
 
   @override
-  Future<void> clear([RequestFilter? req]) async {
+  Future<void> clear([Request? req]) async {
     if (req == null) {
       _models.clear();
       return;
@@ -169,75 +177,81 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  void cancel([RequestFilter? req]) {
+  Future<void> cancel([Request? req]) async {
     if (req == null) {
       for (final t in _timers.values) {
         t.cancel();
       }
       return;
     }
-    _timers[req]?.cancel();
+    for (final filter in req.filters) {
+      _timers[filter]?.cancel();
+    }
   }
 
-  @override
-  Future<List<E>> fetch<E extends Model<dynamic>>(RequestFilter<E> req) async {
-    return fetchSync(req);
-  }
+  /// Simulates a fetch, uses limit on the filters.
+  /// Streaming emits in batches of 5, use [config.streamingBufferWindow]
+  List<E> fetchSync<E extends Model<dynamic>>(Request<E> req,
+      {Source? source}) {
+    if (source is LocalSource) return [];
 
-  /// Simulates a fetch, uses [req.limit] for pre-EOSE and [req.queryLimit]
-  /// for the total limit including streaming, which emits in batches of 5
-  /// Use [config.streamingBufferWindow]
-  List<E> fetchSync<E extends Model<dynamic>>(RequestFilter<E> req) {
-    if (!req.remote) return [];
+    for (var filter in req.filters) {
+      final queryLimit = (filter.limit ?? 10) * 2;
+      var streamAmount = queryLimit - (filter.limit ?? 10);
 
-    final preEoseAmount = req.limit ?? req.queryLimit ?? 10;
-    var streamAmount =
-        req.queryLimit != null ? req.queryLimit! - preEoseAmount : 0;
+      if (streamAmount > 0) {
+        () {
+          _timers[filter] =
+              Timer.periodic(config.streamingBufferWindow, (t) async {
+            if (mounted) {
+              if (streamAmount == 0) {
+                t.cancel();
+                _timers.remove(filter);
+              } else {
+                final kind = filter.kinds.first;
+                _queriedModels[kind] ??= {};
+                final amt = streamAmount < 5 ? streamAmount : 5;
+                // Grab models not queried yet and update their timestamp to now
+                final models = _models
+                    .where((m) =>
+                        m.event.kind == kind &&
+                        !_queriedModels[kind]!.contains(m.id))
+                    .shuffled()
+                    .take(amt)
+                    .map((m) {
+                  final map = m.toMap();
+                  map['created_at'] =
+                      DateTime.now().millisecondsSinceEpoch ~/ 1000;
+                  return Model.getConstructorForKind(map['kind'])!
+                      .call(map, ref);
+                });
+                final ids = models.map((m) => m.id);
+                _queriedModels[kind]!.addAll(ids);
+                streamAmount = streamAmount - models.length;
 
-    if (streamAmount > 0) {
-      () {
-        _timers[req] = Timer.periodic(config.streamingBufferWindow, (t) async {
-          if (mounted) {
-            if (streamAmount == 0) {
-              t.cancel();
-              _timers.remove(req);
+                // Since ids of manipulated models remain the same, need to remove from set
+                // in order to add them back again
+                _models.removeAll(models);
+                await save(models.toSet());
+              }
             } else {
-              final kind = req.kinds.first;
-              _queriedModels[kind] ??= {};
-              final amt = streamAmount < 5 ? streamAmount : 5;
-              // Grab models not queried yet and update their timestamp to now
-              final models = _models
-                  .where((m) =>
-                      m.event.kind == kind &&
-                      !_queriedModels[kind]!.contains(m.id))
-                  .shuffled()
-                  .take(amt)
-                  .map((m) {
-                final map = m.toMap();
-                map['created_at'] =
-                    DateTime.now().millisecondsSinceEpoch ~/ 1000;
-                return Model.getConstructorForKind(map['kind'])!.call(map, ref);
-              });
-              final ids = models.map((m) => m.id);
-              _queriedModels[kind]!.addAll(ids);
-              streamAmount = streamAmount - models.length;
-
-              // Since ids of manipulated models remain the same, need to remove from set
-              // in order to add them back again
-              _models.removeAll(models);
-              await save(models.toSet());
+              t.cancel();
+              _timers.remove(filter);
             }
-          } else {
-            t.cancel();
-            _timers.remove(req);
-          }
-        });
-      }();
+          });
+        }();
+      }
     }
 
-    final models = querySync(req.copyWith(remote: false, limit: preEoseAmount));
-    _queriedModels[req.kinds.first] ??= {};
-    _queriedModels[req.kinds.first]!.addAll(models.map((m) => m.id));
+    final models = querySync(
+        req.filters.map((f) => f.copyWith(limit: f.limit)).toRequest());
+
+    // Add to queried models
+    for (final filter in req.filters) {
+      _queriedModels[filter.kinds.first] ??= {};
+      _queriedModels[filter.kinds.first]!.addAll(models.map((m) => m.id));
+    }
+
     return models;
   }
 

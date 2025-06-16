@@ -23,7 +23,7 @@ void main() {
           limit: 20,
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -40,7 +40,7 @@ void main() {
           authors: {nielPubkey},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -65,7 +65,7 @@ void main() {
           ids: {id1, id2, id3, id4},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -93,7 +93,7 @@ void main() {
           ids: {id3, id4},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
       // print(result);
     });
@@ -117,7 +117,7 @@ void main() {
           ids: {id1, id2, id3, id4},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -139,7 +139,7 @@ void main() {
           ids: {id1, id2, id3, id4},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -156,7 +156,7 @@ void main() {
           authors: {nielPubkey, franzapPubkey, verbirichaPubkey},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -172,7 +172,7 @@ void main() {
           kinds: {1, 2, 3},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -195,7 +195,7 @@ void main() {
           until: DateTime.fromMillisecondsSinceEpoch(300 * 1000),
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -213,7 +213,7 @@ void main() {
           authors: {franzapPubkey},
         )
       ];
-      expect(mergeRequests(filter1, filter2), expected);
+      expect(RequestFilter.merge(filter1, filter2), expected);
     });
 
     // Test non-mergeable filters
@@ -236,7 +236,7 @@ void main() {
           kinds: {2},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -259,7 +259,7 @@ void main() {
           search: 'world',
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -292,7 +292,7 @@ void main() {
             until: DateTime.fromMillisecondsSinceEpoch(200 * 1000),
           ),
         ];
-        final result = mergeRequests(filter1, filter2);
+        final result = RequestFilter.merge(filter1, filter2);
         expect(result, equals(expected));
       },
     );
@@ -326,7 +326,7 @@ void main() {
             until: DateTime.fromMillisecondsSinceEpoch(200 * 1000),
           ),
         ];
-        final result = mergeRequests(filter1, filter2);
+        final result = RequestFilter.merge(filter1, filter2);
         expect(result, equals(expected));
       },
     );
@@ -350,7 +350,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -375,7 +375,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -406,7 +406,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -431,7 +431,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -462,7 +462,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -483,7 +483,7 @@ void main() {
           kinds: {1},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -500,7 +500,7 @@ void main() {
           authors: {nielPubkey, franzapPubkey},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -519,7 +519,7 @@ void main() {
           kinds: {1},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -538,7 +538,7 @@ void main() {
           since: DateTime.fromMillisecondsSinceEpoch(1 * 1000),
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -561,7 +561,7 @@ void main() {
           since: DateTime.fromMillisecondsSinceEpoch(2 * 1000),
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -584,7 +584,7 @@ void main() {
           limit: 10,
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -603,7 +603,7 @@ void main() {
           since: DateTime.fromMillisecondsSinceEpoch(1 * 1000),
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -626,7 +626,7 @@ void main() {
           limit: 10,
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -657,7 +657,7 @@ void main() {
           limit: 10,
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -685,7 +685,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -713,7 +713,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -748,7 +748,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -769,7 +769,7 @@ void main() {
           ids: {id1, id2, id3},
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -788,7 +788,7 @@ void main() {
           since: DateTime.fromMillisecondsSinceEpoch(1 * 1000),
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
 
@@ -807,7 +807,7 @@ void main() {
           until: DateTime.fromMillisecondsSinceEpoch(2 * 1000),
         ),
       ];
-      final result = mergeRequests(filter1, filter2);
+      final result = RequestFilter.merge(filter1, filter2);
       expect(result, equals(expected));
     });
   });
@@ -816,7 +816,7 @@ void main() {
     test("empty array returns empty array", () {
       final filters = <RequestFilter>[];
       final expected = <RequestFilter>[];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -831,7 +831,7 @@ void main() {
           authors: {nielPubkey},
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -849,7 +849,7 @@ void main() {
           authors: {nielPubkey, franzapPubkey},
         ),
       ]; // Assuming merge logic combines lists
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -885,7 +885,7 @@ void main() {
           ids: {id3, id4, id5, id6},
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -919,7 +919,7 @@ void main() {
           authors: {nielPubkey, franzapPubkey},
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -951,7 +951,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -978,7 +978,7 @@ void main() {
           kinds: {1, 2},
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1022,7 +1022,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1061,7 +1061,7 @@ void main() {
           limit: 20,
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       // Need custom matcher or manual sort/compare due to generated author
       expect(result.length, expected.length);
       expect(result, containsAll(expected));
@@ -1102,7 +1102,7 @@ void main() {
           limit: 30,
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1144,7 +1144,7 @@ void main() {
             },
           ),
         ];
-        final result = mergeMultipleRequests(filters);
+        final result = RequestFilter.mergeMultiple(filters);
         expect(result, unorderedEquals(expected));
       },
     );
@@ -1186,7 +1186,7 @@ void main() {
           kinds: {4},
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1225,7 +1225,7 @@ void main() {
             since: DateTime.fromMillisecondsSinceEpoch(150 * 1000),
           ),
         ];
-        final result = mergeMultipleRequests(filters);
+        final result = RequestFilter.mergeMultiple(filters);
         expect(result, unorderedEquals(expected));
       },
     );
@@ -1262,7 +1262,7 @@ void main() {
             until: DateTime.fromMillisecondsSinceEpoch(150 * 1000),
           ),
         ];
-        final result = mergeMultipleRequests(filters);
+        final result = RequestFilter.mergeMultiple(filters);
         expect(result, unorderedEquals(expected));
       },
     );
@@ -1301,7 +1301,7 @@ void main() {
           until: DateTime.fromMillisecondsSinceEpoch(250 * 1000),
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1368,7 +1368,7 @@ void main() {
           },
         ), // Merged #e
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1406,7 +1406,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1445,7 +1445,7 @@ void main() {
           kinds: {2},
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1474,7 +1474,7 @@ void main() {
           limit: 20,
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1582,7 +1582,7 @@ void main() {
         ),
       ];
 
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1612,7 +1612,7 @@ void main() {
           kinds: {2},
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1642,7 +1642,7 @@ void main() {
           kinds: {2},
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
 
@@ -1675,7 +1675,7 @@ void main() {
           },
         ),
       ];
-      final result = mergeMultipleRequests(filters);
+      final result = RequestFilter.mergeMultiple(filters);
       expect(result, unorderedEquals(expected));
     });
   });

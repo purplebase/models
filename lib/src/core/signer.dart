@@ -82,8 +82,8 @@ abstract class Signer {
   static final activeProfileProvider = Provider((ref) {
     final activePubkey = ref.watch(_activePubkeyProvider);
     if (activePubkey == null) return null;
-    final state =
-        ref.watch(query<Profile>(authors: {activePubkey}, remote: false));
+    final state = ref
+        .watch(query<Profile>(authors: {activePubkey}, source: LocalSource()));
     return state.models.firstOrNull;
   });
 }

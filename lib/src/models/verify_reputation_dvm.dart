@@ -8,16 +8,17 @@ class DVMError extends RegularModel<DVMError> {
 class VerifyReputationRequest extends RegularModel<VerifyReputationRequest> {
   VerifyReputationRequest.fromMap(super.map, super.ref) : super.fromMap();
   Future<Model<dynamic>?> run(String relayGroup) async {
+    final source = RemoteSource(group: relayGroup);
     // Just publish, do not save
-    await storage.publish({this}, relayGroup: relayGroup);
-    final responses = await storage.query(RequestFilter(
-      kinds: {6312, 7000},
-      remote: true,
-      relayGroup: relayGroup,
-      tags: {
-        'e': {event.id}
-      },
-    ));
+    await storage.publish({this}, source: source);
+    final responses = await storage.query(
+        RequestFilter(
+          kinds: {6312, 7000},
+          tags: {
+            'e': {event.id}
+          },
+        ).toRequest(),
+        source: source);
     return responses.firstOrNull;
   }
 }

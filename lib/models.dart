@@ -17,6 +17,7 @@ import 'package:convert/convert.dart';
 part 'src/utils/encoding.dart';
 part 'src/core/model.dart';
 part 'src/core/event.dart';
+part 'src/core/internal_models.dart';
 part 'src/core/relationship.dart';
 part 'src/core/signer.dart';
 
@@ -40,9 +41,8 @@ part 'src/models/targeted_publication.dart';
 part 'src/models/verify_reputation_dvm.dart';
 part 'src/models/zap.dart';
 
+part 'src/request/request_notifier.dart';
 part 'src/request/request.dart';
-part 'src/request/request_filter.dart';
-part 'src/request/merge_request_filter.dart';
 
 part 'src/storage/initialization.dart';
 part 'src/storage/storage.dart';

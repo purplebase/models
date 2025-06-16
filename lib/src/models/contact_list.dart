@@ -5,7 +5,8 @@ class ContactList extends ReplaceableModel<ContactList> {
   late final HasMany<Profile> following;
   late final HasMany<Profile> followers;
   ContactList.fromMap(super.map, super.ref) : super.fromMap() {
-    following = HasMany(ref, RequestFilter(authors: followingPubkeys));
+    following = HasMany(
+        ref, RequestFilter<Profile>(authors: followingPubkeys).toRequest());
     followers = HasMany(ref, null);
   }
   Set<String> get followingPubkeys => event.getTagSetValues('p');

@@ -43,7 +43,8 @@ void main() async {
 
       await storage.save({a, b, c, d, e, f, g, replyToA, replyToB});
       await storage.save({nielProfile});
-      await storage.publish({nielProfile}, relayGroup: 'big-relays');
+      await storage
+          .publish({nielProfile}, source: RemoteSource(group: 'big-relays'));
     });
 
     tearDown(() async {
@@ -53,25 +54,25 @@ void main() async {
     });
 
     test('ids', () async {
-      tester = container
-          .testerFor(queryKinds(ids: {a.event.id, e.event.id}, remote: false));
+      tester = container.testerFor(
+          queryKinds(ids: {a.event.id, e.event.id}, source: LocalSource()));
       await tester.expectModels(unorderedEquals({a, e}));
     });
 
     test('authors', () async {
       tester = container.testerFor(queryKinds(
-          authors: {franzapPubkey, verbirichaPubkey}, remote: false));
+          authors: {franzapPubkey, verbirichaPubkey}, source: LocalSource()));
       await tester.expectModels(unorderedEquals({e, f, g}));
     });
 
     test('kinds', () async {
-      tester = container.testerFor(query<Note>(remote: false));
+      tester = container.testerFor(query<Note>(source: LocalSource()));
       await tester.expectModels(allOf(
         hasLength(9),
         everyElement((e) => e is Model && e.event.kind == 1),
       ));
 
-      tester = container.testerFor(query<Profile>(remote: false));
+      tester = container.testerFor(query<Profile>(source: LocalSource()));
       await tester.expectModels(hasLength(1));
     });
 
@@ -80,23 +81,23 @@ void main() async {
         nielPubkey
       }, tags: {
         '#t': {'nostr'}
-      }, remote: false));
+      }, source: LocalSource()));
       await tester.expectModels(equals({d}));
 
       tester = container.testerFor(queryKinds(tags: {
         '#t': {'nostr', 'test'}
-      }, remote: false));
+      }, source: LocalSource()));
       await tester.expectModels(unorderedEquals({d, f}));
 
       tester = container.testerFor(queryKinds(tags: {
         '#t': {'test'}
-      }, remote: false));
+      }, source: LocalSource()));
       await tester.expectModels(isEmpty);
 
       tester = container.testerFor(queryKinds(tags: {
         '#t': {'nostr'},
         '#e': {nielPubkey}
-      }, remote: false));
+      }, source: LocalSource()));
       await tester.expectModels(isEmpty);
     });
 
@@ -104,7 +105,7 @@ void main() async {
       tester = container.testerFor(query<Note>(
           authors: {nielPubkey},
           until: DateTime.now().subtract(Duration(minutes: 1)),
-          remote: false));
+          source: LocalSource()));
       await tester.expectModels(orderedEquals({a, b, replyToB}));
     });
 
@@ -112,19 +113,19 @@ void main() async {
       tester = container.testerFor(queryKinds(
           authors: {nielPubkey},
           since: DateTime.now().subtract(Duration(minutes: 1)),
-          remote: false));
+          source: LocalSource()));
       await tester.expectModels(orderedEquals({c, d, nielProfile, replyToA}));
     });
 
     test('limit and order', () async {
       tester = container.testerFor(
-          query<Note>(authors: {nielPubkey}, limit: 3, remote: false));
+          query<Note>(authors: {nielPubkey}, limit: 3, source: LocalSource()));
       await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
     test('replaceable updates', () async {
-      tester = container
-          .testerFor(query<Profile>(authors: {nielPubkey}, remote: false));
+      tester = container.testerFor(
+          query<Profile>(authors: {nielPubkey}, source: LocalSource()));
       await tester.expectModels(unorderedEquals({nielProfile}));
 
       final nielcho =
@@ -140,8 +141,8 @@ void main() async {
     });
 
     test('relationships with model watcher', () async {
-      tester = container
-          .testerFor(model(a, and: (note) => {note.author}, remote: false));
+      tester = container.testerFor(
+          model(a, and: (note) => {note.author}, source: LocalSource()));
       await tester.expectModels(unorderedEquals({a}));
       // NOTE: note.author will be cached, but only note is returned
     });
@@ -150,14 +151,14 @@ void main() async {
       tester = container.testerFor(query<Note>(
           ids: {a.id, b.id},
           and: (note) => {note.author, note.replies},
-          remote: false));
+          source: LocalSource()));
       await tester.expectModels(unorderedEquals({a, b}));
       // NOTE: author and replies will be cached, can't assert here
     });
 
     test('relay metadata', () async {
-      tester = container
-          .testerFor(query<Profile>(authors: {nielPubkey}, remote: false));
+      tester = container.testerFor(
+          query<Profile>(authors: {nielPubkey}, source: LocalSource()));
       await tester.expect(isA<StorageData>()
           .having((s) => s.models.first.event.relays, 'relays', <String>{}));
     });
@@ -192,20 +193,21 @@ void main() async {
       await storage.save({...a, ...b});
       final beginOfYear = DateTime.parse('2025-01-01');
       final beginOfMonth = DateTime.parse('2025-04-01');
-      expect(
-          storage.querySync(RequestFilter(since: beginOfYear)), hasLength(60));
-      expect(
-          storage.querySync(RequestFilter(since: beginOfMonth)), hasLength(30));
-      await storage.clear(RequestFilter(until: beginOfMonth));
-      expect(
-          storage.querySync(RequestFilter(since: beginOfYear)), hasLength(30));
+      expect(storage.querySync(RequestFilter(since: beginOfYear).toRequest()),
+          hasLength(60));
+      expect(storage.querySync(RequestFilter(since: beginOfMonth).toRequest()),
+          hasLength(30));
+      await storage.clear(RequestFilter(until: beginOfMonth).toRequest());
+      expect(storage.querySync(Request([RequestFilter(since: beginOfYear)])),
+          hasLength(30));
     });
 
     test('max models config', () async {
       final max = storage.config.keepMaxModels;
       final a = List.generate(max * 2, (_) => storage.generateModel(kind: 1)!);
       await storage.save(a.toSet());
-      expect(storage.querySync(RequestFilter()), hasLength(max));
+      expect(
+          storage.querySync(RequestFilter<Note>().toRequest()), hasLength(max));
     });
 
     test('request filter', () {
@@ -241,7 +243,6 @@ void main() async {
           'foo': {'bar'},
           '#t': {'nostr'}
         },
-        remote: false,
       );
 
       expect(r1, equals(r4));
@@ -270,8 +271,8 @@ void main() async {
       });
 
       test('relay request should notify with models', () async {
-        tester = container.testerFor(query<Note>(
-            authors: {nielPubkey, franzapPubkey}, limit: 1, queryLimit: 2));
+        tester = container.testerFor(
+            query<Note>(authors: {nielPubkey, franzapPubkey}, limit: 1));
         await tester.expectModels(hasLength(1));
         await tester.expectModels(hasLength(2));
       });
@@ -280,14 +281,11 @@ void main() async {
         tester = container.testerFor(query<Note>(
           authors: {nielPubkey, franzapPubkey},
           limit: 5,
-          queryLimit: 21,
         ));
         await tester.expectModels(hasLength(5)); // limit=5
-        // stream starts in batches of 5, until queryLimit=21
         await tester.expectModels(hasLength(10));
         await tester.expectModels(hasLength(15));
         await tester.expectModels(hasLength(20));
-        await tester.expectModels(hasLength(21));
       });
     });
   });

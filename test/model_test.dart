@@ -103,7 +103,7 @@ void main() {
           PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
               .dummySign(nielPubkey);
       expect(reaction.emojiTag, equals(('test', 'test://t')));
-      expect(reaction.reactedOn.req!.ids, {a.event.id});
+      expect(reaction.reactedOn.req!.filters.first.ids, {a.event.id});
       expect(reaction.reactedOn.value, a);
       expect(reaction.author.value, profile);
     });
@@ -302,7 +302,7 @@ void main() {
             1111
           }, tags: {
             '#A': {article.id}
-          }));
+          }).toRequest());
 
       expect(commentFromArticle, contains(articleComment));
 

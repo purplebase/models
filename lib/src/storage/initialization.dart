@@ -36,7 +36,7 @@ class StorageConfiguration extends Equatable {
   /// older will be removed (default: 20000)
   final int keepMaxModels;
 
-  const StorageConfiguration({
+  StorageConfiguration({
     this.databasePath = '',
     this.keepSignatures = false,
     this.skipVerification = false,
@@ -45,13 +45,18 @@ class StorageConfiguration extends Equatable {
     this.idleTimeout = const Duration(minutes: 5),
     this.streamingBufferWindow = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
-  });
+  }) {
+    // TODO: Normalize/sanitize relayUrls, ensure no commas
+  }
 
   /// Find relays given a group,
   /// [useDefault] if missing whether to return the default one
-  Set<String> getRelays({String? relayGroup, bool useDefault = true}) {
-    final k = useDefault ? (relayGroup ?? defaultRelayGroup) : relayGroup;
-    return relayGroups[k] ?? {};
+  Set<String> getRelays({Source? source, bool useDefault = true}) {
+    if (source is RemoteSource) {
+      final k = useDefault ? (source.group ?? defaultRelayGroup) : source.group;
+      return relayGroups[k] ?? {};
+    }
+    return {};
   }
 
   @override

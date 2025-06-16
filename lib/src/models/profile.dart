@@ -5,9 +5,10 @@ class Profile extends ReplaceableModel<Profile> {
   late final BelongsTo<ContactList> contactList;
 
   Profile.fromMap(super.map, super.ref) : super.fromMap() {
-    notes = HasMany(ref, RequestFilter(authors: {event.pubkey}));
-    contactList =
-        BelongsTo(ref, RequestFilter<ContactList>(authors: {event.pubkey}));
+    notes =
+        HasMany(ref, RequestFilter<Note>(authors: {event.pubkey}).toRequest());
+    contactList = BelongsTo(
+        ref, RequestFilter<ContactList>(authors: {event.pubkey}).toRequest());
   }
 
   @override

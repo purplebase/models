@@ -8,16 +8,18 @@ class ChatMessage extends RegularModel<ChatMessage> {
   ChatMessage.fromMap(super.map, super.ref) : super.fromMap() {
     quotedMessage = BelongsTo(
       ref,
-      RequestFilter(
+      RequestFilter<ChatMessage>(
         tags: {
           '#q': {event.id}
         },
-      ),
+      ).toRequest(),
     );
     community = BelongsTo(
         ref,
         event.containsTag('h')
-            ? RequestFilter.fromReplaceable(event.getFirstTagValue('h')!)
+            ? RequestFilter<Community>.fromReplaceable(
+                    event.getFirstTagValue('h')!)
+                .toRequest()
             : null);
   }
   String get content => event.content;

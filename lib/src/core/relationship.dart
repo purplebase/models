@@ -1,8 +1,8 @@
 part of models;
 
-/// Relationship to other models established via a [RequestFilter]
+/// Relationship to other models established via a [Request]
 sealed class Relationship<E extends Model<dynamic>> {
-  final RequestFilter<E>? req;
+  final Request<E>? req;
   final Ref ref;
   final StorageNotifier storage;
   Relationship(this.ref, this.req)
@@ -17,9 +17,9 @@ sealed class Relationship<E extends Model<dynamic>> {
 
   Future<List<E>> _modelsAsync({int? limit}) async {
     if (req == null) return [];
-    final updatedReq = req!.copyWith(limit: limit, remote: false);
-    final models = await storage.query<E>(updatedReq);
-    return models;
+    final updatedReq =
+        req!.filters.map((f) => f.copyWith(limit: limit)).toRequest();
+    return await storage.query<E>(updatedReq, source: LocalSource());
   }
 }
 

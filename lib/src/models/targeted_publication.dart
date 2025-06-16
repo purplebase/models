@@ -8,15 +8,18 @@ class TargetedPublication
 
   TargetedPublication.fromMap(super.map, super.ref) : super.fromMap() {
     if (event.getFirstTagValue('e') != null) {
-      model =
-          BelongsTo(ref, RequestFilter(ids: {event.getFirstTagValue('e')!}));
+      model = BelongsTo(
+          ref,
+          RequestFilter<Model>(ids: {event.getFirstTagValue('e')!})
+              .toRequest());
     } else {
       final addressableId = event.getFirstTagValue('a')!;
-      model = BelongsTo(ref, RequestFilter.fromReplaceable(addressableId));
+      model = BelongsTo(
+          ref, RequestFilter<Model>.fromReplaceable(addressableId).toRequest());
     }
 
     // This is only possible because communities are replaceable events (without a d tag)
-    final req = RequestFilter<Community>(authors: communityPubkeys);
+    final req = RequestFilter<Community>(authors: communityPubkeys).toRequest();
     communities = HasMany(ref, req);
   }
 
