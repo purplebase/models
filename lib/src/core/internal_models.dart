@@ -9,6 +9,10 @@ sealed class Source {
 
 final class LocalSource extends Source {
   const LocalSource({super.group});
+  @override
+  String toString() {
+    return 'LocalSource: $group';
+  }
 }
 
 final class RemoteSource extends Source {
@@ -16,6 +20,11 @@ final class RemoteSource extends Source {
   final bool includeLocal;
   const RemoteSource(
       {super.group, this.includeLocal = true, this.stream = true});
+
+  @override
+  String toString() {
+    return 'RemoteSource: $group [stream=$stream includeLocal=$includeLocal]';
+  }
 }
 
 final class OutboxRelaySource extends RemoteSource {

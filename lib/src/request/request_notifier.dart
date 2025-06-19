@@ -67,22 +67,8 @@ class RequestNotifier<E extends Model<dynamic>>
   }
 
   // Fetch models from local storage and send request to relays
-  Future<List<E>> _fetchAndQuery(Request<E> req, Source? source) async {
-    print('in fetchAndQuery');
-    // Send req to relays in the background
-    // TODO: Is this ok, or use a copyWith in Source?
-    // final remoteOnlySource = source is RemoteSource
-    //     ? RemoteSource(
-    //         group: source.group, includeLocal: false, stream: source.stream)
-    //     : null;
-    if (source case RemoteSource(includeLocal: false)) {
-      // TODO: why doesn't it await?
-      storage.query(req, source: source as Source);
-    }
-
-    // Since a remote query was just performed, ensure storage.query is local
-    final models = await storage.query(req, source: LocalSource());
-    print('fetchAndQuery queried and got ${models.length}');
+  Future<List<E>> _fetchAndQuery(Request<E> req, Source source) async {
+    final models = await storage.query(req, source: source);
 
     // If relationship watchers were provided, find filters and merge,
     // then query local storage
@@ -107,7 +93,7 @@ class RequestNotifier<E extends Model<dynamic>>
     storage.requestCache[mergedReq.subscriptionId]![mergedReq] =
         relatedModels.cast();
 
-    // Send request filters to relays
+    // Send relationship request filters to relays
     // TODO: Fetch may get new models that expire cache entries, is this covered?
     if (source is RemoteSource) {
       storage.query(mergedReq, source: source as Source);
@@ -117,20 +103,22 @@ class RequestNotifier<E extends Model<dynamic>>
   }
 }
 
-final Map<Request,
+final Map<RequestFilter,
         AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>>
     _typedProviderCache = {};
 
 /// Family of notifier providers, one per request
 /// Manually caching since a factory function is needed to pass the type
 _requestNotifierProvider<E extends Model<dynamic>>(
-        Request<E> req, Source source) =>
-    _typedProviderCache[req] ??= StateNotifierProvider.autoDispose
-        .family<RequestNotifier<E>, StorageState<E>, Request<E>>(
+        RequestFilter<E> filter, Source source) =>
+    _typedProviderCache[filter] ??= StateNotifierProvider.autoDispose
+        .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>(
       (ref, req) {
-        return RequestNotifier(ref, req, source);
+        // Defer Request creation til this point so we leverage
+        // equality on the RequestFilter at the provider level
+        return RequestNotifier(ref, filter.toRequest(), source);
       },
-    )(req);
+    )(filter);
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
 /// with default type ([Model]), [remote] is true by default
@@ -159,7 +147,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
     where: where,
     and: and,
   );
-  return _requestNotifierProvider(filter.toRequest(), source);
+  return _requestNotifierProvider(filter, source);
 }
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter<E>(...))`
@@ -188,7 +176,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
     where: _castWhere(where),
     and: _castAnd(and),
   );
-  return _requestNotifierProvider<E>(filter.toRequest(), source);
+  return _requestNotifierProvider<E>(filter, source);
 }
 
 /// Syntax sugar for watching one model of type [E],
@@ -200,7 +188,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
         bool remote = true}) {
   // Note: does not need kind or other arguments as it queries by ID
   final filter = RequestFilter<E>(ids: {model.id}, and: _castAnd(and));
-  return _requestNotifierProvider<E>(filter.toRequest(), source);
+  return _requestNotifierProvider<E>(filter, source);
 }
 
 typedef AndFunction<E extends Model<dynamic>> = Set<Relationship<Model>>

@@ -57,11 +57,8 @@ class StorageConfiguration extends Equatable {
   /// [useDefault] if missing whether to return the default one
   Set<String> getRelays(
       {Source source = const RemoteSource(), bool useDefault = true}) {
-    if (source is RemoteSource) {
-      final k = useDefault ? (source.group ?? defaultRelayGroup) : source.group;
-      return relayGroups[k] ?? {};
-    }
-    return {};
+    final k = source.group ?? (useDefault ? defaultRelayGroup : null);
+    return relayGroups[k] ?? {};
   }
 
   @override
