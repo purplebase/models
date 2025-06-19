@@ -95,9 +95,7 @@ class RequestNotifier<E extends Model<dynamic>>
 
     // Send relationship request filters to relays
     // TODO: Fetch may get new models that expire cache entries, is this covered?
-    if (source is RemoteSource) {
-      storage.query(mergedReq, source: source as Source);
-    }
+    storage.query(mergedReq, source: source);
 
     return models;
   }
