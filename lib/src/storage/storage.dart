@@ -57,10 +57,10 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   }
 
   /// Query storage asynchronously.
-  /// [source] defaults to [RemoteSource], which fetches from local storage and relays
+  /// By default fetches from local storage and relays.
   /// For errors, listen to this notifier and filter for [StorageError]
   Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
-      {Source? source, Set<String>? onIds});
+      {Source source = const RemoteSource(), Set<String>? onIds});
 
   /// Query storage asynchronously, always local
   List<E> querySync<E extends Model<dynamic>>(Request<E> req,
@@ -73,7 +73,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   /// Sends to relays and waits for response.
   /// For errors, listen to this notifier and filter for [StorageError]
   Future<PublishResponse> publish(Set<Model<dynamic>> models,
-      {RemoteSource? source});
+      {RemoteSource source = const RemoteSource()});
 
   /// Remove all models from local storage (or those matching [req]).
   /// For errors, listen to this notifier and filter for [StorageError]

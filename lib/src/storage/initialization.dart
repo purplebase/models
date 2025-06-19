@@ -10,8 +10,8 @@ final initializationProvider =
 });
 
 class StorageConfiguration extends Equatable {
-  /// Path to the database
-  final String databasePath;
+  /// Path to the database (write to memory if absent)
+  final String? databasePath;
 
   /// Whether to keep signatures in local storage (default `false`)
   final bool keepSignatures;
@@ -29,6 +29,9 @@ class StorageConfiguration extends Equatable {
   /// After this inactivity duration, relays disconnect (default: 5 minutes)
   final Duration idleTimeout;
 
+  /// Duration to wait for relays to respond
+  final Duration responseTimeout;
+
   /// How often event updates are emitted from [StorageNotifier] (default: 2 seconds)
   final Duration streamingBufferWindow;
 
@@ -37,12 +40,13 @@ class StorageConfiguration extends Equatable {
   final int keepMaxModels;
 
   StorageConfiguration({
-    this.databasePath = '',
+    this.databasePath,
     this.keepSignatures = false,
     this.skipVerification = false,
     this.relayGroups = const {},
     this.defaultRelayGroup,
     this.idleTimeout = const Duration(minutes: 5),
+    this.responseTimeout = const Duration(seconds: 6),
     this.streamingBufferWindow = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
   }) {
@@ -51,7 +55,8 @@ class StorageConfiguration extends Equatable {
 
   /// Find relays given a group,
   /// [useDefault] if missing whether to return the default one
-  Set<String> getRelays({Source? source, bool useDefault = true}) {
+  Set<String> getRelays(
+      {Source source = const RemoteSource(), bool useDefault = true}) {
     if (source is RemoteSource) {
       final k = useDefault ? (source.group ?? defaultRelayGroup) : source.group;
       return relayGroups[k] ?? {};

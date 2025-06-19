@@ -53,7 +53,7 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<PublishResponse> publish(Set<Model<dynamic>> models,
-      {Source? source}) async {
+      {Source source = const RemoteSource()}) async {
     final response = PublishResponse();
     // Publish in the background, before using metadata/transformMap
     if (models.isNotEmpty) {
@@ -71,7 +71,7 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
-      {Source? source, Set<String>? onIds}) async {
+      {Source source = const RemoteSource(), Set<String>? onIds}) async {
     final results = querySync<E>(req, onIds: onIds);
     return Future.microtask(() {
       final fetched = fetchSync<E>(req);

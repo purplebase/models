@@ -95,8 +95,7 @@ sealed class Model<E extends Model<E>>
   // Storage-related
 
   /// Save this model to storage, and optionally publish
-  // TODO: Set more source defaults this way with const
-  Future<void> save({Source? source = const LocalSource()}) async {
+  Future<void> save({Source source = const LocalSource()}) async {
     await storage.save({this});
     if (source is RemoteSource) {
       await storage.publish({this}, source: source);

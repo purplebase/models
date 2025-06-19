@@ -61,7 +61,8 @@ final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
 }
 
 final class PublishResponse {
-  final Map<String, Set<RelayEventState>> _map = {};
+  final Map<String, Set<RelayEventState>> results = {};
+  // TODO: Implement
   Set<String> unreachableRelayUrls = {};
 
   void addEvent(
@@ -70,8 +71,8 @@ final class PublishResponse {
     bool accepted = true,
     String? message,
   }) {
-    _map[eventId] ??= {};
-    _map[eventId]!.add(
+    results[eventId] ??= {};
+    results[eventId]!.add(
       RelayEventState(relayUrl, accepted: accepted, message: message),
     );
   }

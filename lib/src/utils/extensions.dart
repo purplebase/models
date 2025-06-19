@@ -20,3 +20,11 @@ extension ModelsExt<E extends Model<dynamic>> on Iterable<E> {
         (m) => m.createdAt.millisecondsSinceEpoch, (a, b) => b.compareTo(a));
   }
 }
+
+extension MapIterableExt on Iterable<Map<String, dynamic>> {
+  List<E> toModels<E extends Model<dynamic>>(Ref ref) {
+    return map((e) {
+      return Model.getConstructorForKind(e['kind']!)!.call(e, ref);
+    }).sortByCreatedAt().cast<E>();
+  }
+}

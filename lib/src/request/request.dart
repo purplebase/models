@@ -1,6 +1,6 @@
 part of models;
 
-class Request<E extends Model<dynamic>> {
+class Request<E extends Model<dynamic>> with EquatableMixin {
   static final _random = Random();
 
   final List<RequestFilter<E>> filters;
@@ -14,6 +14,14 @@ class Request<E extends Model<dynamic>> {
 
   List<Map<String, dynamic>> toMaps() {
     return filters.map((f) => f.toMap()).toList();
+  }
+
+  @override
+  List<Object?> get props => [subscriptionId];
+
+  @override
+  String toString() {
+    return 'Req[${filters.join(', ')}]';
   }
 }
 
@@ -53,11 +61,11 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
     // IDs are either regular (64 character) or replaceable and match its regexp
     if (ids != null &&
         ids.any((i) => i.length != 64 && !_kReplaceableRegexp.hasMatch(i))) {
-      throw UnsupportedError('Bad ids input: $ids');
+      throw Exception('Bad ids input: $ids');
     }
     final authorsHex = authors?.map(Utils.hexFromNpub);
     if (authorsHex != null && authorsHex.any((a) => a.length != 64)) {
-      throw UnsupportedError('Bad authors input: $authors');
+      throw Exception('Bad authors input: $authors');
     }
   }
 
