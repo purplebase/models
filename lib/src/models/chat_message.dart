@@ -17,9 +17,7 @@ class ChatMessage extends RegularModel<ChatMessage> {
     community = BelongsTo(
         ref,
         event.containsTag('h')
-            ? RequestFilter<Community>.fromReplaceable(
-                    event.getFirstTagValue('h')!)
-                .toRequest()
+            ? Request<Community>.fromIds({event.getFirstTagValue('h')!})
             : null);
   }
   String get content => event.content;

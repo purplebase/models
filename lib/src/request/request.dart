@@ -12,12 +12,39 @@ class Request<E extends Model<dynamic>> with EquatableMixin {
     this.subscriptionId = subscriptionId ?? 'sub-${_random.nextInt(999999)}';
   }
 
+  factory Request.fromIds(Iterable<String> ids) {
+    final regularIds = <String>{};
+    final filters = <RequestFilter<E>>[];
+
+    for (final id in ids) {
+      if (!id.contains(':')) {
+        regularIds.add(id);
+        continue;
+      }
+      final [kind, author, ...rest] = id.split(':');
+      var filter = RequestFilter<E>(
+        kinds: {int.parse(kind)},
+        authors: {author},
+      );
+      if (rest.isNotEmpty && rest.first.isNotEmpty) {
+        filter = filter.copyWith(tags: {
+          '#d': {rest.first}
+        });
+      }
+      filters.add(filter);
+    }
+    if (regularIds.isNotEmpty) {
+      filters.add(RequestFilter(ids: regularIds));
+    }
+    return Request(filters);
+  }
+
   List<Map<String, dynamic>> toMaps() {
     return filters.map((f) => f.toMap()).toList();
   }
 
   @override
-  List<Object?> get props => [subscriptionId];
+  List<Object?> get props => [filters];
 
   @override
   String toString() {
@@ -88,23 +115,6 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
           : null,
       limit: map['limit'],
     );
-  }
-
-  factory RequestFilter.fromReplaceable(String addressableId) {
-    if (!addressableId.contains(':')) {
-      throw UnsupportedError('Addressable ID must contain `:`');
-    }
-    final [kind, author, ...rest] = addressableId.split(':');
-    var req = RequestFilter<E>(
-      kinds: {int.parse(kind)},
-      authors: {author},
-    );
-    if (rest.isNotEmpty && rest.first.isNotEmpty) {
-      req = req.copyWith(tags: {
-        '#d': {rest.first}
-      });
-    }
-    return req;
   }
 
   static bool _isModelOfDynamic<E extends Model<dynamic>>() =>

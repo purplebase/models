@@ -16,9 +16,7 @@ class Comment extends RegularModel<Comment> {
     // Root reference
     if (event.containsTag('A')) {
       rootModel = BelongsTo(
-          ref,
-          RequestFilter<Model>.fromReplaceable(event.getFirstTagValue('A')!)
-              .toRequest());
+          ref, Request<Model>.fromIds({event.getFirstTagValue('A')!}));
     } else if (event.containsTag('E')) {
       rootModel = BelongsTo(
           ref,
@@ -31,9 +29,7 @@ class Comment extends RegularModel<Comment> {
     // Parent article reference
     if (event.containsTag('a')) {
       parentModel = BelongsTo(
-          ref,
-          RequestFilter<Model>.fromReplaceable(event.getFirstTagValue('a')!)
-              .toRequest());
+          ref, Request<Model>.fromIds({event.getFirstTagValue('a')!}));
     } else if (event.containsTag('e')) {
       parentModel = BelongsTo(
           ref,

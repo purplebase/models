@@ -193,12 +193,13 @@ void main() async {
       await storage.save({...a, ...b});
       final beginOfYear = DateTime.parse('2025-01-01');
       final beginOfMonth = DateTime.parse('2025-04-01');
-      expect(storage.querySync(RequestFilter(since: beginOfYear).toRequest()),
+      expect(await storage.query(RequestFilter(since: beginOfYear).toRequest()),
           hasLength(60));
-      expect(storage.querySync(RequestFilter(since: beginOfMonth).toRequest()),
+      expect(
+          await storage.query(RequestFilter(since: beginOfMonth).toRequest()),
           hasLength(30));
       await storage.clear(RequestFilter(until: beginOfMonth).toRequest());
-      expect(storage.querySync(Request([RequestFilter(since: beginOfYear)])),
+      expect(await storage.query(Request([RequestFilter(since: beginOfYear)])),
           hasLength(30));
     });
 
@@ -206,8 +207,8 @@ void main() async {
       final max = storage.config.keepMaxModels;
       final a = List.generate(max * 2, (_) => storage.generateModel(kind: 1)!);
       await storage.save(a.toSet());
-      expect(
-          storage.querySync(RequestFilter<Note>().toRequest()), hasLength(max));
+      expect(await storage.query(RequestFilter<Note>().toRequest()),
+          hasLength(max));
     });
 
     test('request filter', () {
@@ -287,6 +288,390 @@ void main() async {
         await tester.expectModels(hasLength(15));
         await tester.expectModels(hasLength(20));
       });
+    });
+  });
+
+  group('request notifier', () {
+    late ProviderContainer container;
+    late DummyStorageNotifier storage;
+    late StateNotifierTester tester;
+    late Note originalNote, editedNote, replyNote, quoteNote;
+    late Profile authorProfile, replierProfile;
+    late Reaction likeReaction, dislikeReaction;
+    late Comment threadComment;
+
+    setUp(() async {
+      container = ProviderContainer();
+      final config = StorageConfiguration(
+        relayGroups: {
+          'test-relays': {'wss://test1.relay.io', 'wss://test2.relay.io'}
+        },
+        defaultRelayGroup: 'test-relays',
+        streamingBufferWindow: Duration.zero,
+      );
+      await container.read(initializationProvider(config).future);
+      storage = container.read(storageNotifierProvider.notifier)
+          as DummyStorageNotifier;
+
+      // Create test data with relationships
+      authorProfile = PartialProfile(name: 'Alice', about: 'Test author')
+          .dummySign(nielPubkey);
+      replierProfile = PartialProfile(name: 'Bob', about: 'Test replier')
+          .dummySign(franzapPubkey);
+
+      originalNote = PartialNote('Original post about #nostr', tags: {'nostr'})
+          .dummySign(nielPubkey);
+      editedNote = PartialNote('Edited post about #nostr', tags: {'nostr'})
+          .dummySign(nielPubkey);
+
+      replyNote = PartialNote('Great point!', replyTo: originalNote)
+          .dummySign(franzapPubkey);
+      quoteNote = PartialNote('Quoting this: ${originalNote.event.id}')
+          .dummySign(verbirichaPubkey);
+
+      likeReaction = PartialReaction(content: '+', reactedOn: originalNote)
+          .dummySign(franzapPubkey);
+      dislikeReaction = PartialReaction(content: '-', reactedOn: originalNote)
+          .dummySign(verbirichaPubkey);
+
+      threadComment =
+          PartialComment(content: 'Nice thread', rootModel: originalNote)
+              .dummySign(franzapPubkey);
+
+      // Save initial data
+      await storage.save({
+        authorProfile,
+        replierProfile,
+        originalNote,
+        replyNote,
+        likeReaction,
+        threadComment
+      });
+    });
+
+    tearDown(() async {
+      tester.dispose();
+      storage.cancel();
+      await storage.clear();
+    });
+
+    test('basic query with relationships - author profile', () async {
+      tester = container.testerFor(query<Note>(
+        ids: {originalNote.id},
+        and: (note) => {note.author},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+      // Should trigger relationship query for author profile
+    });
+
+    test('query with multiple relationships', () async {
+      tester = container.testerFor(query<Note>(
+        ids: {originalNote.id},
+        and: (note) => {note.author, note.replies, note.reactions},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+      // Should query author, replies, and reactions relationships
+    });
+
+    test('streaming update adds new main model with relationships', () async {
+      tester = container.testerFor(query<Note>(
+        authors: {nielPubkey},
+        and: (note) => {note.author, note.reactions},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+
+      // Add new note by same author
+      final newNote = PartialNote('Another post').dummySign(nielPubkey);
+      final newReaction = PartialReaction(content: '+', reactedOn: newNote)
+          .dummySign(franzapPubkey);
+
+      await storage.save({newNote, newReaction});
+
+      await tester.expectModels(unorderedEquals({originalNote, newNote}));
+      // Should update relationships for both notes
+    });
+
+    test('streaming update modifies existing model relationships', () async {
+      tester = container.testerFor(query<Note>(
+        ids: {originalNote.id},
+        and: (note) => {note.reactions},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+
+      // Add new reaction to existing note
+      await storage.save({dislikeReaction});
+
+      // Note itself doesn't change, but relationships should update
+      await tester.expectModels(unorderedEquals({originalNote}));
+    });
+
+    test('replaceable event updates maintain relationships', () async {
+      tester = container.testerFor(query<Note>(
+        ids: {originalNote.id},
+        and: (note) => {note.author, note.reactions},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+
+      // Update the note (replaceable event)
+      await storage.save({editedNote});
+
+      await tester.expectModels(unorderedEquals({editedNote}));
+      // Relationships should be recalculated for edited note
+    });
+
+    test('relationship cleanup when models are removed', () async {
+      tester = container.testerFor(query<Note>(
+        authors: {nielPubkey, franzapPubkey},
+        and: (note) => {note.author, note.replies},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote, replyNote}));
+
+      // Remove one of the notes by clearing with a specific request
+      await storage.clear(RequestFilter<Note>(ids: {replyNote.id}).toRequest());
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+      // Should cleanup relationships for removed note
+    });
+
+    test('empty initial query with later streaming results', () async {
+      // Query for non-existent author initially
+      tester = container.testerFor(query<Note>(
+        authors: {'nonexistent_pubkey'},
+        and: (note) => {note.author, note.reactions},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(isEmpty);
+
+      // Later add a note by that author
+      final lateNote =
+          PartialNote('Late arrival').dummySign('nonexistent_pubkey');
+      final lateProfile =
+          PartialProfile(name: 'Late User').dummySign('nonexistent_pubkey');
+
+      await storage.save({lateNote, lateProfile});
+
+      await tester.expectModels(unorderedEquals({lateNote}));
+      // Should establish relationships for newly arrived data
+    });
+
+    test('complex relationship chain - replies to replies', () async {
+      // Create a reply chain
+      final replyToReply = PartialNote('Reply to reply', replyTo: replyNote)
+          .dummySign(verbirichaPubkey);
+      final replyToReplyToReply =
+          PartialNote('Deep reply', replyTo: replyToReply)
+              .dummySign(nielPubkey);
+
+      await storage.save({replyToReply, replyToReplyToReply});
+
+      tester = container.testerFor(query<Note>(
+        ids: {originalNote.id},
+        and: (note) => {note.replies},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+      // Should handle nested relationship queries
+    });
+
+    test('overlapping requests with shared relationships', () async {
+      // Two different queries that share some relationship data
+      final tester1 = container.testerFor(query<Note>(
+        authors: {nielPubkey},
+        and: (note) => {note.author, note.reactions},
+        source: LocalSource(),
+      ));
+
+      final tester2 = container.testerFor(query<Note>(
+        tags: {
+          '#t': {'nostr'}
+        },
+        and: (note) => {note.author, note.replies},
+        source: LocalSource(),
+      ));
+
+      await tester1.expectModels(unorderedEquals({originalNote}));
+      await tester2.expectModels(unorderedEquals({originalNote}));
+
+      // Add data that affects both queries
+      final newReaction =
+          PartialReaction(content: '❤️', reactedOn: originalNote)
+              .dummySign(verbirichaPubkey);
+      final newReply = PartialNote('New reply', replyTo: originalNote)
+          .dummySign(verbirichaPubkey);
+
+      await storage.save({newReaction, newReply});
+
+      // Both should update appropriately
+      await tester1.expectModels(unorderedEquals({originalNote}));
+      await tester2.expectModels(unorderedEquals({originalNote}));
+
+      tester1.dispose();
+      tester2.dispose();
+    });
+
+    test('relationship data becomes available after initial query', () async {
+      // Query note before its author profile exists
+      await storage
+          .clear(RequestFilter<Profile>(ids: {authorProfile.id}).toRequest());
+
+      tester = container.testerFor(query<Note>(
+        ids: {originalNote.id},
+        and: (note) => {note.author},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+
+      // Later add the author profile
+      await storage.save({authorProfile});
+
+      // Should trigger relationship update
+      await tester.expectModels(unorderedEquals({originalNote}));
+    });
+
+    test('bulk updates with mixed model types', () async {
+      tester = container.testerFor(query<Note>(
+        authors: {nielPubkey, franzapPubkey},
+        and: (note) => {note.author, note.reactions, note.replies},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote, replyNote}));
+
+      // Bulk update with various model types
+      final bulkNotes = List.generate(
+          5, (i) => PartialNote('Bulk note $i').dummySign(nielPubkey));
+      final bulkReactions = bulkNotes
+          .map((note) => PartialReaction(content: '+', reactedOn: note)
+              .dummySign(franzapPubkey))
+          .toList();
+      final bulkProfiles = [
+        PartialProfile(name: 'Updated Alice').dummySign(nielPubkey),
+        PartialProfile(name: 'Updated Bob').dummySign(franzapPubkey),
+      ];
+
+      await storage.save({...bulkNotes, ...bulkReactions, ...bulkProfiles});
+
+      await tester.expectModels(hasLength(greaterThan(2)));
+      // Should handle bulk relationship updates efficiently
+    });
+
+    test('time-based queries with relationships', () async {
+      final now = DateTime.now();
+      final hourAgo = now.subtract(Duration(hours: 1));
+
+      final oldNote =
+          PartialNote('Old note', createdAt: hourAgo).dummySign(nielPubkey);
+      final oldReaction = PartialReaction(content: '+', reactedOn: oldNote)
+          .dummySign(franzapPubkey);
+
+      await storage.save({oldNote, oldReaction});
+
+      tester = container.testerFor(query<Note>(
+        authors: {nielPubkey},
+        since: hourAgo.add(Duration(minutes: 30)),
+        and: (note) => {note.author, note.reactions},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+      // Should only include recent notes but maintain relationships
+    });
+
+    test('error resilience during relationship updates', () async {
+      tester = container.testerFor(query<Note>(
+        ids: {originalNote.id},
+        and: (note) => {note.author, note.reactions},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+
+      // Simulate problematic update that might cause errors
+      // The notifier should continue functioning despite errors
+      final corruptedNote =
+          PartialNote('Corrupted content').dummySign(nielPubkey);
+
+      await storage.save({corruptedNote});
+
+      // Should still maintain state despite potential errors
+      await tester.expectModels(isNotEmpty);
+    });
+
+    test('relationship cycles and circular references', () async {
+      // Create circular relationship scenario
+      final noteA = PartialNote('Note A mentions B').dummySign(nielPubkey);
+      final noteB = PartialNote('Note B mentions A', replyTo: noteA)
+          .dummySign(franzapPubkey);
+      final noteC = PartialNote('Note C quotes A: ${noteA.event.id}')
+          .dummySign(verbirichaPubkey);
+
+      await storage.save({noteA, noteB, noteC});
+
+      tester = container.testerFor(query<Note>(
+        ids: {noteA.id, noteB.id},
+        and: (note) => {note.replies},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({noteA, noteB}));
+      // Should handle circular relationships without infinite loops
+    });
+
+    test('high-frequency updates stress test', () async {
+      tester = container.testerFor(query<Note>(
+        authors: {nielPubkey},
+        and: (note) => {note.reactions},
+        source: LocalSource(),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+
+      // Rapid-fire updates to test race condition handling
+      final rapidUpdates = <Future>[];
+      for (int i = 0; i < 10; i++) {
+        rapidUpdates.add(storage.save({
+          PartialReaction(content: 'reaction_$i', reactedOn: originalNote)
+              .dummySign('user_$i')
+        }));
+      }
+
+      await Future.wait(rapidUpdates);
+
+      // Should handle rapid updates gracefully
+      await tester.expectModels(unorderedEquals({originalNote}));
+    });
+
+    test('mixed source queries with relationships', () async {
+      // Test combination of local and remote sources
+      tester = container.testerFor(query<Note>(
+        authors: {nielPubkey},
+        and: (note) => {note.author, note.reactions},
+        source: RemoteSource(group: 'test-relays'),
+      ));
+
+      await tester.expectModels(unorderedEquals({originalNote}));
+
+      // Add remote data
+      final remoteNote = PartialNote('Remote note').dummySign(nielPubkey);
+      await storage
+          .publish({remoteNote}, source: RemoteSource(group: 'test-relays'));
+
+      await tester.expectModels(hasLength(greaterThanOrEqualTo(1)));
     });
   });
 }

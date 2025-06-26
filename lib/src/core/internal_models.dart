@@ -4,7 +4,8 @@ part of models;
 
 sealed class Source {
   final String? group;
-  const Source({this.group});
+  final bool returnModels;
+  const Source({this.group, this.returnModels = true});
 }
 
 final class LocalSource extends Source {
@@ -19,7 +20,10 @@ final class RemoteSource extends Source {
   final bool stream;
   final bool includeLocal;
   const RemoteSource(
-      {super.group, this.includeLocal = true, this.stream = true});
+      {super.group,
+      this.includeLocal = true,
+      this.stream = true,
+      super.returnModels = true});
 
   @override
   String toString() {
@@ -57,7 +61,9 @@ final class StorageData<E extends Model<dynamic>> extends StorageState<E> {
 @protected
 final class InternalStorageData extends StorageState {
   final Set<String> updatedIds;
-  const InternalStorageData([this.updatedIds = const {}]) : super(const []);
+  final Request? req;
+  const InternalStorageData({this.updatedIds = const {}, this.req})
+      : super(const []);
 }
 
 final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
@@ -71,7 +77,6 @@ final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
 
 final class PublishResponse {
   final Map<String, Set<RelayEventState>> results = {};
-  // TODO: Implement
   Set<String> unreachableRelayUrls = {};
 
   void addEvent(

@@ -44,8 +44,10 @@ class DummyStorageNotifier extends StorageNotifier {
       _models = _models.sortByCreatedAt().take(config.keepMaxModels).toSet();
     }
 
-    if (mounted) {
-      state = InternalStorageData({for (final e in models) e.id});
+    if (mounted && models.isNotEmpty) {
+      // TODO: The more specific the Request below, the more performant for potential request notifiers
+      state = InternalStorageData(
+          req: Request([]), updatedIds: {for (final e in models) e.id});
     }
 
     return true;
@@ -71,29 +73,13 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
-      {Source source = const RemoteSource(), Set<String>? onIds}) async {
-    final results = querySync<E>(req, onIds: onIds);
-    return Future.microtask(() {
-      final fetched = fetchSync<E>(req);
-      return [...results, ...fetched];
-    });
-  }
-
-  /// [onIds] allows filtering req on a specific set of models (other than _models)
-  @override
-  List<E> querySync<E extends Model<dynamic>>(Request<E> req,
-      {Set<String>? onIds}) {
-    List<Model> allResults = _models.toList();
+      {Source source = const RemoteSource()}) async {
+    List<Model> allResults = [];
 
     for (var filter in req.filters) {
       // Results is of Model<dynamic> (as it starts with the complete _models database),
       // it will be casted once we have results of the right kind
       List<Model> results = _models.toList();
-
-      // If onIds present then restrict req to those
-      if (onIds != null) {
-        filter = filter.copyWith(ids: onIds);
-      }
 
       final replaceableIds = filter.ids.where(_kReplaceableRegexp.hasMatch);
       final regularIds = {...filter.ids}..removeAll(replaceableIds);
@@ -163,7 +149,26 @@ class DummyStorageNotifier extends StorageNotifier {
 
       allResults.addAll(results);
     }
-    return allResults.cast<E>();
+
+    return Future.microtask(() async {
+      final fetched = await _fetch<E>(req);
+      final filteredResults = allResults.whereType<E>().toList();
+      return [...filteredResults, ...fetched];
+    });
+  }
+
+  @override
+  Future<Map<Request<Model<dynamic>>, List<Model<dynamic>>>>
+      internalMultipleQuery(List<Request<Model<dynamic>>> requests,
+          {Source source = const RemoteSource()}) async {
+    final results = <Request<Model<dynamic>>, List<Model<dynamic>>>{};
+
+    for (final request in requests) {
+      final models = await query(request, source: source);
+      results[request] = models;
+    }
+
+    return results;
   }
 
   @override
@@ -191,8 +196,8 @@ class DummyStorageNotifier extends StorageNotifier {
 
   /// Simulates a fetch, uses limit on the filters.
   /// Streaming emits in batches of 5, use [config.streamingBufferWindow]
-  List<E> fetchSync<E extends Model<dynamic>>(Request<E> req,
-      {Source? source}) {
+  Future<List<E>> _fetch<E extends Model<dynamic>>(Request<E> req,
+      {Source? source}) async {
     if (source is LocalSource) return [];
 
     for (var filter in req.filters) {
@@ -243,16 +248,8 @@ class DummyStorageNotifier extends StorageNotifier {
       }
     }
 
-    final models = querySync(
-        req.filters.map((f) => f.copyWith(limit: f.limit)).toRequest());
-
-    // Add to queried models
-    for (final filter in req.filters) {
-      _queriedModels[filter.kinds.first] ??= {};
-      _queriedModels[filter.kinds.first]!.addAll(models.map((m) => m.id));
-    }
-
-    return models;
+    // Return empty list for LocalSource to avoid infinite recursion
+    return [];
   }
 
   /// Generates a fake profile

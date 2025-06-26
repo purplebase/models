@@ -3,19 +3,9 @@ part of models;
 /// Storage interface that notifies upon updates
 /// NOTE: Implementations SHOULD be singletons
 abstract class StorageNotifier extends StateNotifier<StorageState> {
-  StorageNotifier() : super(InternalStorageData());
+  // TODO: Check why here before was InternalStorageData?
+  StorageNotifier() : super(StorageLoading([]));
   late StorageConfiguration config;
-
-  // The request cache is crucial for widgets
-  // to have sync access to relationships!
-  // - Need to place this cache here as its accessed by
-  //   both request notifiers (writes) and relationships (reads)
-  // - Keep it as list and it will retain order from database query
-  // - Format: {'subId': {Request(1): [models1], Request(2): [models2]}}
-  // - It's necessary to keep it per subscription ID as request notifiers
-  // remove caches when disposed, but should only be theirs
-  @protected
-  final Map<String, Map<Request, List<Model>>> requestCache = {};
 
   /// Storage initialization, sets up [config] and registers types,
   /// `super` MUST be called
@@ -56,15 +46,27 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     this.config = config;
   }
 
+  // The request cache is crucial for widgets
+  // to have sync access to relationships!
+  // - Need to place this cache here as its accessed by
+  //   both request notifiers (writes) and relationships (reads)
+  // - Keep it as list and it will retain order from database query
+  // - Format: {'subId': {Request(1): [models1], Request(2): [models2]}}
+  // - It's necessary to keep it per subscription ID as request notifiers
+  // remove caches when disposed, but should only be theirs
+  @protected
+  final Map<Request, Map<Request, List<Model>>> _requestCache = {};
+
   /// Query storage asynchronously.
   /// By default fetches from local storage and relays.
   /// For errors, listen to this notifier and filter for [StorageError]
   Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
-      {Source source = const RemoteSource(), Set<String>? onIds});
+      {Source source = const RemoteSource()});
 
-  /// Query storage asynchronously, always local
-  List<E> querySync<E extends Model<dynamic>>(Request<E> req,
-      {Set<String>? onIds});
+  @protected
+  Future<Map<Request, List<Model<dynamic>>>> internalMultipleQuery(
+      List<Request<Model<dynamic>>> requests,
+      {Source source = const RemoteSource()});
 
   /// Save models to local storage in one transaction.
   /// For errors, listen to this notifier and filter for [StorageError]

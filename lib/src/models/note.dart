@@ -56,7 +56,10 @@ class Note extends RegularModel<Note> {
 
 class PartialNote extends RegularPartialModel<Note> with PartialNoteMixin {
   PartialNote(String content,
-      {DateTime? createdAt, Note? replyTo, Set<String> tags = const {}}) {
+      {DateTime? createdAt,
+      Note? replyTo,
+      Note? root,
+      Set<String> tags = const {}}) {
     event.content = content;
     if (createdAt != null) {
       event.createdAt = createdAt;
@@ -65,8 +68,8 @@ class PartialNote extends RegularPartialModel<Note> with PartialNoteMixin {
       if (replyTo.isRoot) {
         // replyTo is the root (has no markers to root)
         linkModel(replyTo, marker: 'root');
-      } else {
-        linkModel(replyTo.root.value!, marker: 'root');
+      } else if (root != null) {
+        linkModel(root, marker: 'root');
         linkModel(replyTo, marker: 'reply');
       }
     }

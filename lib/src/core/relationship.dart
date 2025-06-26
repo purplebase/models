@@ -5,22 +5,17 @@ sealed class Relationship<E extends Model<dynamic>> {
   final Request<E>? req;
   final Ref ref;
   final StorageNotifier storage;
+
   Relationship(this.ref, this.req)
       : storage = ref.read(storageNotifierProvider.notifier);
 
-  List<E> get _models {
-    if (req == null) return [];
-    final cachedModels = storage.requestCache.values
-        .firstWhereOrNull((m) => m.containsKey(req))?[req];
-    return (cachedModels ?? storage.querySync<E>(req!)).cast();
-  }
+  List<E> get _models =>
+      storage._requestCache.values
+          .firstWhereOrNull((map) => map.keys.contains(req))?[req]
+          ?.cast<E>() ??
+      <E>[];
 
-  Future<List<E>> _modelsAsync({int? limit}) async {
-    if (req == null) return [];
-    final updatedReq =
-        req!.filters.map((f) => f.copyWith(limit: limit)).toRequest();
-    return await storage.query<E>(updatedReq, source: LocalSource());
-  }
+  // TODO: Should have a mutable LoadingState, etc to be checked from the widget
 }
 
 /// A relationship with one value
@@ -34,7 +29,9 @@ final class BelongsTo<E extends Model<dynamic>> extends Relationship<E> {
   bool get isPresent => _models.isNotEmpty;
 
   Future<E?> get valueAsync async {
-    final models = await _modelsAsync(limit: 1);
+    if (req == null) return null;
+    final updatedReq = req!.filters.first.copyWith(limit: 1).toRequest();
+    final models = await storage.query<E>(updatedReq, source: LocalSource());
     return models.firstOrNull;
   }
 }
@@ -45,7 +42,10 @@ final class HasMany<E extends Model<dynamic>> extends Relationship<E> {
 
   List<E> toList() => _models;
 
-  Future<List<E>> toListAsync() => _modelsAsync();
+  Future<List<E>> toListAsync() async {
+    if (req == null) return [];
+    return await storage.query<E>(req!, source: LocalSource());
+  }
 
   E? get firstOrNull => _models.firstOrNull;
   bool get isEmpty => _models.isEmpty;

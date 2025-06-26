@@ -159,12 +159,24 @@ sealed class PartialModel<E extends Model<E>>
   /// Add an a/e tag of the passed model
   void linkModel(Model model,
       {String? relayUrl, String? marker, String? pubkey}) {
-    if (model is ReplaceableModel) {
-      event.addTag('a', [model.id, if (relayUrl != null) relayUrl]);
+    return linkModelById(model.id,
+        isReplaceable: model is ReplaceableModel,
+        relayUrl: relayUrl,
+        marker: marker,
+        pubkey: pubkey);
+  }
+
+  void linkModelById(String modelId,
+      {bool isReplaceable = false,
+      String? relayUrl,
+      String? marker,
+      String? pubkey}) {
+    if (isReplaceable) {
+      event.addTag('a', [modelId, if (relayUrl != null) relayUrl]);
     } else {
       // Need to construct array such that nulls are "" until the last non-null value
       // e.g. ["id", "", "reply"]
-      final value = [model.id, relayUrl ?? '', marker ?? '', pubkey ?? ''];
+      final value = [modelId, relayUrl ?? '', marker ?? '', pubkey ?? ''];
       for (final e in value.reversed.toList()) {
         if (e == '') {
           value.removeLast();
@@ -178,14 +190,22 @@ sealed class PartialModel<E extends Model<E>>
 
   /// Remove a/e tags of the passed model
   void unlinkModel(Model model) {
-    event.removeTagWithValue(model is ReplaceableModel ? 'a' : 'e', model.id);
+    return unlinkModelById(model.id, isReplaceable: model is ReplaceableModel);
+  }
+
+  void unlinkModelById(String modelId, {bool isReplaceable = false}) {
+    event.removeTagWithValue(isReplaceable ? 'a' : 'e', modelId);
   }
 
   /// Add p tag of the passed profile
-  void linkProfile(Profile p) => event.setTagValue('p', p.pubkey);
+  void linkProfile(Profile p) => linkProfileByPubkey(p.pubkey);
+
+  void linkProfileByPubkey(String p) => event.setTagValue('p', p);
 
   /// Remove p tag of the passed profile
-  void unlinkProfile(Profile u) => event.removeTagWithValue('p', u.pubkey);
+  void unlinkProfile(Profile p) => unlinkProfileByPubkey(p.pubkey);
+
+  void unlinkProfileByPubkey(String p) => event.removeTagWithValue('p', p);
 
   Set<String> get tags => event.getTagSetValues('t');
   set tags(Set<String> values) {

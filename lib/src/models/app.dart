@@ -12,9 +12,7 @@ class App extends ParameterizableReplaceableModel<App> {
         ref,
         // Legacy format
         event.containsTag('a')
-            ? RequestFilter<Release>.fromReplaceable(
-                    event.getFirstTagValue('a')!)
-                .toRequest()
+            ? Request<Release>.fromIds({event.getFirstTagValue('a')!})
             // New format
             : RequestFilter<Release>(
                 authors: {event.pubkey},

@@ -78,14 +78,14 @@ void main() {
     });
 
     test('note and relationships', () async {
-      expect(a.author.value, profile);
-      expect(profile.notes.toList(), orderedEquals({a, b, c, d}));
+      expect(await a.author.valueAsync, profile);
+      expect(await profile.notes.toListAsync(), orderedEquals({a, b, c, d}));
 
       final replyNote =
           PartialNote('replying', replyTo: c).dummySign(franzapPubkey);
 
       final replyToReplyNote =
-          PartialNote('replying to reply', replyTo: replyNote)
+          PartialNote('replying to reply', replyTo: replyNote, root: c)
               .dummySign(verbirichaPubkey);
 
       await container
@@ -94,18 +94,18 @@ void main() {
 
       expect(c.isRoot, isTrue);
       expect(c.root.value, isNull);
-      expect(replyNote.root.value, c);
-      expect(replyToReplyNote.root.value, c);
-      expect(c.replies.toList(), {replyNote});
-      expect(c.allReplies.toList(), {replyNote, replyToReplyNote});
+      expect(await replyNote.root.valueAsync, c);
+      expect(await replyToReplyNote.root.valueAsync, c);
+      expect(await c.replies.toListAsync(), {replyNote});
+      expect(await c.allReplies.toListAsync(), {replyNote, replyToReplyNote});
 
       final reaction =
           PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
               .dummySign(nielPubkey);
       expect(reaction.emojiTag, equals(('test', 'test://t')));
       expect(reaction.reactedOn.req!.filters.first.ids, {a.event.id});
-      expect(reaction.reactedOn.value, a);
-      expect(reaction.author.value, profile);
+      expect(await reaction.reactedOn.valueAsync, a);
+      expect(await reaction.author.valueAsync, profile);
     });
 
     test('profile & contact list', () async {
@@ -130,7 +130,10 @@ void main() {
 
       await storage.save({franzapProfile, verbirichaProfile, nielContactList});
 
-      expect(nielProfile.contactList.value!.following.toList(),
+      expect(
+          await (await nielProfile.contactList.valueAsync)!
+              .following
+              .toListAsync(),
           {franzapProfile, verbirichaProfile});
     });
 
@@ -189,9 +192,9 @@ void main() {
       final note = Note.fromMap(jsonDecode(zappedEventJson), ref);
       await storage.save({note, zap, author});
       // As config is keepSignatures=false, it should come back as null
-      expect(zap.zappedModel.value!.event.signature, isNull);
-      expect(zap.zappedModel.value, note);
-      expect(zap.author.value, author);
+      expect((await zap.zappedModel.valueAsync)!.event.signature, isNull);
+      expect(await zap.zappedModel.valueAsync, note);
+      expect(await zap.author.valueAsync, author);
     });
 
     test('community', () async {

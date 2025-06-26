@@ -13,9 +13,8 @@ class TargetedPublication
           RequestFilter<Model>(ids: {event.getFirstTagValue('e')!})
               .toRequest());
     } else {
-      final addressableId = event.getFirstTagValue('a')!;
       model = BelongsTo(
-          ref, RequestFilter<Model>.fromReplaceable(addressableId).toRequest());
+          ref, Request<Model>.fromIds({event.getFirstTagValue('a')!}));
     }
 
     // This is only possible because communities are replaceable events (without a d tag)

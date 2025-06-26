@@ -10,8 +10,7 @@ class Release extends ParameterizableReplaceableModel<Release> {
     app = BelongsTo(
         ref,
         event.containsTag('a')
-            ? RequestFilter<App>.fromReplaceable(event.getFirstTagValue('a')!)
-                .toRequest()
+            ? Request<App>.fromIds({event.getFirstTagValue('a')!})
             // New format
             : RequestFilter<App>(
                 authors: {event.pubkey},
