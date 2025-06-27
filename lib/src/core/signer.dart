@@ -252,7 +252,7 @@ class Bip340PrivateKeySigner extends Signer {
 
       // Combine our private key with their public key and hash
       final combined = _privateKey + otherPubkey;
-      final digest = crypto.sha256.convert(utf8.encode(combined));
+      final digest = sha256.convert(utf8.encode(combined));
       return Uint8List.fromList(digest.bytes);
     } catch (e) {
       throw Exception('ECDH key exchange failed: $e');
