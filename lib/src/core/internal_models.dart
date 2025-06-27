@@ -9,8 +9,9 @@ sealed class Source {
 }
 
 final class LocalSource extends Source {
-  // TODO: Group does not really apply the same way to local than remote, maybe change var name?
-  // (i.e. we don't want events just tagged with those relays locally)
+  // TODO: Improve source
+  // - Group does not really apply the same way to local than remote, maybe change var name?
+  // - returnModels => background?
   const LocalSource({super.group});
   @override
   String toString() {
@@ -25,7 +26,6 @@ final class RemoteSource extends Source {
       {super.group,
       this.includeLocal = true,
       this.stream = true,
-      // TODO: returnModels => background?
       super.returnModels = true});
 
   @override
@@ -70,9 +70,7 @@ final class InternalStorageData extends StorageState {
 }
 
 final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
-  // TODO: Needs relay url (or link to Relay object)
-  // TODO: Needs type (was failure querying or publishing)
-  // TODO: Actual Relay class, backed by a table and with relationships to regular models?
+  // TODO: Needs type (was failure querying or publishing) and on which relay it was
   final Exception exception;
   final StackTrace? stackTrace;
   StorageError(super.models, {required this.exception, this.stackTrace});

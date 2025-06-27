@@ -3,7 +3,7 @@ part of models;
 @GeneratePartialModel()
 class Release extends ParameterizableReplaceableModel<Release> {
   late final BelongsTo<App> app;
-  // TODO: and file metadatas?
+  late final HasMany<FileMetadata> fileMetadatas;
   late final HasMany<SoftwareAsset> softwareAssets;
 
   Release.fromMap(super.map, super.ref) : super.fromMap() {
@@ -21,8 +21,14 @@ class Release extends ParameterizableReplaceableModel<Release> {
               ).toRequest());
     softwareAssets = HasMany(
         ref,
-        RequestFilter<SoftwareAsset>(ids: event.getTagSetValues('e').toSet())
-            .toRequest());
+        RequestFilter<SoftwareAsset>(
+            ids: event.getTagSetValues('e').toSet(),
+            kinds: {1063}).toRequest());
+    softwareAssets = HasMany(
+        ref,
+        RequestFilter<SoftwareAsset>(
+            ids: event.getTagSetValues('e').toSet(),
+            kinds: {3063}).toRequest());
   }
 
   String? get releaseNotes => event.content.isEmpty ? null : event.content;

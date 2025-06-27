@@ -2,7 +2,6 @@ part of models;
 
 @GeneratePartialModel()
 class SoftwareAsset extends RegularModel<SoftwareAsset> {
-  // TODO: Should subclass FileMetadata?
   SoftwareAsset.fromMap(super.map, super.ref) : super.fromMap();
 
   Set<String> get urls => event.getTagSetValues('url').toSet();

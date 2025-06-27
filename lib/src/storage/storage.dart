@@ -3,7 +3,6 @@ part of models;
 /// Storage interface that notifies upon updates
 /// NOTE: Implementations SHOULD be singletons
 abstract class StorageNotifier extends StateNotifier<StorageState> {
-  // TODO: Check why here before was InternalStorageData?
   StorageNotifier() : super(StorageLoading([]));
   late StorageConfiguration config;
 

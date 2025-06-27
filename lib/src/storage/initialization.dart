@@ -43,14 +43,64 @@ class StorageConfiguration extends Equatable {
     this.databasePath,
     this.keepSignatures = false,
     this.skipVerification = false,
-    this.relayGroups = const {},
+    Map<String, Set<String>> relayGroups = const {},
     this.defaultRelayGroup,
     this.idleTimeout = const Duration(minutes: 5),
     this.responseTimeout = const Duration(seconds: 6),
     this.streamingBufferWindow = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
-  }) {
-    // TODO: Normalize/sanitize relayUrls, ensure no commas
+  }) : relayGroups = _normalizeRelayGroups(relayGroups);
+
+  /// Normalize and sanitize relay URLs
+  static Map<String, Set<String>> _normalizeRelayGroups(
+      Map<String, Set<String>> groups) {
+    final normalized = <String, Set<String>>{};
+
+    for (final entry in groups.entries) {
+      final normalizedUrls = <String>{};
+
+      for (final url in entry.value) {
+        final normalizedUrl = _normalizeRelayUrl(url);
+        if (normalizedUrl != null) {
+          normalizedUrls.add(normalizedUrl);
+        }
+      }
+
+      if (normalizedUrls.isNotEmpty) {
+        normalized[entry.key] = normalizedUrls;
+      }
+    }
+
+    return normalized;
+  }
+
+  /// Normalize and sanitize a single relay URL
+  static String? _normalizeRelayUrl(String url) {
+    // Remove if contains comma
+    if (url.contains(',')) return null;
+
+    try {
+      final uri = Uri.parse(url.trim());
+
+      // Default to wss if not ws or wss
+      final scheme =
+          (uri.scheme == 'ws' || uri.scheme == 'wss') ? uri.scheme : 'wss';
+
+      // Keep consistent trailing slash logic - remove if present
+      final path = uri.path == '/' ? '' : uri.path;
+
+      return Uri(
+        scheme: scheme,
+        host: uri.host,
+        port: uri.port,
+        path: path,
+        query: uri.query.isEmpty ? null : uri.query,
+        fragment: uri.fragment.isEmpty ? null : uri.fragment,
+      ).toString();
+    } catch (e) {
+      // Could not parse URI, remove from list
+      return null;
+    }
   }
 
   /// Find relays given a group,

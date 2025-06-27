@@ -9,7 +9,6 @@ class FileMetadata extends RegularModel<FileMetadata> {
   String get hash => event.getFirstTagValue('x')!;
   int? get size => event.getFirstTagValue('size').toInt();
 
-  // TODO: Remove all fields below when switching to kind 3063 and make it subclass this
   String? get repository => event.getFirstTagValue('repository');
   Set<String> get platforms => event.getTagSetValues('f').toSet();
   Set<String> get executables => event.getTagSetValues('executable');

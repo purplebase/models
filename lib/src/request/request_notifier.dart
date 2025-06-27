@@ -9,30 +9,28 @@ class RequestNotifier<E extends Model<dynamic>>
   final Request<E> req;
   final Source source;
   final StorageNotifier storage;
-  final List<Request> relationshipReqs = [];
+  final List<Request> relationshipRequests = [];
 
   RequestNotifier(this.ref, this.req, this.source)
       : storage = ref.read(storageNotifierProvider.notifier),
         super(StorageLoading([])) {
     if (req.filters.isEmpty) return;
 
-    _load();
+    () async {
+      // TODO: This logic should be handled inside query, add background flag to source
+      final localLoad = await storage.query(req, source: LocalSource());
+      if (localLoad.isEmpty) {
+        // If it's empty, we want to block (later allow passing a flag for this)
+        final remoteLoad = await _loadRemote(returnModels: true);
+        _emitNewModels([...localLoad, ...?remoteLoad]);
+      } else {
+        _loadRemote(returnModels: false);
+        _emitNewModels(localLoad);
+      }
+      _startSubscription();
+    }();
 
     ref.onDispose(() => storage.cancel(req));
-  }
-
-  Future<void> _load() async {
-    final localLoad = await storage.query(req, source: LocalSource());
-    print('local load is ${localLoad.length}');
-    if (localLoad.isEmpty) {
-      // If it's empty, we want to block (later allow passing a flag for this)
-      final remoteLoad = await _loadRemote(returnModels: true);
-      _emitNewModels([...localLoad, ...?remoteLoad]);
-    } else {
-      _loadRemote(returnModels: false);
-      _emitNewModels(localLoad);
-    }
-    _startSubscription();
   }
 
   Future<List<E>?> _loadRemote({bool returnModels = true}) async {
@@ -60,7 +58,6 @@ class RequestNotifier<E extends Model<dynamic>>
               .query(RequestFilter<E>(ids: updatedIds).toRequest());
           _emitNewModels(newModels);
         } else {
-          print('got another incoming req $incomingReq');
           state = StorageData(state.models);
         }
       }
@@ -84,18 +81,17 @@ class RequestNotifier<E extends Model<dynamic>>
     final newModels = models.whereType<E>();
 
     // Calculate new relationships
-    final newRelReqs = [
+    final newRelationshipRequests = [
       for (final r in _getRelationshipsFrom(models))
-        if (!relationshipReqs.contains(r.req)) r.req
+        if (!relationshipRequests.contains(r.req)) r.req
     ].nonNulls;
-    relationshipReqs.addAll(newRelReqs);
+    relationshipRequests.addAll(newRelationshipRequests);
 
-    final bigRelReq = RequestFilter.mergeMultiple(
-            newRelReqs.expand((r) => r.filters).toList())
+    final mergedRelationshipRequest = RequestFilter.mergeMultiple(
+            newRelationshipRequests.expand((r) => r.filters).toList())
         .toRequest();
-    if (bigRelReq.filters.isNotEmpty) {
-      print('firing off $bigRelReq');
-      storage.query(bigRelReq,
+    if (mergedRelationshipRequest.filters.isNotEmpty) {
+      storage.query(mergedRelationshipRequest,
           source: RemoteSource(
               group: source.group, includeLocal: false, returnModels: false));
     }
@@ -104,7 +100,6 @@ class RequestNotifier<E extends Model<dynamic>>
     // New models take precedence in the set, as there may be replaceable IDs
     final sortedModels = {...newModels, ...state.models}.sortByCreatedAt();
     if (mounted) {
-      print('emitting ${sortedModels.length}');
       state = StorageData(sortedModels);
     }
   }
