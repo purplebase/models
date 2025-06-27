@@ -14,6 +14,8 @@ import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
 
+import 'package:nip44/nip44.dart' as nip44;
+
 part 'src/utils/encoding.dart';
 part 'src/core/model.dart';
 part 'src/core/event.dart';
