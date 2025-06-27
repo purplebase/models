@@ -9,6 +9,8 @@ sealed class Source {
 }
 
 final class LocalSource extends Source {
+  // TODO: Group does not really apply the same way to local than remote, maybe change var name?
+  // (i.e. we don't want events just tagged with those relays locally)
   const LocalSource({super.group});
   @override
   String toString() {
@@ -23,6 +25,7 @@ final class RemoteSource extends Source {
       {super.group,
       this.includeLocal = true,
       this.stream = true,
+      // TODO: returnModels => background?
       super.returnModels = true});
 
   @override

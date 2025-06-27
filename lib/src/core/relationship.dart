@@ -9,11 +9,7 @@ sealed class Relationship<E extends Model<dynamic>> {
   Relationship(this.ref, this.req)
       : storage = ref.read(storageNotifierProvider.notifier);
 
-  List<E> get _models =>
-      storage._requestCache.values
-          .firstWhereOrNull((map) => map.keys.contains(req))?[req]
-          ?.cast<E>() ??
-      <E>[];
+  List<E> get _models => req == null ? [] : storage.querySync(req!);
 
   // TODO: Should have a mutable LoadingState, etc to be checked from the widget
 }

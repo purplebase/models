@@ -74,8 +74,18 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
       {Source source = const RemoteSource()}) async {
-    List<Model> allResults = [];
+    List<E> allResults = querySync(req);
 
+    return Future.microtask(() async {
+      final fetched = _fetch<E>(req);
+      final filteredResults = allResults.whereType<E>().toList();
+      return [...filteredResults, ...fetched];
+    });
+  }
+
+  @override
+  List<E> querySync<E extends Model<dynamic>>(Request<E> req) {
+    List<E> allResults = [];
     for (var filter in req.filters) {
       // Results is of Model<dynamic> (as it starts with the complete _models database),
       // it will be casted once we have results of the right kind
@@ -147,28 +157,9 @@ class DummyStorageNotifier extends StorageNotifier {
         results = results.where((m) => filter.where!(m as E)).toList();
       }
 
-      allResults.addAll(results);
+      allResults.addAll(results.cast());
     }
-
-    return Future.microtask(() async {
-      final fetched = await _fetch<E>(req);
-      final filteredResults = allResults.whereType<E>().toList();
-      return [...filteredResults, ...fetched];
-    });
-  }
-
-  @override
-  Future<Map<Request<Model<dynamic>>, List<Model<dynamic>>>>
-      internalMultipleQuery(List<Request<Model<dynamic>>> requests,
-          {Source source = const RemoteSource()}) async {
-    final results = <Request<Model<dynamic>>, List<Model<dynamic>>>{};
-
-    for (final request in requests) {
-      final models = await query(request, source: source);
-      results[request] = models;
-    }
-
-    return results;
+    return allResults;
   }
 
   @override
@@ -196,8 +187,7 @@ class DummyStorageNotifier extends StorageNotifier {
 
   /// Simulates a fetch, uses limit on the filters.
   /// Streaming emits in batches of 5, use [config.streamingBufferWindow]
-  Future<List<E>> _fetch<E extends Model<dynamic>>(Request<E> req,
-      {Source? source}) async {
+  List<E> _fetch<E extends Model<dynamic>>(Request<E> req, {Source? source}) {
     if (source is LocalSource) return [];
 
     for (var filter in req.filters) {

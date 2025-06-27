@@ -41,4 +41,11 @@ class Utils {
         sha256.convert(Uint8List.fromList(utf8.encode(json.encode(data))));
     return digest.toString();
   }
+
+  static isReplaceable(int kind) {
+    return switch (kind) {
+      >= 10000 && < 20000 || 0 || 3 || >= 30000 && < 40000 => true,
+      _ => false,
+    };
+  }
 }

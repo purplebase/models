@@ -78,8 +78,8 @@ void main() {
     });
 
     test('note and relationships', () async {
-      expect(await a.author.valueAsync, profile);
-      expect(await profile.notes.toListAsync(), orderedEquals({a, b, c, d}));
+      expect(a.author.value, profile);
+      expect(profile.notes.toList(), orderedEquals({a, b, c, d}));
 
       final replyNote =
           PartialNote('replying', replyTo: c).dummySign(franzapPubkey);
@@ -94,18 +94,18 @@ void main() {
 
       expect(c.isRoot, isTrue);
       expect(c.root.value, isNull);
-      expect(await replyNote.root.valueAsync, c);
-      expect(await replyToReplyNote.root.valueAsync, c);
-      expect(await c.replies.toListAsync(), {replyNote});
-      expect(await c.allReplies.toListAsync(), {replyNote, replyToReplyNote});
+      expect(replyNote.root.value, c);
+      expect(replyToReplyNote.root.value, c);
+      expect(c.replies.toList(), {replyNote});
+      expect(c.allReplies.toList(), {replyNote, replyToReplyNote});
 
       final reaction =
           PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
               .dummySign(nielPubkey);
       expect(reaction.emojiTag, equals(('test', 'test://t')));
       expect(reaction.reactedOn.req!.filters.first.ids, {a.event.id});
-      expect(await reaction.reactedOn.valueAsync, a);
-      expect(await reaction.author.valueAsync, profile);
+      expect(reaction.reactedOn.value, a);
+      expect(reaction.author.value, profile);
     });
 
     test('profile & contact list', () async {
@@ -130,10 +130,7 @@ void main() {
 
       await storage.save({franzapProfile, verbirichaProfile, nielContactList});
 
-      expect(
-          await (await nielProfile.contactList.valueAsync)!
-              .following
-              .toListAsync(),
+      expect(nielProfile.contactList.value!.following.toList(),
           {franzapProfile, verbirichaProfile});
     });
 
@@ -192,9 +189,9 @@ void main() {
       final note = Note.fromMap(jsonDecode(zappedEventJson), ref);
       await storage.save({note, zap, author});
       // As config is keepSignatures=false, it should come back as null
-      expect((await zap.zappedModel.valueAsync)!.event.signature, isNull);
-      expect(await zap.zappedModel.valueAsync, note);
-      expect(await zap.author.valueAsync, author);
+      expect(zap.zappedModel.value!.event.signature, isNull);
+      expect(zap.zappedModel.value, note);
+      expect(zap.author.value, author);
     });
 
     test('community', () async {
