@@ -1,5 +1,6 @@
 library models;
 
+import 'package:nip44/nip44.dart' as nip44;
 import 'package:riverpod/riverpod.dart';
 import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
@@ -13,8 +14,6 @@ import 'package:crypto/crypto.dart';
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
-
-import 'package:nip44/nip44.dart' as nip44;
 
 part 'src/utils/encoding.dart';
 part 'src/core/model.dart';

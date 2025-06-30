@@ -49,8 +49,7 @@ class DirectMessage extends RegularModel<DirectMessage> {
 
   /// Check if this message appears to be encrypted
   bool get isEncrypted =>
-      event.content.isNotEmpty &&
-      (event.content.contains('?') || event.content.startsWith('A'));
+      encryptedContent.contains('?') || encryptedContent.startsWith('A');
 }
 
 class PartialDirectMessage extends RegularPartialModel<DirectMessage>

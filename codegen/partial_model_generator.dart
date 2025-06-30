@@ -7,10 +7,11 @@ import 'package:build/build.dart';
 import 'package:models/models.dart';
 import 'package:source_gen/source_gen.dart';
 import 'package:pluralize/pluralize.dart';
+import 'package:collection/collection.dart';
 
 /// Factory function for creating the generator
 Builder partialModelGeneratorFactory(BuilderOptions options) =>
-    SharedPartBuilder([PartialModelGenerator()], 'partial_models');
+    SharedPartBuilder([PartialModelGenerator()], 'models');
 
 /// Generator that creates partial model mixins for annotated model classes
 class PartialModelGenerator
@@ -37,6 +38,7 @@ class PartialModelGenerator
       ClassElement classElement, BuildStep buildStep) async {
     final className = classElement.name;
     final partialMixinName = 'Partial${className}Mixin';
+    final partialClassName = 'Partial$className';
 
     // Determine the model type and corresponding partial model base class
     final modelInfo = _getModelInfo(classElement);
@@ -54,7 +56,19 @@ class PartialModelGenerator
         await _parseGetterImplementations(classElement, buildStep);
 
     // Generate properties (getters and setters) from the original class
-    final methods = _generateMethods(classElement, getterImplementations);
+    final methodsAndProperties =
+        _generateMethodsAndProperties(classElement, getterImplementations);
+    final methods = methodsAndProperties.methods;
+    final copyableProperties = methodsAndProperties.properties;
+
+    // Find partial model constructor parameters
+    final partialConstructorInfo =
+        await _analyzePartialModelConstructor(partialClassName, buildStep);
+
+    // Generate copyWith method
+    // ignore: unused_local_variable
+    final copyWithMethod = _generateCopyWithMethod(className, partialClassName,
+        copyableProperties, partialConstructorInfo);
 
     return '''
 // ignore_for_file: annotate_overrides
@@ -63,6 +77,11 @@ class PartialModelGenerator
 mixin $partialMixinName on $partialBaseClass<$className> {
 ${methods.join('\n')}
 }''';
+
+// /// Generated copyWith extension for $className
+// extension ${className}CopyWith on $className {
+// $copyWithMethod
+// }
   }
 
   Future<Map<String, String>> _parseGetterImplementations(
@@ -143,9 +162,10 @@ ${methods.join('\n')}
     return implementations;
   }
 
-  List<String> _generateMethods(
+  _MethodsAndProperties _generateMethodsAndProperties(
       ClassElement classElement, Map<String, String> getterImplementations) {
     final methods = <String>[];
+    final properties = <_CopyableProperty>[];
     final generatedMethodNames = <String>{};
 
     // Process all accessors (getters) in the class
@@ -162,6 +182,12 @@ ${methods.join('\n')}
               accessor, implementation, generatedMethodNames);
           if (property != null) {
             methods.addAll(property);
+            // If we generated a setter (property has at least 2 methods: getter + setter)
+            if (property.length >= 2) {
+              final returnType = accessor.returnType.getDisplayString();
+              final nullableType = _makeNullable(returnType);
+              properties.add(_CopyableProperty(propertyName, nullableType));
+            }
           }
         }
       }
@@ -171,7 +197,130 @@ ${methods.join('\n')}
       methods.add('  // No event-based getters found in ${classElement.name}');
     }
 
-    return methods;
+    return _MethodsAndProperties(methods, properties);
+  }
+
+  String _generateCopyWithMethod(
+      String className,
+      String partialClassName,
+      List<_CopyableProperty> properties,
+      _PartialConstructorInfo? partialConstructorInfo) {
+    if (properties.isEmpty) {
+      return '''
+  /// No copyable properties found
+  $partialClassName copyWith() {
+    throw UnimplementedError('$partialClassName constructor not implemented');
+  }''';
+    }
+
+    final parameters = properties.map((p) => '${p.type} ${p.name}').toList();
+
+    // If we have constructor info, generate constructor call with parameters
+    if (partialConstructorInfo != null) {
+      return _generateCopyWithMethodWithConstructor(
+          className, partialClassName, properties, partialConstructorInfo);
+    }
+
+    // Fallback to old method if constructor info not available
+    final assignments = properties
+        .map((p) => '    result.${p.name} = ${p.name} ?? this.${p.name};')
+        .toList();
+
+    return '''
+  $partialClassName copyWith({
+${parameters.map((p) => '    $p,').join('\n')}
+  }) {
+    // Note: This creates an empty partial model and sets properties via mixin setters
+    // Individual partial models may override this if they have specific constructor requirements
+    final result = $partialClassName();
+${assignments.join('\n')}
+    return result;
+  }''';
+  }
+
+  String _generateCopyWithMethodWithConstructor(
+      String className,
+      String partialClassName,
+      List<_CopyableProperty> properties,
+      _PartialConstructorInfo constructorInfo) {
+    final parameters = properties.map((p) => '${p.type} ${p.name}').toList();
+
+    // Separate positional and named parameters
+    final positionalParams =
+        constructorInfo.parameters.where((p) => p.isPositional).toList();
+    final namedParams =
+        constructorInfo.parameters.where((p) => !p.isPositional).toList();
+
+    // Build positional arguments
+    final positionalArgs = <String>[];
+    for (final param in positionalParams) {
+      final matchingProperty =
+          properties.firstWhereOrNull((p) => p.name == param.name);
+      if (matchingProperty != null) {
+        positionalArgs.add('${param.name} ?? this.${param.name}');
+      } else {
+        // For required positional parameters without copyWith equivalents
+        positionalArgs.add('this.${param.name}');
+      }
+    }
+
+    // Build named arguments
+    final namedArgs = <String>[];
+    for (final param in namedParams) {
+      final matchingProperty =
+          properties.firstWhereOrNull((p) => p.name == param.name);
+
+      if (matchingProperty != null) {
+        // This constructor parameter has a corresponding copyWith parameter
+        namedArgs.add('${param.name}: ${param.name} ?? this.${param.name}');
+      } else {
+        // This constructor parameter doesn't have a copyWith parameter
+        // We need to provide a default value or the current value
+        if (param.isRequired) {
+          // For required parameters without copyWith equivalents, use current value
+          namedArgs.add('${param.name}: this.${param.name}');
+        } else if (!param.hasDefaultValue) {
+          // For optional parameters without defaults, pass current value if accessible
+          namedArgs.add('${param.name}: this.${param.name}');
+        }
+        // If it has a default value, we don't need to pass it
+      }
+    }
+
+    // Build the constructor call
+    String constructorCall = partialClassName;
+    if (positionalArgs.isNotEmpty || namedArgs.isNotEmpty) {
+      constructorCall += '(';
+
+      // Add positional arguments first
+      if (positionalArgs.isNotEmpty) {
+        constructorCall += '\n      ${positionalArgs.join(',\n      ')}';
+        if (namedArgs.isNotEmpty) {
+          constructorCall += ',';
+        }
+      }
+
+      // Add named arguments
+      if (namedArgs.isNotEmpty) {
+        if (positionalArgs.isNotEmpty) {
+          constructorCall += '\n      ';
+        } else {
+          constructorCall += '\n      ';
+        }
+        constructorCall += namedArgs.join(',\n      ');
+      }
+
+      constructorCall += '\n    )';
+    } else {
+      constructorCall += '()';
+    }
+
+    return '''
+  $partialClassName copyWith({
+${parameters.map((p) => '    $p,').join('\n')}
+  }) {
+    return $constructorCall;
+  }''';
   }
 
   bool _isInheritedFromBaseModel(PropertyAccessorElement accessor) {
@@ -300,7 +449,7 @@ ${methods.join('\n')}
   }
 
   String _makeNullable(String type) {
-    if (type.endsWith('?') || type == 'void' || type.startsWith('Set<')) {
+    if (type.endsWith('?') || type == 'void') {
       return type;
     }
     return '$type?';
@@ -339,10 +488,99 @@ ${methods.join('\n')}
 
     return null;
   }
+
+  Future<_PartialConstructorInfo?> _analyzePartialModelConstructor(
+      String partialClassName, BuildStep buildStep) async {
+    try {
+      // Get the input library
+      final library = await buildStep.inputLibrary;
+
+      // Look for the partial model class in the library
+      for (final element in library.topLevelElements) {
+        if (element is ClassElement && element.name == partialClassName) {
+          // Find the default constructor
+          final constructor = element.constructors.firstWhereOrNull(
+                (c) => c.name.isEmpty, // default constructor has empty name
+              ) ??
+              element.constructors.firstOrNull; // fallback to any constructor
+
+          if (constructor != null) {
+            final parameters = <_ConstructorParameter>[];
+
+            for (final param in constructor.parameters) {
+              final name = param.name;
+              final type = param.type.getDisplayString();
+              final isRequired = param.isRequired;
+              final hasDefaultValue = param.hasDefaultValue;
+              final isPositional = param.isPositional;
+
+              parameters.add(_ConstructorParameter(
+                name: name,
+                type: type,
+                isRequired: isRequired,
+                hasDefaultValue: hasDefaultValue,
+                isPositional: isPositional,
+              ));
+            }
+
+            return _PartialConstructorInfo(
+              className: partialClassName,
+              parameters: parameters,
+            );
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      // If analysis fails, return null
+    }
+
+    return null;
+  }
 }
 
 class _ModelInfo {
   final String partialBaseClass;
 
   _ModelInfo(this.partialBaseClass);
+}
+
+class _CopyableProperty {
+  final String name;
+  final String type;
+
+  _CopyableProperty(this.name, this.type);
+}
+
+class _MethodsAndProperties {
+  final List<String> methods;
+  final List<_CopyableProperty> properties;
+
+  _MethodsAndProperties(this.methods, this.properties);
+}
+
+class _PartialConstructorInfo {
+  final String className;
+  final List<_ConstructorParameter> parameters;
+
+  _PartialConstructorInfo({
+    required this.className,
+    required this.parameters,
+  });
+}
+
+class _ConstructorParameter {
+  final String name;
+  final String? type;
+  final bool isRequired;
+  final bool hasDefaultValue;
+  final bool isPositional;
+
+  _ConstructorParameter({
+    required this.name,
+    this.type,
+    required this.isRequired,
+    required this.hasDefaultValue,
+    this.isPositional = false,
+  });
 }

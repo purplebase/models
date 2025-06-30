@@ -45,7 +45,7 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     if (mounted && models.isNotEmpty) {
-      // TODO: The more specific the Request below, the more performant for potential request notifiers
+      // TODO: Request is empty
       state = InternalStorageData(
           req: Request([]), updatedIds: {for (final e in models) e.id});
     }

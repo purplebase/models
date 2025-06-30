@@ -128,6 +128,8 @@ mixin PartialDirectMessageMixin on RegularPartialModel<DirectMessage> {
   set receiver(String? value) => event.setTagValue('p', value);
   String? get content => event.content.isEmpty ? null : event.content;
   set content(String? value) => event.content = value ?? '';
+  String? get encryptedContent => event.content.isEmpty ? null : event.content;
+  set encryptedContent(String? value) => event.content = value ?? '';
 }
 
 // ignore_for_file: annotate_overrides

@@ -100,6 +100,7 @@ class PartialComment extends RegularPartialModel<Comment> {
     }
 
     // Handle root content references
+    // TODO: All calls to `value`/`toList` on relationships will break when removing sync db access
     if (rootModel is ReplaceableModel) {
       event.addTagValue('A', rootModel.id);
       event.addTagValue('K', rootModel.event.kind.toString());
