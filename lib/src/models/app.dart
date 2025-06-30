@@ -32,8 +32,6 @@ class App extends ParameterizableReplaceableModel<App> {
   Set<String> get icons => event.getTagSetValues('icon');
   Set<String> get images => event.getTagSetValues('image');
   Set<String> get platforms => event.getTagSetValues('f').toSet();
-
-  // TODO: Implement copyWith (via codegen)
 }
 
 class PartialApp extends ParameterizableReplaceablePartialEvent<App>

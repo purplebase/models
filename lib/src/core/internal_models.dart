@@ -9,9 +9,7 @@ sealed class Source {
 }
 
 final class LocalSource extends Source {
-  // TODO: Improve source
-  // - Group does not really apply the same way to local than remote, maybe change var name?
-  // - returnModels => background?
+  // TODO [source]: Group does not really apply the same way to local than remote, maybe change var name?; returnModels => background?
   const LocalSource({super.group});
   @override
   String toString() {
@@ -70,7 +68,6 @@ final class InternalStorageData extends StorageState {
 }
 
 final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
-  // TODO: Needs type (was failure querying or publishing) and on which relay it was
   final Exception exception;
   final StackTrace? stackTrace;
   StorageError(super.models, {required this.exception, this.stackTrace});

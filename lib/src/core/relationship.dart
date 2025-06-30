@@ -9,7 +9,7 @@ sealed class Relationship<E extends Model<dynamic>> {
   Relationship(this.ref, this.req)
       : storage = ref.read(storageNotifierProvider.notifier);
 
-  // TODO: When using cache, if _cache[req] exists and is null
+  // TODO [cache]: if _cache[req] exists and is null
   // (it is created when the big rel query is fired to relays)
   bool get isLoading => false;
   List<E> get _models => req == null ? [] : storage.querySync(req!);

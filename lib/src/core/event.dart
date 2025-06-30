@@ -172,7 +172,6 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
     };
   }
 
-  // TODO: This should be improved and look like its immutable counterpart
   /// Addressable event ID to use in tags
   String addressableIdFor(String pubkey, {String? identifier}) {
     return '$kind:$pubkey:${identifier ?? getFirstTagValue('d')}';

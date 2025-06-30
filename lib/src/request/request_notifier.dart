@@ -17,23 +17,24 @@ class RequestNotifier<E extends Model<dynamic>>
     if (req.filters.isEmpty) return;
 
     () async {
-      // TODO: This logic should be handled inside query, add background flag to source
-      final localLoad = await storage.query(req, source: LocalSource());
-      if (localLoad.isEmpty) {
+      // TODO [source]: This logic should be handled inside query, add background flag to source
+      final newModels = await storage.query(req, source: LocalSource());
+      if (newModels.isEmpty) {
         // If it's empty, we want to block (later allow passing a flag for this)
-        final remoteLoad = await _loadRemote(returnModels: true);
-        _emitNewModels([...localLoad, ...?remoteLoad]);
+        final remoteModels = await _loadRemote(returnModels: true);
+        newModels.addAll(remoteModels);
       } else {
         _loadRemote(returnModels: false);
-        _emitNewModels(localLoad);
       }
+
+      _emitNewModels(newModels);
       _startSubscription();
     }();
 
     ref.onDispose(() => storage.cancel(req));
   }
 
-  Future<List<E>?> _loadRemote({bool returnModels = true}) async {
+  Future<List<E>> _loadRemote({bool returnModels = true}) async {
     if (source is RemoteSource) {
       return storage.query(req,
           source: RemoteSource(
@@ -42,7 +43,7 @@ class RequestNotifier<E extends Model<dynamic>>
               includeLocal: false,
               returnModels: returnModels));
     }
-    return null;
+    return [];
   }
 
   void _startSubscription() {
@@ -54,10 +55,12 @@ class RequestNotifier<E extends Model<dynamic>>
           when updatedIds.isNotEmpty) {
         if (incomingReq == req) {
           // In case the first query did not return before EOSE, handle it here
-          final newModels = await storage
-              .query(RequestFilter<E>(ids: updatedIds).toRequest());
+          final newModels = await storage.query(
+              RequestFilter<E>(ids: updatedIds).toRequest(),
+              source: LocalSource());
           _emitNewModels(newModels);
         } else {
+          // Refresh - this could be vastly optimized
           state = StorageData(state.models);
         }
       }
