@@ -14,6 +14,7 @@ import 'package:crypto/crypto.dart';
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
+import 'package:dart_relay/dart_relay.dart' as relay;
 
 part 'src/utils/encoding.dart';
 part 'src/core/model.dart';
@@ -41,6 +42,7 @@ part 'src/models/asset.dart';
 part 'src/models/targeted_publication.dart';
 part 'src/models/verify_reputation_dvm.dart';
 part 'src/models/zap.dart';
+part 'src/models/custom_data.dart';
 
 part 'src/request/request_notifier.dart';
 part 'src/request/request.dart';

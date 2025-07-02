@@ -1,9 +1,9 @@
 part of models;
 
-/// Reactive storage with dummy data, singleton
+/// Reactive storage with dummy data using dart_relay backend, singleton
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
-  Set<Model> _models = {};
+  late relay.MemoryStorage _relayStorage;
 
   static DummyStorageNotifier? _instance;
 
@@ -13,39 +13,184 @@ class DummyStorageNotifier extends StorageNotifier {
 
   DummyStorageNotifier._(this.ref);
 
-  final Map<RequestFilter, Timer> _timers = {};
-  final _queriedModels = <int, Set<String>>{};
+  final Map<RequestFilter, Timer> _streamingTimers = {};
+  final Map<RequestFilter, StreamSubscription> _streamingSubscriptions = {};
+  final Set<String> _streamingRequestIds =
+      {}; // Track which requests are streaming
 
   @override
   Future<void> initialize(StorageConfiguration config) async {
     await super.initialize(config);
-    _queriedModels.clear();
+    _relayStorage = relay.MemoryStorage();
+
+    // Only seed storage if it's empty (not during tests)
+    if (_shouldSeedStorage()) {
+      await _seedStorage();
+    }
+  }
+
+  /// Determines if storage should be seeded with dummy data
+  bool _shouldSeedStorage() {
+    // Only seed if explicitly requested (not during tests)
+    // Tests should start with empty storage for predictable results
+    return false;
+  }
+
+  /// Seeds the storage with a realistic dataset during initialization
+  Future<void> _seedStorage() async {
+    final r = Random();
+    final seededModels = <Model>{};
+
+    // Generate 20-50 profiles
+    final profiles =
+        List.generate(20 + r.nextInt(30), (i) => generateProfile());
+    seededModels.addAll(profiles);
+
+    // Generate contact lists for some profiles
+    for (int i = 0; i < profiles.length ~/ 3; i++) {
+      final profile = profiles[i];
+      final follows = profiles
+          .where((p) => p.pubkey != profile.pubkey)
+          .take(r.nextInt(15))
+          .toSet();
+      final contactList = generateModel(
+        kind: 3,
+        pubkey: profile.pubkey,
+        pTags: follows.map((p) => p.pubkey).toSet(),
+      );
+      if (contactList != null) seededModels.add(contactList);
+    }
+
+    // Generate 200-500 notes with realistic timestamps (spread over last 7 days)
+    final noteCount = 200 + r.nextInt(300);
+    for (int i = 0; i < noteCount; i++) {
+      final author = profiles[r.nextInt(profiles.length)];
+      final createdAt = DateTime.now().subtract(Duration(
+        minutes: r.nextInt(7 * 24 * 60), // Random time in last 7 days
+      ));
+      final note = generateModel(
+        kind: 1,
+        pubkey: author.pubkey,
+        createdAt: createdAt,
+      );
+      if (note != null) {
+        seededModels.add(note);
+
+        // Add some reactions to notes (10% chance)
+        if (r.nextDouble() < 0.1) {
+          final reactions = List.generate(r.nextInt(20), (j) {
+            final reactor = profiles[r.nextInt(profiles.length)];
+            return generateModel(
+                kind: 7, parentId: note.id, pubkey: reactor.pubkey);
+          }).whereType<Model>();
+          seededModels.addAll(reactions);
+        }
+
+        // Add some zaps to notes (5% chance)
+        if (r.nextDouble() < 0.05) {
+          final zaps = List.generate(r.nextInt(5), (j) {
+            final zapper = profiles[r.nextInt(profiles.length)];
+            return generateModel(
+                kind: 9735, parentId: note.id, pubkey: zapper.pubkey);
+          }).whereType<Model>();
+          seededModels.addAll(zaps);
+        }
+      }
+    }
+
+    // Store all seeded data
+    await _storeToDartRelay(seededModels);
+  }
+
+  /// Converts our Model to dart_relay's NostrEvent
+  relay.NostrEvent _modelToNostrEvent(Model<dynamic> model) {
+    final map = model.toMap();
+    return relay.NostrEvent(
+      id: map['id'],
+      pubkey: map['pubkey'],
+      createdAt: map['created_at'],
+      kind: map['kind'],
+      tags: (map['tags'] as List).cast<List<String>>(),
+      content: map['content'] ?? '',
+      sig: map['sig'] ?? '',
+    );
+  }
+
+  /// Converts dart_relay's NostrEvent back to our Model
+  Model? _nostrEventToModel(relay.NostrEvent event) {
+    final constructor = Model.getConstructorForKind(event.kind);
+    if (constructor == null) return null;
+
+    return constructor({
+      'id': event.id,
+      'pubkey': event.pubkey,
+      'created_at': event.createdAt,
+      'kind': event.kind,
+      'tags': event.tags,
+      'content': event.content,
+      'sig': event.sig,
+    }, ref) as Model;
+  }
+
+  /// Converts our RequestFilter to dart_relay's NostrFilter
+  relay.NostrFilter _requestFilterToNostrFilter(RequestFilter filter) {
+    return relay.NostrFilter(
+      ids: filter.ids.isNotEmpty ? filter.ids.toList() : null,
+      authors: filter.authors.isNotEmpty ? filter.authors.toList() : null,
+      kinds: filter.kinds.isNotEmpty ? filter.kinds.toList() : null,
+      tags: filter.tags.isNotEmpty
+          ? {
+              for (final entry in filter.tags.entries)
+                entry.key.substring(1):
+                    entry.value.toList() // Remove leading '#'
+            }
+          : null,
+      since: filter.since?.toSeconds(),
+      until: filter.until?.toSeconds(),
+      limit: filter.limit,
+      search: filter.search,
+    );
+  }
+
+  /// Stores models in dart_relay storage
+  Future<void> _storeToDartRelay(Iterable<Model<dynamic>> models) async {
+    for (final model in models) {
+      final nostrEvent = _modelToNostrEvent(model);
+
+      // Note: MemoryStorage automatically handles replaceable events,
+      // so we don't need to manually remove them
+
+      _relayStorage.storeEvent(nostrEvent);
+    }
+
+    // Enforce max models limit
+    await _enforceMaxModels();
+  }
+
+  /// Enforce the keepMaxModels configuration
+  Future<void> _enforceMaxModels() async {
+    final currentCount = _relayStorage.eventCount;
+    if (currentCount > config.keepMaxModels) {
+      // Get all events, sort by created_at, keep only the newest ones
+      final allEvents = _relayStorage.queryEvents([relay.NostrFilter()]);
+      allEvents.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      final eventsToKeep = allEvents.take(config.keepMaxModels).toList();
+
+      // Clear and re-add only the events we want to keep
+      _relayStorage.clear();
+      for (final event in eventsToKeep) {
+        _relayStorage.storeEvent(event);
+      }
+    }
   }
 
   @override
   Future<bool> save(Set<Model<dynamic>> models) async {
-    for (final model in models) {
-      // Need to deconstruct to remove useless content, then construct again
-      final transformedModel = model.transformMap(model.toMap());
-      final constructor = Model.getConstructorForKind(model.event.kind);
-      final e = constructor!.call({
-        ...transformedModel,
-        // Need to pass metadata back
-        if (model.event.metadata.isNotEmpty) 'metadata': model.event.metadata
-      }, ref) as Model;
-      if (e is ReplaceableModel) {
-        _models.removeWhere((m) => m.id == e.id);
-      }
-      _models.add(e);
-    }
-
-    // FIFO queue, ensure we don't go over config.maxModels
-    if (_models.length > config.keepMaxModels) {
-      _models = _models.sortByCreatedAt().take(config.keepMaxModels).toSet();
-    }
+    // Store in dart_relay storage
+    await _storeToDartRelay(models);
 
     if (mounted && models.isNotEmpty) {
-      // TODO: Request is empty so updates likely don't work
       state = InternalStorageData(
           req: Request([]), updatedIds: {for (final e in models) e.id});
     }
@@ -57,7 +202,7 @@ class DummyStorageNotifier extends StorageNotifier {
   Future<PublishResponse> publish(Set<Model<dynamic>> models,
       {Source source = const RemoteSource()}) async {
     final response = PublishResponse();
-    // Publish in the background, before using metadata/transformMap
+
     if (models.isNotEmpty) {
       final relayUrls = config.getRelays(source: source, useDefault: true);
       for (final relayUrl in relayUrls) {
@@ -74,172 +219,273 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
       {Source source = const RemoteSource()}) async {
-    List<E> allResults = querySync(req);
+    // Always start with local results
+    List<E> results = querySync(req);
 
-    return Future.microtask(() async {
-      final fetched = _fetch<E>(req);
-      final filteredResults = allResults.whereType<E>().toList();
-      return [...filteredResults, ...fetched];
-    });
+    // For LocalSource, return only local results
+    if (source is LocalSource) {
+      return results;
+    }
+
+    // For RemoteSource, handle streaming if enabled
+    if (source is RemoteSource && source.stream) {
+      // Mark this request as streaming (remove limits for future queries)
+      final requestId = req.toString();
+      _streamingRequestIds.add(requestId);
+
+      // Start streaming simulation for each filter
+      for (final filter in req.filters) {
+        _startStreamingForFilter(filter, source);
+      }
+    }
+
+    return results;
   }
 
   @override
   List<E> querySync<E extends Model<dynamic>>(Request<E> req) {
-    List<E> allResults = [];
-    for (var filter in req.filters) {
-      // Results is of Model<dynamic> (as it starts with the complete _models database),
-      // it will be casted once we have results of the right kind
-      List<Model> results = _models.toList();
+    final allResults = <E>[];
+    final requestId = req.toString();
+    final isStreaming = _streamingRequestIds.contains(requestId);
 
-      final replaceableIds = filter.ids.where(_kReplaceableRegexp.hasMatch);
-      final regularIds = {...filter.ids}..removeAll(replaceableIds);
+    for (final filter in req.filters) {
+      // Handle replaceable IDs by converting them to regular filters
+      final replaceableIds = filter.ids.where((id) => id.contains(':')).toSet();
+      final regularIds = filter.ids.difference(replaceableIds);
 
-      if (regularIds.isNotEmpty) {
-        results = results.where((e) => regularIds.contains(e.id)).toList();
+      List<E> results = [];
+
+      // Query for regular IDs
+      if (regularIds.isNotEmpty || filter.ids.isEmpty) {
+        final regularFilter = filter.copyWith(ids: regularIds);
+        // Remove limit from NostrFilter since we'll apply it manually
+        final nostrFilterNoLimit =
+            _requestFilterToNostrFilter(regularFilter.copyWith(limit: null));
+        final nostrEvents = _relayStorage.queryEvents([nostrFilterNoLimit]);
+
+        final models = nostrEvents
+            .map(_nostrEventToModel)
+            .whereType<Model>()
+            .whereType<E>()
+            .toList();
+
+        results.addAll(models);
       }
 
+      // Query for replaceable IDs (these are addressable IDs, not event IDs)
       if (replaceableIds.isNotEmpty) {
-        results = [
-          ...results,
-          ...results.where((e) {
-            return e is ReplaceableModel &&
-                replaceableIds.contains(e.event.addressableId);
-          })
-        ];
+        for (final addressableId in replaceableIds) {
+          // Parse addressable ID to get kind, pubkey, and d-tag
+          final parts = addressableId.split(':');
+          if (parts.length >= 3) {
+            final kind = int.tryParse(parts[0]);
+            final pubkey = parts[1];
+            final dTag = parts.length > 3 ? parts[3] : '';
+
+            if (kind != null) {
+              final replaceableFilter = relay.NostrFilter(
+                kinds: [kind],
+                authors: [pubkey],
+                tags: dTag.isNotEmpty
+                    ? {
+                        'd': [dTag]
+                      }
+                    : null,
+              );
+
+              final events = _relayStorage.queryEvents([replaceableFilter]);
+              final models = events
+                  .map(_nostrEventToModel)
+                  .whereType<Model>()
+                  .whereType<E>()
+                  .toList();
+
+              results.addAll(models);
+            }
+          }
+        }
       }
 
-      if (filter.authors.isNotEmpty) {
-        results = results
-            .where((m) => filter.authors.contains(m.event.pubkey))
-            .toList();
-      }
-
-      if (filter.kinds.isNotEmpty) {
-        results =
-            results.where((m) => filter.kinds.contains(m.event.kind)).toList();
-      }
-
-      if (filter.since != null) {
-        results = results
-            .where((m) => m.event.createdAt.isAfter(filter.since!))
-            .toList();
-      }
-
-      if (filter.until != null) {
-        results = results
-            .where((m) => m.event.createdAt.isBefore(filter.until!))
-            .toList();
-      }
-
-      if (filter.tags.isNotEmpty) {
-        results = results.where((m) {
-          // filteruested tags should behave like AND: use fold with initial true and acc &&
-          return filter.tags.entries.fold(true, (acc, entry) {
-            final wantedTagKey = entry.key.substring(1); // remove leading '#'
-            final wantedTagValues = entry.value;
-            // Event tags should behave like OR: use fold with initial false and acc ||
-            return acc &&
-                m.event.getTagSetValues(wantedTagKey).fold(false,
-                    (acc, currentTagValue) {
-                  return acc || wantedTagValues.contains(currentTagValue);
-                });
-          });
-        }).toList();
-      }
-
-      results.sort((a, b) => b.event.createdAt.compareTo(a.event.createdAt));
-
-      if (filter.limit != null && results.length > filter.limit!) {
-        results = results.sublist(0, filter.limit!);
-      }
-
+      // Apply custom where clause if present
       if (filter.where != null) {
-        results = results.where((m) => filter.where!(m as E)).toList();
+        results = results.where((m) => filter.where!(m)).toList();
       }
 
-      allResults.addAll(results.cast());
+      // Sort and apply limit per filter
+      if (results.isNotEmpty) {
+        // Sort by created_at descending, then by id ascending for ties (Nostr standard)
+        results.sort((a, b) {
+          final timeComparison = b.event.createdAt.compareTo(a.event.createdAt);
+          if (timeComparison != 0) return timeComparison;
+          return a.event.id.compareTo(b.event.id);
+        });
+
+        // Apply limit if specified and not streaming
+        if (!isStreaming &&
+            filter.limit != null &&
+            results.length > filter.limit!) {
+          results = results.take(filter.limit!).toList();
+        }
+      }
+
+      allResults.addAll(results);
     }
-    return allResults;
+
+    // Remove duplicates while preserving order
+    final seenIds = <String>{};
+    final finalResults = allResults.where((model) {
+      if (seenIds.contains(model.id)) return false;
+      seenIds.add(model.id);
+      return true;
+    }).toList();
+
+    return finalResults;
+  }
+
+  /// Starts streaming simulation for a specific filter
+  void _startStreamingForFilter(RequestFilter filter, RemoteSource source) {
+    // Cancel existing streaming for this filter
+    _streamingTimers[filter]?.cancel();
+    _streamingSubscriptions[filter]?.cancel();
+
+    // For tests (when streamingBufferWindow is Duration.zero),
+    // simulate streaming with immediate single model additions
+    if (config.streamingBufferWindow == Duration.zero) {
+      // Schedule small incremental additions for test predictability
+      _simulateTestStreaming(filter);
+      return;
+    }
+
+    // Generate new events periodically that match the filter
+    _streamingTimers[filter] =
+        Timer.periodic(config.streamingBufferWindow, (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        _streamingTimers.remove(filter);
+        return;
+      }
+
+      final r = Random();
+      // 30% chance to generate a new event each interval
+      if (r.nextDouble() < 0.3) {
+        final newModels = <Model>{};
+
+        // Generate 1-3 new events that match the filter
+        final eventCount = 1 + r.nextInt(3);
+        for (int i = 0; i < eventCount; i++) {
+          final model = _generateModelMatchingFilter(filter);
+          if (model != null) {
+            newModels.add(model);
+          }
+        }
+
+        if (newModels.isNotEmpty) {
+          await save(newModels);
+        }
+      }
+    });
+  }
+
+  /// Simulates streaming for tests by adding models with delays
+  void _simulateTestStreaming(RequestFilter filter) {
+    int addedCount = 0;
+    const maxAdds = 5; // Limit additions for predictable tests
+
+    Timer.periodic(Duration(milliseconds: 100), (timer) async {
+      if (!mounted || addedCount >= maxAdds) {
+        timer.cancel();
+        return;
+      }
+
+      // Generate a model with a newer timestamp to ensure it appears in results
+      final baseModel = _generateModelMatchingFilter(filter);
+      if (baseModel != null) {
+        // Create a new model with a newer timestamp by calling the generator directly
+        final newerTimestamp =
+            DateTime.now().add(Duration(seconds: addedCount + 1));
+
+        // Find the right pubkey from the filter
+        final pubkey = filter.authors.isNotEmpty
+            ? filter.authors.first
+            : baseModel.event.pubkey;
+
+        final newerModel = generateModel(
+          kind: baseModel.event.kind,
+          pubkey: pubkey,
+          createdAt: newerTimestamp,
+        );
+
+        if (newerModel != null) {
+          await save({newerModel});
+          addedCount++;
+        }
+      }
+    });
+  }
+
+  /// Generates a new model that would match the given filter
+  Model? _generateModelMatchingFilter(RequestFilter filter) {
+    final r = Random();
+
+    // Pick a kind from the filter, or use a common kind
+    final kinds = filter.kinds.isNotEmpty ? filter.kinds : {1, 7, 9735};
+    final kind = kinds.elementAt(r.nextInt(kinds.length));
+
+    // Pick an author from the filter, or generate random
+    String? pubkey;
+    if (filter.authors.isNotEmpty) {
+      pubkey = filter.authors.elementAt(r.nextInt(filter.authors.length));
+    }
+
+    return generateModel(
+      kind: kind,
+      pubkey: pubkey,
+      createdAt: DateTime.now(),
+    );
   }
 
   @override
   Future<void> clear([Request? req]) async {
     if (req == null) {
-      _models.clear();
+      _relayStorage.clear();
       return;
     }
-    final models = await query(req);
-    _models.removeWhere((e) => models.contains(e));
+
+    // Query matching events and remove them by clearing and re-adding others
+    final modelsToRemove = querySync(req).toSet();
+    final allEvents = _relayStorage.queryEvents([relay.NostrFilter()]);
+    final eventsToKeep = allEvents.where((event) {
+      final model = _nostrEventToModel(event);
+      return model == null || !modelsToRemove.contains(model);
+    }).toList();
+
+    // Clear and re-add events we want to keep
+    _relayStorage.clear();
+    for (final event in eventsToKeep) {
+      _relayStorage.storeEvent(event);
+    }
   }
 
   @override
   Future<void> cancel([Request? req]) async {
     if (req == null) {
-      for (final t in _timers.values) {
-        t.cancel();
+      for (final timer in _streamingTimers.values) {
+        timer.cancel();
       }
+      for (final sub in _streamingSubscriptions.values) {
+        sub.cancel();
+      }
+      _streamingTimers.clear();
+      _streamingSubscriptions.clear();
       return;
     }
+
     for (final filter in req.filters) {
-      _timers[filter]?.cancel();
+      _streamingTimers[filter]?.cancel();
+      _streamingTimers.remove(filter);
+      _streamingSubscriptions[filter]?.cancel();
+      _streamingSubscriptions.remove(filter);
     }
-  }
-
-  /// Simulates a fetch, uses limit on the filters.
-  /// Streaming emits in batches of 5, use [config.streamingBufferWindow]
-  List<E> _fetch<E extends Model<dynamic>>(Request<E> req, {Source? source}) {
-    if (source is LocalSource) return [];
-
-    for (var filter in req.filters) {
-      final queryLimit = (filter.limit ?? 10) * 2;
-      var streamAmount = queryLimit - (filter.limit ?? 10);
-
-      if (streamAmount > 0) {
-        () {
-          _timers[filter] =
-              Timer.periodic(config.streamingBufferWindow, (t) async {
-            if (mounted) {
-              if (streamAmount == 0) {
-                t.cancel();
-                _timers.remove(filter);
-              } else {
-                final kind = filter.kinds.first;
-                _queriedModels[kind] ??= {};
-                final amt = streamAmount < 5 ? streamAmount : 5;
-                // Grab models not queried yet and update their timestamp to now
-                final models = _models
-                    .where((m) =>
-                        m.event.kind == kind &&
-                        !_queriedModels[kind]!.contains(m.id))
-                    .shuffled()
-                    .take(amt)
-                    .map((m) {
-                  final map = m.toMap();
-                  map['created_at'] =
-                      DateTime.now().millisecondsSinceEpoch ~/ 1000;
-                  return Model.getConstructorForKind(map['kind'])!
-                      .call(map, ref);
-                });
-                final ids = models.map((m) => m.id);
-                _queriedModels[kind]!.addAll(ids);
-                streamAmount = streamAmount - models.length;
-
-                // Since ids of manipulated models remain the same, need to remove from set
-                // in order to add them back again
-                _models.removeAll(models);
-                await save(models.toSet());
-              }
-            } else {
-              t.cancel();
-              _timers.remove(filter);
-            }
-          });
-        }();
-      }
-    }
-
-    // Return empty list for LocalSource to avoid infinite recursion
-    return [];
   }
 
   /// Generates a fake profile
@@ -276,50 +522,11 @@ class DummyStorageNotifier extends StorageNotifier {
     };
   }
 
-  /// Generate a feed with related models for [pubkey]
+  /// Generate a feed with related models for [pubkey] (backwards compatibility)
   void generateFeed([String? pubkey]) {
-    pubkey ??= Utils.generateRandomHex64();
-    final r = Random();
-    // Only generate if storage is empty
-    if (_models.isEmpty) {
-      final profile = generateProfile(pubkey);
-      // Assume we want to "sign in" this user when generating a dummy feed
-      DummySigner(ref, pubkey: pubkey).initialize(active: true);
-
-      final follows =
-          List.generate(min(15, r.nextInt(50)), (i) => generateProfile());
-
-      final contactList = generateModel(
-        kind: 3,
-        pubkey: profile.pubkey,
-        pTags: follows.map((e) => e.event.pubkey).toSet(),
-      )!;
-
-      // 500 notes from random follows and their likes and zaps
-      final models = <Model>{};
-      List.generate(r.nextInt(500), (i) {
-        final note = generateModel(
-          kind: 1,
-          pubkey: follows[r.nextInt(follows.length)].pubkey,
-          createdAt: DateTime.now().subtract(
-            Duration(minutes: r.nextInt(300)),
-          ),
-        )!;
-        models.add(note);
-        models.addAll(
-          List.generate(r.nextInt(50), (i) {
-            return generateModel(kind: 7, parentId: note.id)!;
-          }),
-        );
-        models.addAll(
-          List.generate(r.nextInt(10), (i) {
-            return generateModel(kind: 9735, parentId: note.id)!;
-          }),
-        );
-      });
-
-      save({profile, ...follows, contactList, ...models});
-    }
+    // For backwards compatibility, but the new implementation seeds automatically
+    print(
+        'generateFeed() called - data is now seeded automatically during initialize()');
   }
 }
 
@@ -330,7 +537,7 @@ _sampleZap({required String zapperPubkey, required String eventId}) =>
         "created_at": ${DateTime.now().millisecondsSinceEpoch ~/ 1000},
         "id": "${Utils.generateRandomHex64()}",
         "kind": 9735,
-        "pubkey": "79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432",
+        "pubkey": "79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe8f04a9f5f67e4a3c1cc",
         "tags": [
             [
                 "p",
@@ -354,7 +561,7 @@ _sampleZap({required String zapperPubkey, required String eventId}) =>
             ],
             [
                 "description",
-                "{\\"id\\":\\"50dd637e30455a6dd6e1c9159c58b2cba31c75df29a5806162b813b3d93fe13d\\",\\"sig\\":\\"b86c1e09139e0367d9ed985beb14995efb3025eb68c8a56045ce2a2a35639d8f4187acae78c022532801fb068cf3560dcab12497f6d2a9376978c9bde35b15cd\\",\\"pubkey\\":\\"97f848adcc4c6276685fe48426de5614887c8a51ada0468cec71fba938272911\\",\\"created_at\\":1744474327,\\"kind\\":9734,\\"tags\\":[[\\"relays\\",\\"wss://relay.primal.net\\",\\"wss://relay-nwc-dev.rizful.com/v1\\",\\"wss://relay.snort.social\\",\\"wss://relay.nostr.band\\",\\"wss://slick.mjex.me\\",\\"wss://nostr.wine\\",\\"wss://nfnitloop.com/nostr\\",\\"wss://relay.damus.io\\",\\"wss://eden.nostr.land\\",\\"wss://nos.lol\\",\\"wss://nostr.8777.ch\\",\\"wss://nostr.land\\",\\"ws://209.122.211.18:4848\\",\\"wss://unhostedwallet.com\\",\\"wss://filter.nostr.wine?global=all\\"],[\\"amount\\",\\"21000\\"],[\\"lnurl\\",\\"lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtm2v4nxj7n6d3jsyutkku\\"],[\\"p\\",\\"20651ab8c2fb1febca56b80deba14630af452bdce64fe8f04a9f5f67e4a3c1cc\\"],[\\"e\\",\\"7abbce7aa0c5cd430efd627bbe5b5908de48db5cec5742f694befe38b34bce9f\\"]],\\"content\\":\\"✨\\"}"
+                                 "{\\"id\\":\\"50dd637e30455a6dd6e1c9159c58b2cba31c75df29a5806162b813b3d93fe13d\\",\\"sig\\":\\"b86c1e09139e0367d9ed985beb14995efb3025eb68c8a56045ce2a2a35639d8f4187acae78c022532801fb068cf3560dcab12497f6d2a9376978c9bde35b15cd\\",\\"pubkey\\":\\"97f848adcc4c6276685fe48426de5614887c8a51ada0468cec71fba938272911\\",\\"created_at\\":1744474327,\\"kind\\":9734,\\"tags\\":[[\\"relays\\",\\"wss://relay.primal.net\\"],[\\"amount\\",\\"21000\\"],[\\"p\\",\\"20651ab8c2fb1febca56b80deba14630af452bdce64fe8f04a9f5f67e4a3c1cc\\"],[\\"e\\",\\"7abbce7aa0c5cd430efd627bbe5b5908de48db5cec5742f694befe38b34bce9f\\"]],\\"content\\":\\"✨\\"}"
             ]
         ]
     }

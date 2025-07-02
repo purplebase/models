@@ -44,30 +44,16 @@ abstract class Signer {
       List<PartialModel<Model<dynamic>>> partialModels);
 
   /// NIP-04: Encrypt a message using AES-256-CBC with ECDH shared secret
-  Future<String> nip04Encrypt(String message, String recipientPubkey) async {
-    throw UnimplementedError(
-        'NIP-04 encryption must be implemented by concrete signer class');
-  }
+  Future<String> nip04Encrypt(String message, String recipientPubkey);
 
   /// NIP-04: Decrypt a message using AES-256-CBC with ECDH shared secret
-  Future<String> nip04Decrypt(
-      String encryptedMessage, String senderPubkey) async {
-    throw UnimplementedError(
-        'NIP-04 decryption must be implemented by concrete signer class');
-  }
+  Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey);
 
   /// NIP-44: Encrypt a message using ChaCha20 with HKDF and HMAC-SHA256
-  Future<String> nip44Encrypt(String message, String recipientPubkey) async {
-    throw UnimplementedError(
-        'NIP-44 encryption must be implemented by concrete signer class');
-  }
+  Future<String> nip44Encrypt(String message, String recipientPubkey);
 
   /// NIP-44: Decrypt a message using ChaCha20 with HKDF and HMAC-SHA256
-  Future<String> nip44Decrypt(
-      String encryptedMessage, String senderPubkey) async {
-    throw UnimplementedError(
-        'NIP-44 decryption must be implemented by concrete signer class');
-  }
+  Future<String> nip44Decrypt(String encryptedMessage, String senderPubkey);
 
   Future<void> dispose() async {
     // Remove from signed in set

@@ -295,3 +295,12 @@ mixin PartialTargetedPublicationMixin
   void removeCommunityPubkey(String? value) =>
       event.removeTagWithValue('p', value);
 }
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for CustomData
+mixin PartialCustomDataMixin
+    on ParameterizableReplaceablePartialEvent<CustomData> {
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+}

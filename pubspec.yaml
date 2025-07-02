@@ -1,6 +1,6 @@
 name: models
 description: Nostr models in Dart
-version: 0.1.2
+version: 0.3.0
 repository: https://github.com/purplebase/models
 
 environment:
@@ -21,6 +21,8 @@ dependencies:
       url: https://github.com/paulmillr/nip44.git
       ref: 3b40d453c772ad10b57b81762d5b56e80aa1facb
       path: dart
+  dart_relay:
+    path: ../dart-relay
 
 dev_dependencies:
   analyzer: ^6.0.0
