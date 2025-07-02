@@ -22,18 +22,6 @@ class DummyStorageNotifier extends StorageNotifier {
   Future<void> initialize(StorageConfiguration config) async {
     await super.initialize(config);
     _relayStorage = MemoryStorage();
-
-    // Only seed storage if it's empty (not during tests)
-    if (_shouldSeedStorage()) {
-      await _seedStorage();
-    }
-  }
-
-  /// Determines if storage should be seeded with dummy data
-  bool _shouldSeedStorage() {
-    // Only seed if explicitly requested (not during tests)
-    // Tests should start with empty storage for predictable results
-    return false;
   }
 
   /// Seeds the storage with a realistic dataset during initialization
@@ -45,6 +33,8 @@ class DummyStorageNotifier extends StorageNotifier {
     final profiles =
         List.generate(20 + r.nextInt(30), (i) => generateProfile());
     seededModels.addAll(profiles);
+    final signer = DummySigner(ref, pubkey: profiles.first.pubkey);
+    await signer.initialize();
 
     // Generate contact lists for some profiles
     for (int i = 0; i < profiles.length ~/ 3; i++) {
@@ -455,10 +445,8 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   /// Generate a feed with related models for [pubkey] (backwards compatibility)
-  void generateFeed([String? pubkey]) {
-    // For backwards compatibility, but the new implementation seeds automatically
-    print(
-        'generateFeed() called - data is now seeded automatically during initialize()');
+  Future<void> generateFeed([String? pubkey]) async {
+    await _seedStorage();
   }
 }
 

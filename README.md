@@ -95,7 +95,7 @@ class ProfileScreen extends ConsumerWidget {
       _ => Scaffold(
         body: Consumer(
           builder: (context, ref, _) {
-            final signedInProfile = ref.watch(Profile.signedInProfileProvider);
+            final signedInProfile = ref.watch(Signer.activeProfileProvider);
             if (signedInProfile == null) {
               return Center(
                 child: Text('Tap button to generate feed and sign in'),
@@ -151,6 +151,35 @@ class ProfileScreen extends ConsumerWidget {
 ```
 
 ## Advanced Usage 🧠
+
+### Using signers
+
+Sign in callback:
+
+```dart
+final signer = // ...;
+await signer.initialize();
+// Trigger remote query
+await ref.storage.query(
+    RequestFilter<Profile>(authors: {signer.pubkey}).toRequest());
+```
+
+In your widgets watch:
+
+```dart
+final userPublicKey = ref.watch(Signer.activePubkeyProvider);
+final userProfile = ref.watch(Signer.activeProfileProvider);
+```
+
+`activePubkeyProvider` will immediately update with the active (currently signed in) pubkey, whereas `activeProfileProvider` will change when the corresponding `Profile` model changes in local storage. These are related but have different functions.
+
+Sign out callback:
+
+```dart
+await signer.dispose();
+```
+
+`signer` may be kept in a provider for easier access across the application.
 
 ### Adding Custom Models
 

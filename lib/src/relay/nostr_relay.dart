@@ -4,7 +4,14 @@ part of models;
 class NostrRelay {
   final int port;
   final String host;
-  final RelayInfoData relayInfo;
+  final RelayInfoData relayInfo = RelayInfoData(
+    name: 'dart-relay',
+    description: 'A simple, in-memory Nostr relay written in Dart',
+    supportedNips: [1, 2, 9, 10, 11, 42, 50], // Basic NIPs we support
+    software: 'dart-relay',
+    version: '1.0.0',
+    contact: 'admin@example.com',
+  );
   final MemoryStorage storage;
   final MessageHandler messageHandler;
 
@@ -14,7 +21,6 @@ class NostrRelay {
   NostrRelay({
     required this.port,
     required this.host,
-    required this.relayInfo,
   })  : storage = MemoryStorage(),
         messageHandler = MessageHandler(MemoryStorage());
 

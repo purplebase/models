@@ -31,17 +31,7 @@ void main(List<String> arguments) async {
     final port = int.parse(results['port'] as String);
     final host = results['host'] as String;
 
-    // Create and configure the relay
-    final relayInfo = RelayInfoData(
-      name: 'dart-relay',
-      description: 'A simple, in-memory Nostr relay written in Dart',
-      supportedNips: [1, 2, 9, 10, 11, 42, 50], // Basic NIPs we support
-      software: 'dart-relay',
-      version: '1.0.0',
-      contact: 'admin@example.com',
-    );
-
-    final relay = NostrRelay(port: port, host: host, relayInfo: relayInfo);
+    final relay = NostrRelay(port: port, host: host);
 
     // Handle shutdown gracefully
     ProcessSignal.sigint.watch().listen((signal) async {
@@ -55,15 +45,7 @@ void main(List<String> arguments) async {
 
     // Print some helpful information
     print('\n🚀 Relay is running!');
-    print('📊 Supported NIPs: ${relayInfo.supportedNips.join(', ')}');
-    print('🔍 Features:');
-    print('   • Basic protocol (NIP-01)');
-    print('   • Contact lists (NIP-02)');
-    print('   • Event deletion (NIP-09)');
-    print('   • Text note references (NIP-10)');
-    print('   • Relay information (NIP-11)');
-    print('   • Authentication (NIP-42)');
-    print('   • Search capability (NIP-50)');
+    print('📊 Supported NIPs: ${relay.relayInfo.supportedNips.join(', ')}');
     print('\n📝 Connect your Nostr client to: ws://$host:$port');
     print('🌐 View relay info at: http://$host:$port');
     print('\n💡 Press Ctrl+C to stop');
