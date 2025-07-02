@@ -19,9 +19,9 @@ class Release extends ParameterizableReplaceableModel<Release> {
                 },
                 limit: 1,
               ).toRequest());
-    softwareAssets = HasMany(
+    fileMetadatas = HasMany(
         ref,
-        RequestFilter<SoftwareAsset>(
+        RequestFilter<FileMetadata>(
             ids: event.getTagSetValues('e').toSet(),
             kinds: {1063}).toRequest());
     softwareAssets = HasMany(

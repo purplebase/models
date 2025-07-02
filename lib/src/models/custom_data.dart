@@ -6,10 +6,6 @@ class CustomData extends ParameterizableReplaceableModel<CustomData> {
 
   /// The custom data content (arbitrary JSON)
   String get content => event.content;
-
-  /// The identifier for this custom data (from d tag)
-  @override
-  String get identifier => event.identifier;
 }
 
 class PartialCustomData
@@ -22,4 +18,6 @@ class PartialCustomData
     this.identifier = identifier;
     event.content = content;
   }
+
+  setProperty(String key, String value) => event.setTagValue(key, value);
 }
