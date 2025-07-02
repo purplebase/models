@@ -104,6 +104,11 @@ class DummyStorageNotifier extends StorageNotifier {
     // Store in relay storage
     await _storeToRelay(models);
 
+    // Apply keepMaxModels limit if configured and not during streaming
+    if (config.keepMaxModels > 0 && _streamingRequestIds.isEmpty) {
+      await _enforceMaxModelsLimit();
+    }
+
     if (mounted && models.isNotEmpty) {
       final updatedIds = {for (final e in models) e.id};
       state = InternalStorageData(
@@ -113,6 +118,40 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     return true;
+  }
+
+  /// Enforces the keepMaxModels limit by removing the oldest events
+  Future<void> _enforceMaxModelsLimit() async {
+    final allEvents = _relayStorage.queryEvents([RequestFilter()]);
+
+    // Only apply limit if we're significantly over the limit (add 10% tolerance)
+    final tolerance = (config.keepMaxModels * 0.1).round();
+    final effectiveLimit = config.keepMaxModels + tolerance;
+
+    if (allEvents.length <= effectiveLimit) {
+      return; // No need to remove anything
+    }
+
+    // Sort events by created_at descending (newest first)
+    allEvents.sort((a, b) {
+      final aCreatedAt =
+          DateTime.fromMillisecondsSinceEpoch((a['created_at'] as int) * 1000);
+      final bCreatedAt =
+          DateTime.fromMillisecondsSinceEpoch((b['created_at'] as int) * 1000);
+      final timeComparison = bCreatedAt.compareTo(aCreatedAt);
+      if (timeComparison != 0) return timeComparison;
+      return (a['id'] as String).compareTo(b['id'] as String);
+    });
+
+    // Keep only the newest events up to the actual limit
+    final eventsToKeep = allEvents.take(config.keepMaxModels).toList();
+    final eventsToRemove = allEvents.skip(config.keepMaxModels).toList();
+
+    // Remove old events from storage
+    for (final event in eventsToRemove) {
+      final eventId = event['id'] as String;
+      _relayStorage.removeEvent(eventId);
+    }
   }
 
   @override

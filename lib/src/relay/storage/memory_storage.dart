@@ -257,6 +257,37 @@ class MemoryStorage {
     _deletedEvents.clear();
   }
 
+  /// Removes an event by ID from storage
+  bool removeEvent(String eventId) {
+    final event = _events[eventId];
+    if (event == null) {
+      return false;
+    }
+
+    _events.remove(eventId);
+    _deletedEvents.add(eventId);
+
+    // Also remove from replaceable/addressable maps if applicable
+    final kind = event['kind'] as int;
+    final pubkey = event['pubkey'] as String;
+
+    if (Utils.isReplaceable(kind)) {
+      final key = kind >= 30000 && kind < 40000
+          ? _getAddressableId(event) // Addressable events
+          : '$kind:$pubkey:'; // Regular replaceable events
+
+      if (key != null) {
+        if (kind >= 30000 && kind < 40000) {
+          _addressableEvents.remove(key);
+        } else {
+          _replaceableEvents.remove(key);
+        }
+      }
+    }
+
+    return true;
+  }
+
   /// Gets the addressable identifier for addressable events
   String? _getAddressableId(Map<String, dynamic> event) {
     final kind = event['kind'] as int;
