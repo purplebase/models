@@ -109,9 +109,24 @@ class RequestNotifier<E extends Model<dynamic>>
               group: source.group, includeLocal: false, returnModels: false));
     }
 
-    // Concat and sort
-    // New models take precedence in the set, as there may be replaceable IDs
-    final sortedModels = {...newModels, ...state.models}.sortByCreatedAt();
+    // Handle replaceable events: remove old models with same addressable ID
+    final existingModels = state.models.toList();
+    final modelsToKeep = <E>[];
+
+    for (final existingModel in existingModels) {
+      // Check if any new model has the same addressable ID as this existing model
+      final hasReplacement = newModels.any((newModel) =>
+          newModel is ReplaceableModel &&
+          existingModel is ReplaceableModel &&
+          newModel.id == existingModel.id);
+
+      if (!hasReplacement) {
+        modelsToKeep.add(existingModel);
+      }
+    }
+
+    // Combine kept models with new models and sort
+    final sortedModels = [...modelsToKeep, ...newModels].sortByCreatedAt();
     if (mounted) {
       state = StorageData(sortedModels);
     }

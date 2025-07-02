@@ -104,8 +104,8 @@ class DummyStorageNotifier extends StorageNotifier {
     // Store in relay storage
     await _storeToRelay(models);
 
-    // Apply keepMaxModels limit if configured and not during streaming
-    if (config.keepMaxModels > 0 && _streamingRequestIds.isEmpty) {
+    // Apply keepMaxModels limit if configured
+    if (config.keepMaxModels > 0) {
       await _enforceMaxModelsLimit();
     }
 
@@ -123,15 +123,9 @@ class DummyStorageNotifier extends StorageNotifier {
   /// Enforces the keepMaxModels limit by removing the oldest events
   Future<void> _enforceMaxModelsLimit() async {
     final allEvents = _relayStorage.queryEvents([RequestFilter()]);
-
-    // Only apply limit if we're significantly over the limit (add 10% tolerance)
-    final tolerance = (config.keepMaxModels * 0.1).round();
-    final effectiveLimit = config.keepMaxModels + tolerance;
-
-    if (allEvents.length <= effectiveLimit) {
+    if (allEvents.length <= config.keepMaxModels) {
       return; // No need to remove anything
     }
-
     // Sort events by created_at descending (newest first)
     allEvents.sort((a, b) {
       final aCreatedAt =
@@ -142,11 +136,8 @@ class DummyStorageNotifier extends StorageNotifier {
       if (timeComparison != 0) return timeComparison;
       return (a['id'] as String).compareTo(b['id'] as String);
     });
-
-    // Keep only the newest events up to the actual limit
-    final eventsToKeep = allEvents.take(config.keepMaxModels).toList();
+    // Keep only the newest events up to the limit
     final eventsToRemove = allEvents.skip(config.keepMaxModels).toList();
-
     // Remove old events from storage
     for (final event in eventsToRemove) {
       final eventId = event['id'] as String;
@@ -365,36 +356,28 @@ class DummyStorageNotifier extends StorageNotifier {
 
   /// Simulates streaming for tests by adding models with delays
   void _simulateTestStreaming(RequestFilter filter) {
-    int addedCount = 0;
-    const maxAdds = 5; // Limit additions for predictable tests
-
-    Timer.periodic(Duration(milliseconds: 100), (timer) async {
-      if (!mounted || addedCount >= maxAdds) {
+    Timer.periodic(Duration(milliseconds: 10), (timer) async {
+      if (!mounted) {
         timer.cancel();
         return;
       }
 
-      // Generate a model with a newer timestamp to ensure it appears in results
+      // Add one model per tick
       final baseModel = _generateModelMatchingFilter(filter);
       if (baseModel != null) {
         // Create a new model with a newer timestamp by calling the generator directly
-        final newerTimestamp =
-            DateTime.now().add(Duration(seconds: addedCount + 1));
-
+        final newerTimestamp = DateTime.now();
         // Find the right pubkey from the filter
         final pubkey = filter.authors.isNotEmpty
             ? filter.authors.first
             : baseModel.event.pubkey;
-
         final newerModel = generateModel(
           kind: baseModel.event.kind,
           pubkey: pubkey,
           createdAt: newerTimestamp,
         );
-
         if (newerModel != null) {
           await save({newerModel});
-          addedCount++;
         }
       }
     });

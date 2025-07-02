@@ -60,8 +60,7 @@ class MemoryStorage {
           final existingId = existing['id'] as String;
 
           if (createdAt.isAfter(existingCreatedAt) ||
-              (createdAt.isAtSameMomentAs(existingCreatedAt) &&
-                  id.compareTo(existingId) < 0)) {
+              createdAt.isAtSameMomentAs(existingCreatedAt)) {
             // Remove old event from main storage
             _events.remove(existingId);
 
