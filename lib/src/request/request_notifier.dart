@@ -53,14 +53,24 @@ class RequestNotifier<E extends Model<dynamic>>
       if (storageState
           case InternalStorageData(req: final incomingReq, :final updatedIds)
           when updatedIds.isNotEmpty) {
-        if (incomingReq == req) {
+        if (incomingReq == null) {
+          // No incomingReq means saved locally, get models that apply to req
+          // with the incoming updated IDs
+          final newRequest =
+              req.filters.map((f) => f.copyWith(ids: updatedIds)).toRequest();
+          final newModels =
+              await storage.query(newRequest, source: LocalSource());
+          _emitNewModels(newModels);
+        } else if (incomingReq == req) {
           // In case the first query did not return before EOSE, handle it here
           final newModels = await storage.query(
               RequestFilter<E>(ids: updatedIds).toRequest(),
               source: LocalSource());
           _emitNewModels(newModels);
         } else {
-          // Refresh - this could be vastly optimized
+          // All other incomingReqs are assumed to be of some relationship
+          // of this notifier's models (gross assumption)
+          // TODO [cache]: Reduce refreshes here
           state = StorageData(state.models);
         }
       }

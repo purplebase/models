@@ -37,7 +37,7 @@ class MemoryStorage {
     if (Utils.isReplaceable(kind)) {
       final key = kind >= 30000 && kind < 40000
           ? _getAddressableId(event) // Addressable events
-          : '$kind:$pubkey'; // Regular replaceable events
+          : '$kind:$pubkey:'; // Regular replaceable events
 
       if (key != null) {
         final existing = kind >= 30000 && kind < 40000
@@ -107,7 +107,7 @@ class MemoryStorage {
         // Also remove from replaceable/addressable maps
         final key = deleteEventKind >= 30000 && deleteEventKind < 40000
             ? _getAddressableId(event)
-            : '$deleteEventKind:$deleteEventPubkey';
+            : '$deleteEventKind:$deleteEventPubkey:';
 
         if (key != null) {
           if (deleteEventKind >= 30000 && deleteEventKind < 40000) {

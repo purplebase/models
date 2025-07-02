@@ -105,8 +105,11 @@ class DummyStorageNotifier extends StorageNotifier {
     await _storeToRelay(models);
 
     if (mounted && models.isNotEmpty) {
+      final updatedIds = {for (final e in models) e.id};
       state = InternalStorageData(
-          req: Request([]), updatedIds: {for (final e in models) e.event.id});
+        req: null,
+        updatedIds: updatedIds,
+      );
     }
 
     return true;
@@ -180,7 +183,10 @@ class DummyStorageNotifier extends StorageNotifier {
             .map((event) {
               final constructor = Model.getConstructorForKind(event['kind']);
               if (constructor == null) return null;
-              return constructor(event, ref) as Model;
+
+              // Apply transformMap before constructing the model
+              final transformedEvent = _applyTransformMap(event, ref);
+              return constructor(transformedEvent, ref) as Model;
             })
             .whereType<E>()
             .toList();
@@ -215,7 +221,10 @@ class DummyStorageNotifier extends StorageNotifier {
                     final constructor =
                         Model.getConstructorForKind(event['kind']);
                     if (constructor == null) return null;
-                    return constructor(event, ref) as Model;
+
+                    // Apply transformMap before constructing the model
+                    final transformedEvent = _applyTransformMap(event, ref);
+                    return constructor(transformedEvent, ref) as Model;
                   })
                   .whereType<E>()
                   .toList();
@@ -260,6 +269,15 @@ class DummyStorageNotifier extends StorageNotifier {
     }).toList();
 
     return finalResults;
+  }
+
+  /// Apply transformMap to an event before constructing a model
+  Map<String, dynamic> _applyTransformMap(Map<String, dynamic> event, Ref ref) {
+    // Apply signature stripping based on storage configuration
+    if (!config.keepSignatures) {
+      event['sig'] = null;
+    }
+    return event;
   }
 
   /// Starts streaming simulation for a specific filter
@@ -377,7 +395,10 @@ class DummyStorageNotifier extends StorageNotifier {
     final eventsToKeep = allEvents.where((event) {
       final constructor = Model.getConstructorForKind(event['kind']);
       if (constructor == null) return true;
-      final model = constructor(event, ref) as Model;
+
+      // Apply transformMap before constructing the model
+      final transformedEvent = _applyTransformMap(event, ref);
+      final model = constructor(transformedEvent, ref) as Model;
       return !modelsToRemove.contains(model);
     }).toList();
 
