@@ -1,9 +1,9 @@
 part of models;
 
-/// Reactive storage with dummy data using dart_relay backend, singleton
+/// Reactive storage with dummy data using internal relay backend, singleton
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
-  late relay.MemoryStorage _relayStorage;
+  late MemoryStorage _relayStorage;
 
   static DummyStorageNotifier? _instance;
 
@@ -21,7 +21,7 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<void> initialize(StorageConfiguration config) async {
     await super.initialize(config);
-    _relayStorage = relay.MemoryStorage();
+    _relayStorage = MemoryStorage();
 
     // Only seed storage if it's empty (not during tests)
     if (_shouldSeedStorage()) {
@@ -81,7 +81,7 @@ class DummyStorageNotifier extends StorageNotifier {
           final reactions = List.generate(r.nextInt(20), (j) {
             final reactor = profiles[r.nextInt(profiles.length)];
             return generateModel(
-                kind: 7, parentId: note.id, pubkey: reactor.pubkey);
+                kind: 7, parentId: note.event.id, pubkey: reactor.pubkey);
           }).whereType<Model>();
           seededModels.addAll(reactions);
         }
@@ -91,7 +91,7 @@ class DummyStorageNotifier extends StorageNotifier {
           final zaps = List.generate(r.nextInt(5), (j) {
             final zapper = profiles[r.nextInt(profiles.length)];
             return generateModel(
-                kind: 9735, parentId: note.id, pubkey: zapper.pubkey);
+                kind: 9735, parentId: note.event.id, pubkey: zapper.pubkey);
           }).whereType<Model>();
           seededModels.addAll(zaps);
         }
@@ -99,100 +99,24 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     // Store all seeded data
-    await _storeToDartRelay(seededModels);
+    await _storeToRelay(seededModels);
   }
 
-  /// Converts our Model to dart_relay's NostrEvent
-  relay.NostrEvent _modelToNostrEvent(Model<dynamic> model) {
-    final map = model.toMap();
-    return relay.NostrEvent(
-      id: map['id'],
-      pubkey: map['pubkey'],
-      createdAt: map['created_at'],
-      kind: map['kind'],
-      tags: (map['tags'] as List).cast<List<String>>(),
-      content: map['content'] ?? '',
-      sig: map['sig'] ?? '',
-    );
-  }
-
-  /// Converts dart_relay's NostrEvent back to our Model
-  Model? _nostrEventToModel(relay.NostrEvent event) {
-    final constructor = Model.getConstructorForKind(event.kind);
-    if (constructor == null) return null;
-
-    return constructor({
-      'id': event.id,
-      'pubkey': event.pubkey,
-      'created_at': event.createdAt,
-      'kind': event.kind,
-      'tags': event.tags,
-      'content': event.content,
-      'sig': event.sig,
-    }, ref) as Model;
-  }
-
-  /// Converts our RequestFilter to dart_relay's NostrFilter
-  relay.NostrFilter _requestFilterToNostrFilter(RequestFilter filter) {
-    return relay.NostrFilter(
-      ids: filter.ids.isNotEmpty ? filter.ids.toList() : null,
-      authors: filter.authors.isNotEmpty ? filter.authors.toList() : null,
-      kinds: filter.kinds.isNotEmpty ? filter.kinds.toList() : null,
-      tags: filter.tags.isNotEmpty
-          ? {
-              for (final entry in filter.tags.entries)
-                entry.key.substring(1):
-                    entry.value.toList() // Remove leading '#'
-            }
-          : null,
-      since: filter.since?.toSeconds(),
-      until: filter.until?.toSeconds(),
-      limit: filter.limit,
-      search: filter.search,
-    );
-  }
-
-  /// Stores models in dart_relay storage
-  Future<void> _storeToDartRelay(Iterable<Model<dynamic>> models) async {
+  /// Stores models in relay storage
+  Future<void> _storeToRelay(Iterable<Model<dynamic>> models) async {
     for (final model in models) {
-      final nostrEvent = _modelToNostrEvent(model);
-
-      // Note: MemoryStorage automatically handles replaceable events,
-      // so we don't need to manually remove them
-
-      _relayStorage.storeEvent(nostrEvent);
-    }
-
-    // Enforce max models limit
-    await _enforceMaxModels();
-  }
-
-  /// Enforce the keepMaxModels configuration
-  Future<void> _enforceMaxModels() async {
-    final currentCount = _relayStorage.eventCount;
-    if (currentCount > config.keepMaxModels) {
-      // Get all events, sort by created_at, keep only the newest ones
-      final allEvents = _relayStorage.queryEvents([relay.NostrFilter()]);
-      allEvents.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-      final eventsToKeep = allEvents.take(config.keepMaxModels).toList();
-
-      // Clear and re-add only the events we want to keep
-      _relayStorage.clear();
-      for (final event in eventsToKeep) {
-        _relayStorage.storeEvent(event);
-      }
+      _relayStorage.storeEvent(model.event.toMap());
     }
   }
 
   @override
   Future<bool> save(Set<Model<dynamic>> models) async {
-    // Store in dart_relay storage
-    await _storeToDartRelay(models);
+    // Store in relay storage
+    await _storeToRelay(models);
 
     if (mounted && models.isNotEmpty) {
       state = InternalStorageData(
-          req: Request([]), updatedIds: {for (final e in models) e.id});
+          req: Request([]), updatedIds: {for (final e in models) e.event.id});
     }
 
     return true;
@@ -258,14 +182,16 @@ class DummyStorageNotifier extends StorageNotifier {
       // Query for regular IDs
       if (regularIds.isNotEmpty || filter.ids.isEmpty) {
         final regularFilter = filter.copyWith(ids: regularIds);
-        // Remove limit from NostrFilter since we'll apply it manually
-        final nostrFilterNoLimit =
-            _requestFilterToNostrFilter(regularFilter.copyWith(limit: null));
-        final nostrEvents = _relayStorage.queryEvents([nostrFilterNoLimit]);
+        // Remove limit from filter since we'll apply it manually
+        final filterNoLimit = regularFilter.copyWith(limit: null);
+        final relayEvents = _relayStorage.queryEvents([filterNoLimit]);
 
-        final models = nostrEvents
-            .map(_nostrEventToModel)
-            .whereType<Model>()
+        final models = relayEvents
+            .map((event) {
+              final constructor = Model.getConstructorForKind(event['kind']);
+              if (constructor == null) return null;
+              return constructor(event, ref) as Model;
+            })
             .whereType<E>()
             .toList();
 
@@ -283,20 +209,24 @@ class DummyStorageNotifier extends StorageNotifier {
             final dTag = parts.length > 3 ? parts[3] : '';
 
             if (kind != null) {
-              final replaceableFilter = relay.NostrFilter(
-                kinds: [kind],
-                authors: [pubkey],
+              final replaceableFilter = RequestFilter(
+                kinds: {kind},
+                authors: {pubkey},
                 tags: dTag.isNotEmpty
                     ? {
-                        'd': [dTag]
+                        '#d': {dTag}
                       }
                     : null,
               );
 
               final events = _relayStorage.queryEvents([replaceableFilter]);
               final models = events
-                  .map(_nostrEventToModel)
-                  .whereType<Model>()
+                  .map((event) {
+                    final constructor =
+                        Model.getConstructorForKind(event['kind']);
+                    if (constructor == null) return null;
+                    return constructor(event, ref) as Model;
+                  })
                   .whereType<E>()
                   .toList();
 
@@ -334,8 +264,8 @@ class DummyStorageNotifier extends StorageNotifier {
     // Remove duplicates while preserving order
     final seenIds = <String>{};
     final finalResults = allResults.where((model) {
-      if (seenIds.contains(model.id)) return false;
-      seenIds.add(model.id);
+      if (seenIds.contains(model.event.id)) return false;
+      seenIds.add(model.event.id);
       return true;
     }).toList();
 
@@ -453,10 +383,12 @@ class DummyStorageNotifier extends StorageNotifier {
 
     // Query matching events and remove them by clearing and re-adding others
     final modelsToRemove = querySync(req).toSet();
-    final allEvents = _relayStorage.queryEvents([relay.NostrFilter()]);
+    final allEvents = _relayStorage.queryEvents([RequestFilter()]);
     final eventsToKeep = allEvents.where((event) {
-      final model = _nostrEventToModel(event);
-      return model == null || !modelsToRemove.contains(model);
+      final constructor = Model.getConstructorForKind(event['kind']);
+      if (constructor == null) return true;
+      final model = constructor(event, ref) as Model;
+      return !modelsToRemove.contains(model);
     }).toList();
 
     // Clear and re-add events we want to keep

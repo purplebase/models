@@ -1,5 +1,7 @@
 library models;
 
+import 'dart:io';
+
 import 'package:nip44/nip44.dart' as nip44;
 import 'package:riverpod/riverpod.dart';
 import 'package:meta/meta.dart';
@@ -14,7 +16,8 @@ import 'package:crypto/crypto.dart';
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
-import 'package:dart_relay/dart_relay.dart' as relay;
+
+// Relay classes are available as parts of this library
 
 part 'src/utils/encoding.dart';
 part 'src/core/model.dart';
@@ -55,3 +58,9 @@ part 'src/utils/extensions.dart';
 part 'src/utils/utils.dart';
 
 part 'models.g.dart';
+
+// Relay parts
+part 'src/relay/storage/memory_storage.dart';
+part 'src/relay/handlers/message_handler.dart';
+part 'src/relay/models/relay_info.dart';
+part 'src/relay/nostr_relay.dart';

@@ -17,6 +17,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     Model.register(kind: 4, constructor: DirectMessage.fromMap);
     Model.register(kind: 7, constructor: Reaction.fromMap);
     Model.register(kind: 9, constructor: ChatMessage.fromMap);
+    Model.register(kind: 11, constructor: RelayInfo.fromMap);
     Model.register(kind: 1063, constructor: FileMetadata.fromMap);
     Model.register(kind: 3063, constructor: SoftwareAsset.fromMap);
     Model.register(kind: 1111, constructor: Comment.fromMap);
