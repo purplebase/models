@@ -158,8 +158,6 @@ class MessageHandler {
 
   void _broadcastEvent(Map<String, dynamic> event, WebSocket webSocket) {
     final activeKeys = List<String>.from(_activeSubs.keys);
-    print('DEBUG: _activeSubs: ${_activeSubs.keys}');
-    print('DEBUG: _closedVersions: $_closedVersions');
     for (final subId in activeKeys) {
       final sub = _activeSubs[subId];
       if (sub == null) continue;
@@ -195,27 +193,23 @@ class MessageHandler {
   void _sendEvent(
       String subId, Map<String, dynamic> event, WebSocket webSocket) {
     final message = jsonEncode(['EVENT', subId, event]);
-    print('DEBUG: Sending EVENT: $message');
     webSocket.add(message);
   }
 
   void _sendEose(String subId, WebSocket webSocket) {
     final message = jsonEncode(['EOSE', subId]);
-    print('DEBUG: Sending EOSE: $message');
     webSocket.add(message);
   }
 
   void _sendOk(
       String eventId, bool accepted, String message, WebSocket webSocket) {
     final response = jsonEncode(['OK', eventId, accepted, message]);
-    print('DEBUG: Sending OK: $response');
     webSocket.add(response);
   }
 
   void _sendError(String error, WebSocket webSocket) {
     try {
       final response = jsonEncode(['ERROR', error]);
-      print('DEBUG: Sending ERROR: $response');
       webSocket.add(response);
     } catch (e) {
       print('Failed to send error: $e');
@@ -224,7 +218,6 @@ class MessageHandler {
 
   void _sendClosed(String subId, String message, WebSocket webSocket) {
     final response = jsonEncode(['CLOSED', subId, message]);
-    print('DEBUG: Sending CLOSED: $response');
     webSocket.add(response);
   }
 
@@ -269,15 +262,9 @@ class MessageHandler {
       final computedId = hash.toString();
       final providedId = event['id'] as String;
 
-      print('DEBUG: Event ID validation:');
-      print('  Provided ID: $providedId');
-      print('  Computed ID: $computedId');
-      print('  Match: ${computedId == providedId}');
-
       // Compare with provided ID
       return computedId == providedId;
     } catch (e) {
-      print('DEBUG: Event ID validation error: $e');
       return false;
     }
   }

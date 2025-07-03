@@ -356,23 +356,19 @@ class DummyStorageNotifier extends StorageNotifier {
 
   /// Simulates streaming for tests by adding models with delays
   void _simulateTestStreaming(RequestFilter filter) {
-    print('DEBUG: Starting test streaming for filter: $filter');
     int count = 0;
     final timer = Timer.periodic(Duration(milliseconds: 10), (timer) async {
       if (!mounted) {
-        print('DEBUG: Not mounted, cancelling timer');
         timer.cancel();
         _streamingTimers.remove(filter);
         return;
       }
       if (count >= 3) {
-        print('DEBUG: Reached max count (3), cancelling timer');
         timer.cancel();
         _streamingTimers.remove(filter);
         return;
       }
       count++;
-      print('DEBUG: Adding model $count for filter: $filter');
       // Add one model per tick
       final baseModel = _generateModelMatchingFilter(filter);
       if (baseModel != null) {
@@ -388,7 +384,6 @@ class DummyStorageNotifier extends StorageNotifier {
           createdAt: newerTimestamp,
         );
         if (newerModel != null) {
-          print('DEBUG: Saving model: ${newerModel.event.id}');
           await save({newerModel});
         }
       }
