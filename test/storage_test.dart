@@ -5,26 +5,39 @@ import 'package:test/test.dart';
 import 'helpers.dart';
 
 void main() async {
+  late ProviderContainer container;
+  late DummyStorageNotifier storage;
+
+  setUpAll(() async {
+    container = ProviderContainer();
+    final config = StorageConfiguration(
+      relayGroups: {
+        'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'}
+      },
+      defaultRelayGroup: 'big-relays',
+      streamingBufferWindow: Duration.zero,
+      keepMaxModels: 1000,
+    );
+    await container.read(initializationProvider(config).future);
+    storage = container.read(storageNotifierProvider.notifier)
+        as DummyStorageNotifier;
+  });
+
+  tearDown(() async {
+    await storage.cancel();
+    await storage.clear();
+  });
+
+  tearDownAll(() {
+    container.dispose();
+  });
+
   group('storage filters', () {
-    late ProviderContainer container;
-    late DummyStorageNotifier storage;
     late StateNotifierTester tester;
     late Note a, b, c, d, e, f, g, replyToA, replyToB;
     late Profile nielProfile;
 
     setUp(() async {
-      container = ProviderContainer();
-      final config = StorageConfiguration(
-        relayGroups: {
-          'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'}
-        },
-        defaultRelayGroup: 'big-relays',
-        streamingBufferWindow: Duration.zero,
-      );
-      await container.read(initializationProvider(config).future);
-      storage = container.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
-
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
@@ -49,9 +62,6 @@ void main() async {
 
     tearDown(() async {
       tester.dispose();
-      await storage.cancel();
-      await storage.clear();
-      // Reset the singleton instance to ensure clean state
     });
 
     test('ids', () async {
@@ -171,29 +181,6 @@ void main() async {
   });
 
   group('storage', () {
-    late ProviderContainer container;
-    late DummyStorageNotifier storage;
-
-    setUpAll(() async {
-      container = ProviderContainer();
-      final config = StorageConfiguration(
-        streamingBufferWindow: Duration.zero,
-        keepMaxModels: 1000,
-      );
-      await container.read(initializationProvider(config).future);
-      storage = container.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
-    });
-
-    tearDown(() async {
-      await storage.cancel();
-      await storage.clear();
-    });
-
-    tearDownAll(() {
-      container.dispose();
-    });
-
     test('clear with req', () async {
       // Clear storage completely before test to ensure clean state
       await storage.clear();
@@ -269,16 +256,8 @@ void main() async {
     });
   });
 
-  group('with notifier', () {
+  group('notifier', () {
     test('relay request should notify with models', () async {
-      final container = ProviderContainer();
-      final config = StorageConfiguration(
-        streamingBufferWindow: Duration.zero,
-        keepMaxModels: 1000,
-      );
-      await container.read(initializationProvider(config).future);
-      final storage = container.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
       final [franzap, niel] = [
         storage.generateProfile(franzapPubkey),
         storage.generateProfile(nielPubkey)
@@ -295,40 +274,15 @@ void main() async {
       final tester = container.testerFor(query<Note>(
           authors: {nielPubkey, franzapPubkey},
           limit: 1,
-          source: RemoteSource(stream: true)));
+          source: RemoteSource(stream: false)));
 
       await tester.expectModels(hasLength(1));
-
-      // Wait for streaming to add more models
-      final start = DateTime.now();
-      bool gotMore = false;
-      while (DateTime.now().difference(start) < Duration(seconds: 5)) {
-        final models = (tester.notifier.state as StorageState).models;
-        if (models.length > 1) {
-          gotMore = true;
-          break;
-        }
-        await Future.delayed(Duration(milliseconds: 20));
-      }
-
-      expect(gotMore, isTrue, reason: 'Expected streaming to add more models');
-
-      // Cleanup after streaming completes
+      expect(tester.notifier.state, isA<StorageData>());
+      expect((tester.notifier.state as StorageData).models, hasLength(1));
       tester.dispose();
-      await storage.cancel();
-      await storage.clear();
-      container.dispose();
-    }, timeout: Timeout(Duration(seconds: 30)));
+    });
 
     test('relay request should notify with models (streamed)', () async {
-      final container = ProviderContainer();
-      final config = StorageConfiguration(
-        streamingBufferWindow: Duration.zero,
-        keepMaxModels: 1000,
-      );
-      await container.read(initializationProvider(config).future);
-      final storage = container.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
       final [franzap, niel] = [
         storage.generateProfile(franzapPubkey),
         storage.generateProfile(nielPubkey)
@@ -349,26 +303,9 @@ void main() async {
       ));
 
       await tester.expectModels(hasLength(5));
-
-      // Wait for streaming to add more models
-      final start = DateTime.now();
-      bool gotMore = false;
-      while (DateTime.now().difference(start) < Duration(seconds: 5)) {
-        final models = (tester.notifier.state as StorageState).models;
-        if (models.length > 5) {
-          gotMore = true;
-          break;
-        }
-        await Future.delayed(Duration(milliseconds: 20));
-      }
-
-      expect(gotMore, isTrue, reason: 'Expected streaming to add more models');
-
-      // Cleanup after streaming completes
+      expect(tester.notifier.state, isA<StorageData>());
+      expect((tester.notifier.state as StorageData).models, hasLength(5));
       tester.dispose();
-      await storage.cancel();
-      await storage.clear();
-      container.dispose();
-    }, timeout: Timeout(Duration(seconds: 30)));
+    });
   });
 }

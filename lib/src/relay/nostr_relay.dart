@@ -32,8 +32,6 @@ class NostrRelay {
   Future<void> start() async {
     _server = await HttpServer.bind(host, port);
 
-    print('Nostr relay listening on ws://$host:$port');
-
     _server!.listen((HttpRequest request) async {
       if (WebSocketTransformer.isUpgradeRequest(request)) {
         final webSocket = await WebSocketTransformer.upgrade(request);
