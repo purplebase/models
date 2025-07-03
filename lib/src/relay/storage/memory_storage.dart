@@ -4,10 +4,22 @@ part of models;
 class MemoryStorage {
   final Map<String, Map<String, dynamic>> _events = {};
   final Map<String, Map<String, dynamic>> _replaceableEvents =
-      {}; // pubkey:kind -> event
+      {}; // pubkey:kind -&gt; event
   final Map<String, Map<String, dynamic>> _addressableEvents =
-      {}; // kind:pubkey:d -> event
+      {}; // kind:pubkey:d -&gt; event
   final Set<String> _deletedEvents = {};
+
+  /// Safely converts a dynamic tags field to List<List<String>>
+  List<List<String>> _safeTags(dynamic tags) {
+    if (tags is List) {
+      return tags
+          .map((e) =>
+              e is List ? e.map((v) => v.toString()).toList() : <String>[])
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return <List<String>>[];
+  }
 
   /// Stores an event, handling replaceable and addressable events
   bool storeEvent(Map<String, dynamic> event) {
@@ -166,7 +178,7 @@ class MemoryStorage {
     final createdAt = DateTime.fromMillisecondsSinceEpoch(
         (event['created_at'] as int) * 1000);
     final content = event['content'] as String;
-    final tags = event['tags'] as List<List<String>>;
+    final tags = _safeTags(event['tags']);
 
     // Check IDs
     if (filter.ids.isNotEmpty && !filter.ids.contains(id)) {
@@ -291,7 +303,7 @@ class MemoryStorage {
   String? _getAddressableId(Map<String, dynamic> event) {
     final kind = event['kind'] as int;
     final pubkey = event['pubkey'] as String;
-    final tags = event['tags'] as List<List<String>>;
+    final tags = _safeTags(event['tags']);
 
     if (kind >= 30000 && kind < 40000) {
       final dTag = tags

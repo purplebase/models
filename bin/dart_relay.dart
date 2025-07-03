@@ -43,13 +43,6 @@ void main(List<String> arguments) async {
     // Start the relay
     await relay.start();
 
-    // Print some helpful information
-    print('\n🚀 Relay is running!');
-    print('📊 Supported NIPs: ${relay.relayInfo.supportedNips.join(', ')}');
-    print('\n📝 Connect your Nostr client to: ws://$host:$port');
-    print('🌐 View relay info at: http://$host:$port');
-    print('\n💡 Press Ctrl+C to stop');
-
     // Keep the process alive
     await ProcessSignal.sigint.watch().first;
   } catch (e) {

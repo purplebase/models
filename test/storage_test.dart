@@ -267,54 +267,108 @@ void main() async {
 
       expect(r1, equals(r4));
     });
+  });
 
-    group('with notifier', () {
-      StateNotifierTester? tester;
-
-      setUp(() async {
-        final [franzap, niel] = [
-          storage.generateProfile(franzapPubkey),
-          storage.generateProfile(nielPubkey)
-        ];
-        await storage.save({
-          franzap,
-          niel,
-          ...List.generate(20,
-              (i) => storage.generateModel(kind: 1, pubkey: franzapPubkey)!),
-          ...List.generate(
-              20, (i) => storage.generateModel(kind: 1, pubkey: nielPubkey)!),
-        });
+  group('with notifier', () {
+    test('relay request should notify with models', () async {
+      final container = ProviderContainer();
+      final config = StorageConfiguration(
+        streamingBufferWindow: Duration.zero,
+        keepMaxModels: 1000,
+      );
+      await container.read(initializationProvider(config).future);
+      final storage = container.read(storageNotifierProvider.notifier)
+          as DummyStorageNotifier;
+      final [franzap, niel] = [
+        storage.generateProfile(franzapPubkey),
+        storage.generateProfile(nielPubkey)
+      ];
+      await storage.save({
+        franzap,
+        niel,
+        ...List.generate(
+            20, (i) => storage.generateModel(kind: 1, pubkey: franzapPubkey)!),
+        ...List.generate(
+            20, (i) => storage.generateModel(kind: 1, pubkey: nielPubkey)!),
       });
 
-      tearDown(() async {
-        tester?.dispose();
-        tester = null;
-      });
-
-      test('relay request should notify with models', () async {
-        tester = container.testerFor(
-            query<Note>(authors: {nielPubkey, franzapPubkey}, limit: 1));
-        await tester!.expectModels(hasLength(1));
-
-        // The streaming simulation will add more models over time
-        // Wait for at least one more model to be added
-        await tester!.expectModels(allOf(
-          hasLength(greaterThan(1)),
-          everyElement((m) => m is Note),
-        ));
-        tester!.dispose();
-      });
-
-      test('relay request should notify with models (streamed)', () async {
-        tester = container.testerFor(query<Note>(
+      final tester = container.testerFor(query<Note>(
           authors: {nielPubkey, franzapPubkey},
-          limit: 5,
-        ));
-        await tester!.expectModels(hasLength(5)); // limit=5
-        await tester!.expectModels(hasLength(6)); // streaming
-        await tester!.expectModels(hasLength(7)); // streaming
-        tester!.dispose();
+          limit: 1,
+          source: RemoteSource(stream: true)));
+
+      await tester.expectModels(hasLength(1));
+
+      // Wait for streaming to add more models
+      final start = DateTime.now();
+      bool gotMore = false;
+      while (DateTime.now().difference(start) < Duration(seconds: 5)) {
+        final models = (tester.notifier.state as StorageState).models;
+        if (models.length > 1) {
+          gotMore = true;
+          break;
+        }
+        await Future.delayed(Duration(milliseconds: 20));
+      }
+
+      expect(gotMore, isTrue, reason: 'Expected streaming to add more models');
+
+      // Cleanup after streaming completes
+      tester.dispose();
+      await storage.cancel();
+      await storage.clear();
+      container.dispose();
+    }, timeout: Timeout(Duration(seconds: 30)));
+
+    test('relay request should notify with models (streamed)', () async {
+      final container = ProviderContainer();
+      final config = StorageConfiguration(
+        streamingBufferWindow: Duration.zero,
+        keepMaxModels: 1000,
+      );
+      await container.read(initializationProvider(config).future);
+      final storage = container.read(storageNotifierProvider.notifier)
+          as DummyStorageNotifier;
+      final [franzap, niel] = [
+        storage.generateProfile(franzapPubkey),
+        storage.generateProfile(nielPubkey)
+      ];
+      await storage.save({
+        franzap,
+        niel,
+        ...List.generate(
+            20, (i) => storage.generateModel(kind: 1, pubkey: franzapPubkey)!),
+        ...List.generate(
+            20, (i) => storage.generateModel(kind: 1, pubkey: nielPubkey)!),
       });
-    }, skip: true);
+
+      final tester = container.testerFor(query<Note>(
+        authors: {nielPubkey, franzapPubkey},
+        limit: 5,
+        source: RemoteSource(stream: true),
+      ));
+
+      await tester.expectModels(hasLength(5));
+
+      // Wait for streaming to add more models
+      final start = DateTime.now();
+      bool gotMore = false;
+      while (DateTime.now().difference(start) < Duration(seconds: 5)) {
+        final models = (tester.notifier.state as StorageState).models;
+        if (models.length > 5) {
+          gotMore = true;
+          break;
+        }
+        await Future.delayed(Duration(milliseconds: 20));
+      }
+
+      expect(gotMore, isTrue, reason: 'Expected streaming to add more models');
+
+      // Cleanup after streaming completes
+      tester.dispose();
+      await storage.cancel();
+      await storage.clear();
+      container.dispose();
+    }, timeout: Timeout(Duration(seconds: 30)));
   });
 }

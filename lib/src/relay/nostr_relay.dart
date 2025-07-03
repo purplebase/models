@@ -17,6 +17,10 @@ class NostrRelay {
 
   HttpServer? _server;
   final Set<WebSocket> _connections = {};
+  final Completer<void> _readyCompleter = Completer<void>();
+
+  /// Returns a Future that completes when the relay is ready to accept connections
+  Future<void> get ready => _readyCompleter.future;
 
   NostrRelay({
     required this.port,
@@ -29,8 +33,6 @@ class NostrRelay {
     _server = await HttpServer.bind(host, port);
 
     print('Nostr relay listening on ws://$host:$port');
-    print('Relay info available at http://$host:$port');
-    print('Supported NIPs: ${relayInfo.supportedNips}');
 
     _server!.listen((HttpRequest request) async {
       if (WebSocketTransformer.isUpgradeRequest(request)) {
@@ -41,6 +43,12 @@ class NostrRelay {
         _handleHttpRequest(request);
       }
     });
+
+    // Mark as ready after server is bound and listening
+    _readyCompleter.complete();
+
+    // Wait for ready to complete before returning
+    await _readyCompleter.future;
   }
 
   /// Stops the relay server
@@ -61,7 +69,7 @@ class NostrRelay {
     webSocket.listen(
       (message) {
         if (message is String) {
-          messageHandler.handleMessage(message);
+          messageHandler.handleMessage(message, webSocket);
         }
       },
       onError: (error) {
@@ -71,13 +79,6 @@ class NostrRelay {
         _connections.remove(webSocket);
       },
     );
-
-    // Listen for outgoing messages from the message handler
-    messageHandler.outgoingMessages.listen((message) {
-      if (webSocket.readyState == WebSocket.open) {
-        webSocket.add(jsonEncode(message));
-      }
-    });
   }
 
   /// Handles HTTP requests (for relay info)
