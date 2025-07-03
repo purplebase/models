@@ -3,38 +3,38 @@ part of models;
 //***** PUBLIC API ******//
 
 sealed class Source {
-  final String? group;
-  final bool returnModels;
-  const Source({this.group, this.returnModels = true});
+  const Source();
 }
 
 final class LocalSource extends Source {
-  // TODO [source]: Group does not really apply the same way to local than remote, maybe change var name?; returnModels => background?
-  const LocalSource({super.group});
-  @override
-  String toString() {
-    return 'LocalSource: $group';
-  }
+  const LocalSource();
 }
 
 final class RemoteSource extends Source {
+  final bool background;
+  final String group;
   final bool stream;
-  final bool includeLocal;
   const RemoteSource(
-      {super.group,
-      this.includeLocal = true,
-      this.stream = true,
-      super.returnModels = true});
+      {this.group = 'default', this.stream = true, this.background = false});
 
   @override
   String toString() {
-    return 'RemoteSource: $group [stream=$stream includeLocal=$includeLocal]';
+    return 'RemoteSource: $group [stream=$stream, background=$background]';
   }
 }
 
-final class OutboxRelaySource extends RemoteSource {
-  const OutboxRelaySource({super.stream});
+final class LocalAndRemoteSource extends RemoteSource {
+  const LocalAndRemoteSource(
+      {super.group, super.stream = true, super.background = false});
+  @override
+  String toString() {
+    return 'LocalAnd${super.toString()}';
+  }
 }
+
+// final class OutboxRelaySource extends RemoteSource {
+//   const OutboxRelaySource({super.stream});
+// }
 
 // State
 

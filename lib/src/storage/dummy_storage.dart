@@ -147,7 +147,7 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<PublishResponse> publish(Set<Model<dynamic>> models,
-      {Source source = const RemoteSource()}) async {
+      {Source source = const LocalAndRemoteSource()}) async {
     final response = PublishResponse();
 
     if (models.isNotEmpty) {
@@ -165,9 +165,9 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
-      {Source source = const RemoteSource()}) async {
+      {Source source = const LocalAndRemoteSource()}) async {
     // Always start with local results
-    List<E> results = querySync(req);
+    final results = querySync(req);
 
     // For LocalSource, return only local results
     if (source is LocalSource) {

@@ -17,33 +17,12 @@ class RequestNotifier<E extends Model<dynamic>>
     if (req.filters.isEmpty) return;
 
     () async {
-      // TODO [source]: This logic should be handled inside query, add background flag to source
-      final newModels = await storage.query(req, source: LocalSource());
-      if (newModels.isEmpty) {
-        // If it's empty, we want to block (later allow passing a flag for this)
-        final remoteModels = await _loadRemote(returnModels: true);
-        newModels.addAll(remoteModels);
-      } else {
-        _loadRemote(returnModels: false);
-      }
-
-      _emitNewModels(newModels);
+      final models = await storage.query(req, source: source);
+      _emitNewModels(models);
       _startSubscription();
     }();
 
     ref.onDispose(() => storage.cancel(req));
-  }
-
-  Future<List<E>> _loadRemote({bool returnModels = true}) async {
-    if (source is RemoteSource) {
-      return storage.query(req,
-          source: RemoteSource(
-              group: source.group,
-              stream: (source as RemoteSource).stream,
-              includeLocal: false,
-              returnModels: returnModels));
-    }
-    return [];
   }
 
   void _startSubscription() {
@@ -103,10 +82,11 @@ class RequestNotifier<E extends Model<dynamic>>
     final mergedRelationshipRequest = RequestFilter.mergeMultiple(
             newRelationshipRequests.expand((r) => r.filters).toList())
         .toRequest();
-    if (mergedRelationshipRequest.filters.isNotEmpty) {
+    if (mergedRelationshipRequest.filters.isNotEmpty &&
+        source is RemoteSource) {
       storage.query(mergedRelationshipRequest,
           source: RemoteSource(
-              group: source.group, includeLocal: false, returnModels: false));
+              group: (source as RemoteSource).group, background: false));
     }
 
     // Handle replaceable events: remove old models with same addressable ID
@@ -164,7 +144,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   DateTime? since,
   DateTime? until,
   int? limit,
-  Source source = const RemoteSource(),
+  Source source = const LocalAndRemoteSource(background: true),
   AndFunction and,
   WhereFunction where,
 }) {
@@ -194,7 +174,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
   DateTime? since,
   DateTime? until,
   int? limit,
-  Source source = const RemoteSource(),
+  Source source = const LocalAndRemoteSource(),
   WhereFunction<E> where,
   AndFunction<E> and,
 }) {
@@ -216,7 +196,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 /// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
     model<E extends Model<E>>(E model,
-        {Source source = const RemoteSource(),
+        {Source source = const LocalAndRemoteSource(),
         AndFunction<E> and,
         bool remote = true}) {
   // Note: does not need kind or other arguments as it queries by ID

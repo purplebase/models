@@ -175,8 +175,19 @@ void main() async {
     test('relay metadata', () async {
       tester = container.testerFor(
           query<Profile>(authors: {nielPubkey}, source: LocalSource()));
-      await tester.expect(isA<StorageData>()
-          .having((s) => s.models.first.event.relays, 'relays', <String>{}));
+
+      if (tester.notifier.state is StorageData) {
+        expect(
+          tester.notifier.state,
+          isA<StorageData>()
+              .having((s) => s.models.first.event.relays, 'relays', <String>{}),
+        );
+      } else {
+        await tester.expect(
+          isA<StorageData>()
+              .having((s) => s.models.first.event.relays, 'relays', <String>{}),
+        );
+      }
     });
   });
 

@@ -9,7 +9,7 @@ class MemoryStorage {
       {}; // kind:pubkey:d -&gt; event
   final Set<String> _deletedEvents = {};
 
-  /// Safely converts a dynamic tags field to List<List<String>>
+  /// Safely converts a dynamic tags field to List of List of String
   List<List<String>> _safeTags(dynamic tags) {
     if (tags is List) {
       return tags

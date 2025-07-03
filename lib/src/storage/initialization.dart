@@ -106,8 +106,11 @@ class StorageConfiguration extends Equatable {
   /// Find relays given a group,
   /// [useDefault] if missing whether to return the default one
   Set<String> getRelays(
-      {Source source = const RemoteSource(), bool useDefault = true}) {
-    final k = source.group ?? (useDefault ? defaultRelayGroup : null);
+      {Source source = const LocalAndRemoteSource(), bool useDefault = true}) {
+    if (source is LocalSource) return {};
+
+    final k = (source as RemoteSource).group ??
+        (useDefault ? defaultRelayGroup : null);
     return relayGroups[k] ?? {};
   }
 

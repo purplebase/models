@@ -54,7 +54,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   /// By default fetches from local storage and relays.
   /// For errors, listen to this notifier and filter for [StorageError]
   Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
-      {Source source = const RemoteSource()});
+      {Source source = const LocalAndRemoteSource(stream: false)});
 
   /// Save models to local storage in one transaction.
   /// For errors, listen to this notifier and filter for [StorageError]
