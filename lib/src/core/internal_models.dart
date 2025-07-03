@@ -1,7 +1,5 @@
 part of models;
 
-//***** PUBLIC API ******//
-
 sealed class Source {
   const Source();
 }
@@ -12,10 +10,9 @@ final class LocalSource extends Source {
 
 final class RemoteSource extends Source {
   final bool background;
-  final String group;
+  final String? group;
   final bool stream;
-  const RemoteSource(
-      {this.group = 'default', this.stream = true, this.background = false});
+  const RemoteSource({this.group, this.stream = true, this.background = false});
 
   @override
   String toString() {

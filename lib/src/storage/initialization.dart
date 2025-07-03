@@ -24,7 +24,7 @@ class StorageConfiguration extends Equatable {
   final Map<String, Set<String>> relayGroups;
 
   /// The default group to use when unspecified
-  final String? defaultRelayGroup;
+  final String defaultRelayGroup;
 
   /// After this inactivity duration, relays disconnect (default: 5 minutes)
   final Duration idleTimeout;
@@ -44,7 +44,7 @@ class StorageConfiguration extends Equatable {
     this.keepSignatures = false,
     this.skipVerification = false,
     Map<String, Set<String>> relayGroups = const {},
-    this.defaultRelayGroup,
+    this.defaultRelayGroup = 'default',
     this.idleTimeout = const Duration(minutes: 5),
     this.responseTimeout = const Duration(seconds: 6),
     this.streamingBufferWindow = const Duration(seconds: 2),
@@ -108,10 +108,10 @@ class StorageConfiguration extends Equatable {
   Set<String> getRelays(
       {Source source = const LocalAndRemoteSource(), bool useDefault = true}) {
     if (source is LocalSource) return {};
+    source as RemoteSource;
 
-    final k = (source as RemoteSource).group ??
-        (useDefault ? defaultRelayGroup : null);
-    return relayGroups[k] ?? {};
+    final group = source.group ?? (useDefault ? (defaultRelayGroup) : null);
+    return relayGroups[group] ?? {};
   }
 
   @override
