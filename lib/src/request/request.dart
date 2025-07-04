@@ -82,8 +82,8 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
     this.and,
   })  : ids = ids ?? const {},
         authors = authors ?? const {},
-        kinds =
-            _isModelOfDynamic<E>() ? kinds ?? const {} : {Model._kindFor<E>()},
+        kinds = kinds ??
+            (_isModelOfDynamic<E>() ? const {} : {Model._kindFor<E>()}),
         tags = tags ?? const {} {
     // IDs are either regular (64 character) or replaceable and match its regexp
     if (ids != null &&
@@ -127,10 +127,10 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
       if (authors.isNotEmpty) 'authors': authors.sorted(),
       for (final e in tags.entries.sortedBy((e) => e.key))
         if (e.value.isNotEmpty) e.key: e.value.sorted(),
+      if (search != null) 'search': search,
       if (since != null) 'since': since!.toSeconds(),
       if (until != null) 'until': until!.toSeconds(),
       if (limit != null) 'limit': limit,
-      if (search != null) 'search': search,
     };
   }
 
@@ -150,8 +150,9 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
       kinds: kinds ?? this.kinds,
       tags: tags ?? this.tags,
       search: search ?? this.search,
-      since: since ?? this.since,
+      since: since?.millisecondsSinceEpoch == 0 ? null : since ?? this.since,
       until: until ?? this.until,
+      limit: limit ?? this.limit,
       where: where,
       and: and,
     );
