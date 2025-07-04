@@ -16,11 +16,12 @@ class RequestNotifier<E extends Model<dynamic>>
         super(StorageLoading([])) {
     if (req.filters.isEmpty) return;
 
-    () async {
-      final models = await storage.query(req, source: source);
+    storage.query(req, source: source).then((models) {
       _emitNewModels(models);
       _startSubscription();
-    }();
+    }).catchError((e, stack) {
+      state = StorageError(state.models, exception: e, stackTrace: stack);
+    });
 
     ref.onDispose(() => storage.cancel(req));
   }
@@ -37,15 +38,23 @@ class RequestNotifier<E extends Model<dynamic>>
           // with the incoming updated IDs
           final newRequest =
               req.filters.map((f) => f.copyWith(ids: updatedIds)).toRequest();
-          final newModels =
-              await storage.query(newRequest, source: LocalSource());
-          _emitNewModels(newModels);
+          try {
+            final newModels =
+                await storage.query(newRequest, source: LocalSource());
+            _emitNewModels(newModels);
+          } catch (e, stack) {
+            state = StorageError(state.models, exception: e, stackTrace: stack);
+          }
         } else if (incomingReq == req) {
-          // In case the first query did not return before EOSE, handle it here
-          final newModels = await storage.query(
-              RequestFilter<E>(ids: updatedIds).toRequest(),
-              source: LocalSource());
-          _emitNewModels(newModels);
+          try {
+            // In case the first query did not return before EOSE, handle it here
+            final newModels = await storage.query(
+                RequestFilter<E>(ids: updatedIds).toRequest(),
+                source: LocalSource());
+            _emitNewModels(newModels);
+          } catch (e, stack) {
+            state = StorageError(state.models, exception: e, stackTrace: stack);
+          }
         } else {
           // All other incomingReqs are assumed to be of some relationship
           // of this notifier's models (gross assumption)
@@ -86,7 +95,7 @@ class RequestNotifier<E extends Model<dynamic>>
         source is RemoteSource) {
       storage.query(mergedRelationshipRequest,
           source: RemoteSource(
-              group: (source as RemoteSource).group, background: false));
+              group: (source as RemoteSource).group, background: true));
     }
 
     // Handle replaceable events: remove old models with same addressable ID
@@ -174,7 +183,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
   DateTime? since,
   DateTime? until,
   int? limit,
-  Source source = const LocalAndRemoteSource(),
+  Source source = const LocalAndRemoteSource(background: true),
   WhereFunction<E> where,
   AndFunction<E> and,
 }) {

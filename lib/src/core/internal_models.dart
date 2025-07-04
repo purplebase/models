@@ -65,9 +65,12 @@ final class InternalStorageData extends StorageState {
 }
 
 final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
-  final Exception exception;
+  late final Exception exception;
   final StackTrace? stackTrace;
-  StorageError(super.models, {required this.exception, this.stackTrace});
+  StorageError(super.models, {required dynamic exception, this.stackTrace}) {
+    this.exception =
+        exception is Exception ? exception : Exception(e.toString());
+  }
 }
 
 final class PublishResponse {
