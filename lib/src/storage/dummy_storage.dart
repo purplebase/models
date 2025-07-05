@@ -1,17 +1,11 @@
 part of models;
 
-/// Reactive storage with dummy data using internal relay backend, singleton
+/// Reactive storage with dummy data using internal relay backend
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
   late MemoryStorage _relayStorage;
 
-  static DummyStorageNotifier? _instance;
-
-  factory DummyStorageNotifier(Ref ref) {
-    return _instance ??= DummyStorageNotifier._(ref);
-  }
-
-  DummyStorageNotifier._(this.ref);
+  DummyStorageNotifier(this.ref);
 
   final Map<RequestFilter, Timer> _streamingTimers = {};
   final Map<RequestFilter, StreamSubscription> _streamingSubscriptions = {};
@@ -192,8 +186,8 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   List<E> querySync<E extends Model<dynamic>>(Request<E> req) {
     final allResults = <E>[];
-    final requestId = req.toString();
-    final isStreaming = _streamingRequestIds.contains(requestId);
+    final subId = req.subscriptionId;
+    final isStreaming = _streamingRequestIds.contains(subId);
 
     for (final filter in req.filters) {
       // Handle replaceable IDs by converting them to regular filters
