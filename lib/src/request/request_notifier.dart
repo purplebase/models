@@ -20,7 +20,11 @@ class RequestNotifier<E extends Model<dynamic>>
       _emitNewModels(models);
       _startSubscription();
     }).catchError((e, stack) {
-      state = StorageError(state.models, exception: e, stackTrace: stack);
+      if (mounted) {
+        state = StorageError(state.models, exception: e, stackTrace: stack);
+      } else {
+        print(e);
+      }
     });
 
     ref.onDispose(() => storage.cancel(req));
@@ -115,7 +119,8 @@ class RequestNotifier<E extends Model<dynamic>>
     }
 
     // Combine kept models with new models and sort
-    final sortedModels = [...modelsToKeep, ...newModels].sortByCreatedAt();
+    // Put them in a Set to remove duplicates, new models take precedence
+    final sortedModels = {...newModels, ...modelsToKeep}.sortByCreatedAt();
     if (mounted) {
       state = StorageData(sortedModels);
     }
@@ -205,7 +210,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 /// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
     model<E extends Model<E>>(E model,
-        {Source source = const LocalAndRemoteSource(),
+        {Source source = const LocalAndRemoteSource(background: true),
         AndFunction<E> and,
         bool remote = true}) {
   // Note: does not need kind or other arguments as it queries by ID

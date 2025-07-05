@@ -88,29 +88,20 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
     switch (this) {
       case ImmutableParameterizableReplaceableEvent(:final identifier):
         // naddr
-        return encodeShareableIdentifiers(
-            prefix: 'naddr',
-            special: identifier,
-            relays: null,
-            author: pubkey,
-            kind: kind);
+        return ShareableIdentifiers.encode(
+          AddressInput(identifier: identifier, author: pubkey, kind: kind),
+        );
       default:
         // nprofile
         if (kind == 0) {
-          return encodeShareableIdentifiers(
-              prefix: 'nprofile',
-              special: pubkey,
-              relays: null,
-              author: null,
-              kind: null);
+          return ShareableIdentifiers.encode(
+            ProfileInput(pubkey: pubkey),
+          );
         }
         // nevent
-        return encodeShareableIdentifiers(
-            prefix: 'nevent',
-            special: id,
-            relays: null,
-            author: null,
-            kind: null);
+        return ShareableIdentifiers.encode(
+          EventInput(eventId: id),
+        );
     }
   }
 
