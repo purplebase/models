@@ -137,13 +137,23 @@ class MemoryStorage {
     final seenIds = <String>{};
 
     for (final filter in filters) {
+      // Get events from main storage
       final matchingEvents = _events.values
           .where((event) => _matchesFilter(event, filter))
           .where((event) => !seenIds.contains(event['id'] as String))
           .toList();
 
+      // Also get events from replaceable storage (for replaceable events)
+      final replaceableEvents = _replaceableEvents.values
+          .where((event) => _matchesFilter(event, filter))
+          .where((event) => !seenIds.contains(event['id'] as String))
+          .toList();
+
+      // Combine both sets
+      final allMatchingEvents = [...matchingEvents, ...replaceableEvents];
+
       // Sort by created_at descending, then by id ascending for ties
-      matchingEvents.sort((a, b) {
+      allMatchingEvents.sort((a, b) {
         final aCreatedAt = DateTime.fromMillisecondsSinceEpoch(
             (a['created_at'] as int) * 1000);
         final bCreatedAt = DateTime.fromMillisecondsSinceEpoch(
@@ -155,8 +165,8 @@ class MemoryStorage {
 
       // Apply limit if specified
       final limitedEvents = filter.limit != null
-          ? matchingEvents.take(filter.limit!).toList()
-          : matchingEvents;
+          ? allMatchingEvents.take(filter.limit!).toList()
+          : allMatchingEvents;
 
       for (final event in limitedEvents) {
         final eventId = event['id'] as String;

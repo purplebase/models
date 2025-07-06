@@ -392,4 +392,128 @@ void main() {
       expect(signedDM.encryptedContent, contains(message.hashCode.toString()));
     });
   });
+
+  group('Signer Notifier Features', () {
+    late Bip340PrivateKeySigner signer;
+    late Profile testProfile;
+    late DummyStorageNotifier storage;
+    const privateKey =
+        'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
+
+    setUp(() async {
+      signer = Bip340PrivateKeySigner(privateKey, ref);
+      await signer.initialize();
+
+      // Get storage instance
+      storage = container.read(storageNotifierProvider.notifier)
+          as DummyStorageNotifier;
+
+      // Create and save a test profile
+      testProfile = PartialProfile(name: 'Test User', about: 'Test bio')
+          .dummySign(signer.pubkey);
+      await storage.save({testProfile});
+    });
+
+    test('activeProfileProvider returns correct profile for active signer',
+        () async {
+      // Create a tester for the activeProfileProvider to listen to changes
+      final profileTester = container.testerForProvider(
+        Signer.activeProfileProvider(LocalSource()),
+      );
+
+      // Wait for the provider to return the profile
+      await profileTester.expect(equals(testProfile));
+
+      // Read the current value from the provider
+      final activeProfile =
+          container.read(Signer.activeProfileProvider(LocalSource()));
+      expect(activeProfile, isNotNull);
+      expect(activeProfile!.name, 'Test User');
+      expect(activeProfile.pubkey, signer.pubkey);
+
+      // Test that switching active signers changes the profile
+      const secondPrivateKey =
+          'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
+      final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, ref);
+      await secondSigner.initialize();
+
+      // Wait for the provider to update with the new profile
+      await profileTester.expect(isNull);
+
+      // Create and save a profile for the second signer
+      final secondProfile =
+          PartialProfile(name: 'Second User', about: 'Second bio')
+              .dummySign(secondSigner.pubkey);
+      await storage.save({secondProfile});
+
+      await profileTester.expect(equals(secondProfile));
+
+      // Read the updated value from the provider
+      final newActiveProfile =
+          container.read(Signer.activeProfileProvider(LocalSource()));
+      expect(newActiveProfile, isNotNull);
+      expect(newActiveProfile!.name, 'Second User');
+      expect(newActiveProfile.pubkey, secondSigner.pubkey);
+
+      profileTester.dispose();
+    });
+
+    test('signer registration and retrieval through static providers',
+        () async {
+      // Test signerProvider family
+      final retrievedSigner =
+          container.read(Signer.signerProvider(signer.pubkey));
+      expect(retrievedSigner, equals(signer));
+      expect(retrievedSigner!.pubkey, equals(signer.pubkey));
+
+      // Test signedInPubkeysProvider
+      final signedInPubkeys = container.read(Signer.signedInPubkeysProvider);
+      expect(signedInPubkeys, contains(signer.pubkey));
+      // Account for existing signers from previous test groups
+      expect(signedInPubkeys.length, greaterThanOrEqualTo(1));
+
+      // Test activePubkeyProvider
+      final activePubkey = container.read(Signer.activePubkeyProvider);
+      expect(activePubkey, equals(signer.pubkey));
+
+      // Test activeSignerProvider
+      final activeSigner = container.read(Signer.activeSignerProvider);
+      expect(activeSigner, equals(signer));
+    });
+
+    test('signer state management with multiple signers', () async {
+      // Create a second signer
+      const secondPrivateKey =
+          'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
+      final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, ref);
+      await secondSigner.initialize(active: false); // Don't set as active
+
+      // Test signedInPubkeysProvider has both signers
+      final signedInPubkeys = container.read(Signer.signedInPubkeysProvider);
+      expect(
+          signedInPubkeys, containsAll([signer.pubkey, secondSigner.pubkey]));
+      // Account for existing signers from previous test groups
+      expect(signedInPubkeys.length, greaterThanOrEqualTo(2));
+
+      // Test both signers can be retrieved
+      final firstRetrieved =
+          container.read(Signer.signerProvider(signer.pubkey));
+      final secondRetrieved =
+          container.read(Signer.signerProvider(secondSigner.pubkey));
+      expect(firstRetrieved, equals(signer));
+      expect(secondRetrieved, equals(secondSigner));
+
+      // Test active signer remains the first one
+      final activeSigner = container.read(Signer.activeSignerProvider);
+      expect(activeSigner, equals(signer));
+
+      // Set second signer as active
+      secondSigner.setActive();
+      final newActiveSigner = container.read(Signer.activeSignerProvider);
+      expect(newActiveSigner, equals(secondSigner));
+
+      final activePubkey = container.read(Signer.activePubkeyProvider);
+      expect(activePubkey, equals(secondSigner.pubkey));
+    });
+  });
 }

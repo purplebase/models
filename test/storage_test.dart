@@ -31,7 +31,7 @@ void main() async {
   });
 
   group('storage filters', () {
-    late StateNotifierTester tester;
+    late StateNotifierProviderTester tester;
     late Note a, b, c, d, e, f, g, replyToA, replyToB;
     late Profile nielProfile;
 
@@ -191,9 +191,6 @@ void main() async {
 
   group('storage', () {
     test('clear with req', () async {
-      // Clear storage completely before test to ensure clean state
-      await storage.clear();
-
       final a = List.generate(
           30,
           (_) => storage.generateModel(
@@ -213,9 +210,6 @@ void main() async {
     });
 
     test('max models config', () async {
-      // Clear storage first to ensure clean state
-      await storage.clear();
-
       final max = storage.config.keepMaxModels;
       final a = List.generate(max * 2, (_) => storage.generateModel(kind: 1)!);
       await storage.save(a.toSet());
@@ -268,9 +262,6 @@ void main() async {
   group('notifier', () {
     group('state transitions', () {
       test('should transition from loading to data state', () async {
-        // Clear storage to ensure clean state
-        await storage.clear();
-
         // Use unique pubkeys to avoid conflicts with seeded data
         final pubkey1 = Utils.generateRandomHex64();
         final pubkey2 = Utils.generateRandomHex64();
@@ -297,9 +288,6 @@ void main() async {
       });
 
       test('should handle empty results', () async {
-        // Clear storage to ensure clean state
-        await storage.clear();
-
         final tester = container.testerFor(query<Note>(
           authors: {Utils.generateRandomHex64()},
           source: LocalSource(),
@@ -314,9 +302,6 @@ void main() async {
       });
 
       test('should handle empty request filters', () async {
-        // Clear storage to ensure clean state
-        await storage.clear();
-
         // This should not cause any issues and should return empty results
         final tester = container.testerFor(query<Note>(
           source: LocalSource(),
@@ -329,9 +314,6 @@ void main() async {
 
     group('error handling', () {
       test('should handle query errors gracefully', () async {
-        // Clear storage to ensure clean state
-        await storage.clear();
-
         // Create a malformed request that might cause errors
         final tester = container.testerFor(query<Note>(
           authors: {Utils.generateRandomHex64()},
@@ -352,9 +334,6 @@ void main() async {
       });
 
       test('should handle network failures gracefully', () async {
-        // Clear storage to ensure clean state
-        await storage.clear();
-
         final tester = container.testerFor(query<Note>(
           authors: {Utils.generateRandomHex64()},
           source: RemoteSource(group: 'nonexistent-group'),
@@ -372,9 +351,6 @@ void main() async {
 
     group('request lifecycle', () {
       test('should cancel requests when disposed', () async {
-        // Clear storage to ensure clean state
-        await storage.clear();
-
         final [franzap, niel] = [
           storage.generateProfile(franzapPubkey),
           storage.generateProfile(nielPubkey)
@@ -747,6 +723,27 @@ void main() async {
       await tester.expectModels(hasLength(5));
       expect(tester.notifier.state, isA<StorageData>());
       expect((tester.notifier.state as StorageData).models, hasLength(5));
+    });
+  });
+
+  group('profile roundtrip', () {
+    test('should save and fetch a Profile', () async {
+      final pubkey = Utils.generateRandomHex64();
+      final profile =
+          PartialProfile(name: 'Roundtrip User', about: 'Test roundtrip')
+              .dummySign(pubkey);
+      await storage.save({profile});
+
+      final tester = container.testerFor(query<Profile>(
+        authors: {pubkey},
+        source: LocalSource(),
+      ));
+      await tester.expectModels(hasLength(1));
+      final fetched =
+          (tester.notifier.state as StorageData).models.first as Profile;
+      expect(fetched.pubkey, pubkey);
+      expect(fetched.name, 'Roundtrip User');
+      expect(fetched.about, 'Test roundtrip');
     });
   });
 }

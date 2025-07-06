@@ -89,11 +89,12 @@ abstract class Signer {
     return ref.read(_signerProvider(activePubkey));
   });
 
-  static final activeProfileProvider = Provider((ref) {
+  static final activeProfileProvider =
+      Provider.family<Profile?, Source>((ref, source) {
     final activePubkey = ref.watch(_activePubkeyProvider);
     if (activePubkey == null) return null;
-    final state = ref
-        .watch(query<Profile>(authors: {activePubkey}, source: LocalSource()));
+    final state = ref.watch(
+        query<Profile>(authors: {activePubkey}, source: source, limit: 1));
     return state.models.firstOrNull;
   });
 }

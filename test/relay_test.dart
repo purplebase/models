@@ -778,4 +778,84 @@ void main() {
     expect(eoseResponse[1], equals('test-sub'));
     await queue.cancel();
   });
+
+  test('should accept, store, and return a replaceable Profile event (kind 0)',
+      () async {
+    clientSocket = await WebSocket.connect('ws://$testHost:$testPort');
+    final queue = StreamQueue(clientSocket!);
+
+    // Create a kind 0 Profile event
+    final pubkey = 'a' * 64;
+    final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final eventData = [
+      0,
+      pubkey,
+      createdAt,
+      0,
+      <List<String>>[],
+      '{"name":"Test Profile"}'
+    ];
+    final hash = sha256.convert(utf8.encode(jsonEncode(eventData)));
+    final profileEvent = {
+      'id': hash.toString(),
+      'pubkey': pubkey,
+      'created_at': createdAt,
+      'kind': 0,
+      'tags': <List<String>>[],
+      'content': '{"name":"Test Profile"}',
+      'sig': 'test-signature'
+    };
+    clientSocket!.add(jsonEncode(['EVENT', profileEvent]));
+
+    // Wait for OK response
+    final okMsg = await queue.next;
+    final response = jsonDecode(okMsg) as List;
+    expect(response[0], equals('OK'));
+    expect(response[1], equals(hash.toString()));
+    expect(response[2], isTrue);
+
+    // Query for the profile event by kind and pubkey
+    final reqMessage = [
+      'REQ',
+      'profile-sub',
+      {
+        'kinds': [0],
+        'authors': [pubkey],
+      }
+    ];
+    clientSocket!.add(jsonEncode(reqMessage));
+
+    // Wait for EVENT and EOSE, skipping OKs
+    String? eventMsg;
+    while (true) {
+      final msg = await queue.next;
+      final decoded = jsonDecode(msg) as List;
+      if (decoded[0] == 'EVENT') {
+        eventMsg = msg;
+        break;
+      }
+    }
+    String? eoseMsg;
+    while (true) {
+      final msg = await queue.next;
+      final decoded = jsonDecode(msg) as List;
+      if (decoded[0] == 'EOSE') {
+        eoseMsg = msg;
+        break;
+      }
+    }
+    assert(eventMsg != null);
+    assert(eoseMsg != null);
+    final eventResponse = jsonDecode(eventMsg!) as List;
+    final eoseResponse = jsonDecode(eoseMsg!) as List;
+    expect(eventResponse[0], equals('EVENT'));
+    expect(eventResponse[1], equals('profile-sub'));
+    expect(eventResponse[2]['id'], equals(hash.toString()));
+    expect(eventResponse[2]['kind'], equals(0));
+    expect(eventResponse[2]['pubkey'], equals(pubkey));
+    expect(eventResponse[2]['content'], equals('{"name":"Test Profile"}'));
+    expect(eoseResponse[0], equals('EOSE'));
+    expect(eoseResponse[1], equals('profile-sub'));
+    await queue.cancel();
+  });
 }

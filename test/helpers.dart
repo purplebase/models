@@ -11,15 +11,15 @@ final verbirichaPubkey =
 final franzapPubkey =
     '726a1e261cc6474674e8285e3951b3bb139be9a773d1acf49dc868db861a1c11';
 
-class StateNotifierTester {
+class StateNotifierProviderTester {
   final StateNotifier notifier;
 
-  final _disposeFns = [];
+  final _disposeFns = <void Function()>[];
   final _completers = <Completer>[Completer()];
   var initial = true;
   var i = 0;
 
-  StateNotifierTester(this.notifier) {
+  StateNotifierProviderTester(this.notifier) {
     final dispose = notifier.addListener((state) {
       // print('${state.runtimeType} ${state.models.length}');
       _completers.last.complete(state);
@@ -45,16 +45,56 @@ class StateNotifierTester {
   }
 }
 
-extension ProviderContainerExt on ProviderContainer {
-  /// Has fireImmediately set to false, so the
-  /// initial StorageLoading never gets fired
-  StateNotifierTester testerFor(
-      AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
-          provider) {
+class ProviderTester {
+  final _disposeFns = <void Function()>[];
+  final _completers = <Completer>[Completer()];
+  var initial = true;
+  var i = 0;
+
+  /// Creates a tester from a Provider
+  ProviderTester(
+    ProviderContainer container,
+    Provider provider,
+  ) {
+    // Keep the provider alive and listen to changes
+    final subscription = container.listen(provider, (previous, next) {
+      _completers.last.complete(next);
+      _completers.add(Completer());
+    });
+
+    _disposeFns.add(() => subscription.close());
+  }
+
+  Future<dynamic> expect(Matcher m) async {
+    final result = await expectLater(_completers[i].future, completion(m));
+    i++;
+    return result;
+  }
+
+  Future<dynamic> expectModels(Matcher m) async {
+    return expect(isA<StorageData>().having((s) => s.models, 'models', m));
+  }
+
+  dispose() {
+    for (final fn in _disposeFns) {
+      fn.call();
+    }
+  }
+}
+
+extension AutoDisposeProviderContainerExt on ProviderContainer {
+  StateNotifierProviderTester testerFor(
+      AutoDisposeStateNotifierProvider provider) {
     // Keep the provider alive during the test
     listen(provider, (_, __) {}).read();
 
-    return StateNotifierTester(read(provider.notifier));
+    return StateNotifierProviderTester(read(provider.notifier));
+  }
+}
+
+extension ProviderContainerExt on ProviderContainer {
+  ProviderTester testerForProvider(Provider provider) {
+    return ProviderTester(this, provider);
   }
 }
 
