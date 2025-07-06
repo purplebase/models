@@ -25,6 +25,7 @@ part 'src/core/event.dart';
 part 'src/core/internal_models.dart';
 part 'src/core/relationship.dart';
 part 'src/core/signer.dart';
+part 'src/core/verifier.dart';
 
 part 'src/models/app.dart';
 part 'src/models/article.dart';
