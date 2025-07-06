@@ -4,6 +4,14 @@ extension StringMaybeExt on String? {
   int? toInt() {
     return this == null ? null : int.tryParse(this!);
   }
+
+  String? encodeShareable() {
+    return this == null ? null : Utils.encodeShareable(this!);
+  }
+
+  String? decodeShareable() {
+    return this == null ? null : Utils.decodeShareable(this!);
+  }
 }
 
 extension DateTimeExt on DateTime {

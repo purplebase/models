@@ -70,7 +70,7 @@ void main() {
 
       test('signing DirectMessage with encryption works correctly', () async {
         await signer.initialize();
-        final recipientNpub = Utils.npubFromHex(nielPubkey);
+        final recipientNpub = Utils.encodeShareable(nielPubkey, type: 'npub');
         const message = 'Hello, this is a secret message!';
 
         final partialDM = PartialDirectMessage(
@@ -242,7 +242,7 @@ void main() {
     const privateKey =
         'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
     final recipientHex = nielPubkey;
-    final recipientNpub = Utils.npubFromHex(nielPubkey);
+    final recipientNpub = Utils.encodeShareable(nielPubkey, type: 'npub');
 
     setUp(() async {
       signer = Bip340PrivateKeySigner(privateKey, ref);
@@ -354,7 +354,7 @@ void main() {
 
     test('signWith handles DirectMessage encryption correctly', () async {
       const message = 'Secret message';
-      final recipientNpub = Utils.npubFromHex(nielPubkey);
+      final recipientNpub = Utils.encodeShareable(nielPubkey, type: 'npub');
 
       final partialDM = PartialDirectMessage(
         content: message,
@@ -377,7 +377,7 @@ void main() {
 
     test('dummySign handles DirectMessage encryption', () {
       const message = 'Secret message';
-      final recipientNpub = Utils.npubFromHex(nielPubkey);
+      final recipientNpub = Utils.encodeShareable(nielPubkey, type: 'npub');
 
       final partialDM = PartialDirectMessage(
         content: message,

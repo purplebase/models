@@ -385,7 +385,7 @@ final communityJson = '''
 	"id": "26ac7e5ae58dc195f03272a0e5b66ba1d80806d31dc70e4c0cffa50a7594411c",
 	"content": "",
 	"created_at": 1744254000,
-	"pubkey": "${Utils.hexFromNpub(nielPubkey)}",
+	"pubkey": "${nielPubkey.decodeShareable()}",
 	"kind": 10222,
 	"tags": [
 		[

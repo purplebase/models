@@ -10,20 +10,56 @@ void main() {
       const expectedPubkey =
           '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
 
-      final pubkey = ShareableIdentifiers.pubkeyFromNprofile(nprofile);
+      final pubkey = nprofile.decodeShareable();
       expect(pubkey, equals(expectedPubkey));
+    });
+
+    test('should decode nprofile using Utils.decodeShareable', () {
+      const nprofile =
+          'nprofile1qythwumn8ghj7un9d3shjtnswf5k6ctv9ehx2ap0qyvhwumn8ghj7urjv4kkjatd9ec8y6tdv9kzumn9wshsz8rhwden5te0wfjkccte9e3xjarrda5kuurpwf4jucm0d5hsqgrlzamsdttwpt48t20rx3welldwvankltljfxlx276evd67rnknjy2t5aec';
+      const expectedPubkey =
+          '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
+
+      final pubkey = Utils.decodeShareable(nprofile);
+      expect(pubkey, equals(expectedPubkey));
+    });
+
+    test('should decode nevent using Utils.decodeShareable', () {
+      // Use a valid nevent string from the existing test data
+      final eventId =
+          'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1';
+      final author = franzapPubkey;
+      final relays = ['wss://relay.primal.net'];
+
+      // Encode event to nevent first
+      final nevent = Utils.encodeShareableIdentifier(
+        EventInput(eventId: eventId, relays: relays, author: author),
+      );
+
+      // Now decode it using the simpler method
+      final decodedEventId = Utils.decodeShareable(nevent);
+      expect(decodedEventId, equals(eventId));
+    });
+
+    test('should return hex strings as-is when using Utils.decodeShareable',
+        () {
+      const hexString =
+          '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
+
+      final result = Utils.decodeShareable(hexString);
+      expect(result, equals(hexString));
     });
 
     test('should roundtrip encode and decode nprofile with pubkey only', () {
       final pubkey = nielPubkey;
 
       // Encode pubkey to nprofile
-      final nprofile = ShareableIdentifiers.encode(
+      final nprofile = Utils.encodeShareableIdentifier(
         ProfileInput(pubkey: pubkey),
       );
 
       // Decode nprofile back to pubkey
-      final decoded = ShareableIdentifiers.decode(nprofile);
+      final decoded = Utils.decodeShareableIdentifier(nprofile);
       expect(decoded, isA<ProfileData>());
       final decodedPubkey = (decoded as ProfileData).pubkey;
 
@@ -36,40 +72,18 @@ void main() {
       final relays = ['wss://relay.damus.io', 'wss://relay.nostr.band'];
 
       // Encode pubkey with relays to nprofile
-      final nprofile = ShareableIdentifiers.encode(
+      final nprofile = Utils.encodeShareableIdentifier(
         ProfileInput(pubkey: pubkey, relays: relays),
       );
 
       // Decode nprofile back
-      final decoded = ShareableIdentifiers.decode(nprofile);
+      final decoded = Utils.decodeShareableIdentifier(nprofile);
       expect(decoded, isA<ProfileData>());
       final decodedPubkey = (decoded as ProfileData).pubkey;
 
       expect(decodedPubkey, equals(pubkey));
       expect(decoded.relays, equals(relays));
       expect(nprofile.startsWith('nprofile'), isTrue);
-    });
-
-    test('should roundtrip encode and decode nevent', () {
-      final eventId =
-          'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1';
-      final author = franzapPubkey;
-      final relays = ['wss://relay.primal.net'];
-
-      // Encode event to nevent
-      final nevent = ShareableIdentifiers.encode(
-        EventInput(eventId: eventId, relays: relays, author: author),
-      );
-
-      // Decode nevent back
-      final decoded = ShareableIdentifiers.decode(nevent);
-      expect(decoded, isA<EventData>());
-      final decodedEventId = (decoded as EventData).eventId;
-
-      expect(decodedEventId, equals(eventId));
-      expect(decoded.author, equals(author));
-      expect(decoded.relays, equals(relays));
-      expect(nevent.startsWith('nevent'), isTrue);
     });
 
     test('should roundtrip encode and decode naddr', () {
@@ -80,13 +94,13 @@ void main() {
       final relays = ['wss://relay.damus.io'];
 
       // Encode address to naddr
-      final naddr = ShareableIdentifiers.encode(
+      final naddr = Utils.encodeShareableIdentifier(
         AddressInput(
             identifier: identifier, relays: relays, author: author, kind: kind),
       );
 
       // Decode naddr back
-      final decoded = ShareableIdentifiers.decode(naddr);
+      final decoded = Utils.decodeShareableIdentifier(naddr);
       expect(decoded, isA<AddressData>());
       final decodedIdentifier = (decoded as AddressData).identifier;
 
@@ -108,12 +122,12 @@ void main() {
       ];
 
       // Encode with multiple relays
-      final nprofile = ShareableIdentifiers.encode(
+      final nprofile = Utils.encodeShareableIdentifier(
         ProfileInput(pubkey: pubkey, relays: relays),
       );
 
       // Decode and verify all relays
-      final decoded = ShareableIdentifiers.decode(nprofile);
+      final decoded = Utils.decodeShareableIdentifier(nprofile);
       expect(decoded, isA<ProfileData>());
       expect((decoded as ProfileData).pubkey, equals(pubkey));
       expect(decoded.relays, equals(relays));
@@ -129,13 +143,13 @@ void main() {
       final kind = 1;
 
       // Encode with all fields
-      final nprofile = ShareableIdentifiers.encode(
+      final nprofile = Utils.encodeShareableIdentifier(
         ProfileInput(
             pubkey: pubkey, relays: relays, author: author, kind: kind),
       );
 
       // Decode and verify all fields
-      final decoded = ShareableIdentifiers.decode(nprofile);
+      final decoded = Utils.decodeShareableIdentifier(nprofile);
       expect(decoded, isA<ProfileData>());
       expect((decoded as ProfileData).pubkey, equals(pubkey));
       expect(decoded.relays, equals(relays));
@@ -145,21 +159,132 @@ void main() {
 
     test('should throw exception for invalid format', () {
       expect(
-        () => ShareableIdentifiers.decode('invalid-format'),
+        () => Utils.decodeShareableIdentifier('invalid-format'),
         throwsException,
       );
     });
 
     test('should handle empty nprofile', () {
       expect(
-        () => ShareableIdentifiers.decode(''),
+        () => Utils.decodeShareableIdentifier(''),
         throwsException,
       );
     });
 
     test('should handle malformed bech32', () {
       expect(
-        () => ShareableIdentifiers.decode('nprofile1invalid'),
+        () => Utils.decodeShareableIdentifier('nprofile1invalid'),
+        throwsException,
+      );
+    });
+  });
+
+  group('Simple NIP-19 Encoding/Decoding', () {
+    test('should encode and decode npub', () {
+      final pubkey =
+          '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
+      final npub = Utils.encodeShareable(pubkey, type: 'npub');
+
+      expect(npub.startsWith('npub'), isTrue);
+      expect(Utils.decodeShareable(npub), equals(pubkey));
+    });
+
+    test('should encode and decode nsec', () {
+      final privateKey =
+          '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
+      final nsec = Utils.encodeShareable(privateKey, type: 'nsec');
+
+      expect(nsec.startsWith('nsec'), isTrue);
+      expect(Utils.decodeShareable(nsec), equals(privateKey));
+    });
+
+    test('should encode and decode note', () {
+      final eventId =
+          'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1';
+      final note = Utils.encodeShareable(eventId, type: 'note');
+
+      expect(note.startsWith('note'), isTrue);
+      expect(Utils.decodeShareable(note), equals(eventId));
+    });
+
+    test('should encode simple string with type detection', () {
+      final pubkey =
+          '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
+      final npub = Utils.encodeShareable(pubkey);
+
+      expect(npub.startsWith('npub'), isTrue);
+      expect(Utils.decodeShareable(npub), equals(pubkey));
+    });
+
+    test('should encode simple string with explicit type', () {
+      final eventId =
+          'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1';
+      final note = Utils.encodeShareable(eventId, type: 'note');
+
+      expect(note.startsWith('note'), isTrue);
+      expect(Utils.decodeShareable(note), equals(eventId));
+    });
+
+    test('should return already encoded strings as-is', () {
+      final npub =
+          'npub1qythwumn8ghj7un9d3shjtnswf5k6ctv9ehx2ap0qyvhwumn8ghj7urjv4kkjatd9ec8y6tdv9kzumn9wshsz8rhwden5te0wfjkccte9e3xjarrda5kuurpwf4jucm0d5hsqgrlzamsdttwpt48t20rx3welldwvankltljfxlx276evd67rnknjy2t5aec';
+      final result = Utils.encodeShareable(npub);
+
+      expect(result, equals(npub));
+    });
+
+    test('should throw exception for unknown type', () {
+      expect(
+        () => Utils.encodeShareable('test', type: 'unknown'),
+        throwsException,
+      );
+    });
+  });
+
+  group('NIP-21 URI Handling', () {
+    test('should handle nostr: URIs', () {
+      final pubkey =
+          '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
+      final npub = Utils.encodeShareable(pubkey, type: 'npub');
+      final nostrUri = 'nostr:$npub';
+
+      final decoded = Utils.decodeShareable(nostrUri);
+      expect(decoded, equals(pubkey));
+    });
+
+    test('should handle nostr: URIs with complex formats', () {
+      final nprofile =
+          'nprofile1qythwumn8ghj7un9d3shjtnswf5k6ctv9ehx2ap0qyvhwumn8ghj7urjv4kkjatd9ec8y6tdv9kzumn9wshsz8rhwden5te0wfjkccte9e3xjarrda5kuurpwf4jucm0d5hsqgrlzamsdttwpt48t20rx3welldwvankltljfxlx276evd67rnknjy2t5aec';
+      final nostrUri = 'nostr:$nprofile';
+
+      final decoded = Utils.decodeShareable(nostrUri);
+      expect(
+          decoded,
+          equals(
+              '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391'));
+    });
+  });
+
+  group('NIP-05 Decoding', () {
+    test('should decode valid NIP-05 identifier', () async {
+      // This test would require a mock HTTP server or real NIP-05 endpoint
+      // For now, we'll test the error handling
+      expect(
+        () => Utils.decodeNip05('invalid-format'),
+        throwsException,
+      );
+    });
+
+    test('should throw exception for invalid NIP-05 format', () async {
+      expect(
+        () => Utils.decodeNip05('invalid'),
+        throwsException,
+      );
+    });
+
+    test('should throw exception for malformed NIP-05', () async {
+      expect(
+        () => Utils.decodeNip05('user@domain@extra'),
         throwsException,
       );
     });

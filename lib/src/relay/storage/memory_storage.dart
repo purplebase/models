@@ -46,7 +46,7 @@ class MemoryStorage {
     }
 
     // Handle replaceable events
-    if (Utils.isReplaceable(kind)) {
+    if (Utils.isEventReplaceable(kind)) {
       final key = kind >= 30000 && kind < 40000
           ? _getAddressableId(event) // Addressable events
           : '$kind:$pubkey:'; // Regular replaceable events
@@ -292,7 +292,7 @@ class MemoryStorage {
     final kind = event['kind'] as int;
     final pubkey = event['pubkey'] as String;
 
-    if (Utils.isReplaceable(kind)) {
+    if (Utils.isEventReplaceable(kind)) {
       final key = kind >= 30000 && kind < 40000
           ? _getAddressableId(event) // Addressable events
           : '$kind:$pubkey:'; // Regular replaceable events

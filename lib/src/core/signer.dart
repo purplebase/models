@@ -107,7 +107,7 @@ class Bip340PrivateKeySigner extends Signer {
 
   @override
   Future<void> initialize({bool active = true}) async {
-    internalSetPubkey(Utils.getPublicKey(_privateKey));
+    internalSetPubkey(Utils.derivePublicKey(_privateKey));
 
     return super.initialize(active: active);
   }

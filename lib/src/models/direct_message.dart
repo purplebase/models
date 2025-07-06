@@ -4,7 +4,8 @@ part of models;
 class DirectMessage extends RegularModel<DirectMessage> {
   DirectMessage.fromMap(super.map, super.ref) : super.fromMap();
 
-  String get receiver => Utils.npubFromHex(event.getFirstTagValue('p')!);
+  String get receiver =>
+      Utils.encodeShareable(event.getFirstTagValue('p')!, type: 'npub');
 
   /// Get decrypted content using the active signer
   /// Since decryption is now async, this returns the raw content.
@@ -60,8 +61,7 @@ class PartialDirectMessage extends RegularPartialModel<DirectMessage>
     required String receiver,
     bool useNip44 = true, // Default to NIP-44 (more secure)
   }) {
-    final receiverHex = Utils.hexFromNpub(receiver);
-    this.receiver = receiverHex;
+    this.receiver = receiver.decodeShareable();
 
     // Set encrypted content - encryption will happen when signed
     _plainContent = content;
@@ -77,7 +77,7 @@ class PartialDirectMessage extends RegularPartialModel<DirectMessage>
     required String receiver,
   }) {
     content = encryptedContent;
-    this.receiver = Utils.hexFromNpub(receiver);
+    this.receiver = receiver.decodeShareable();
   }
 
   String? _plainContent;

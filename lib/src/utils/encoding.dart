@@ -98,99 +98,6 @@ class AddressData extends ShareableIdentifierData {
   final String identifier;
 }
 
-/// Utility class for encoding and decoding shareable identifiers
-class ShareableIdentifiers {
-  /// Encode a shareable identifier from typed input
-  static String encode(ShareableIdentifierInput input) {
-    return switch (input) {
-      ProfileInput(:final pubkey, :final relays, :final author, :final kind) =>
-        _encodeShareableIdentifiers(
-          prefix: 'nprofile',
-          special: pubkey,
-          relays: relays,
-          author: author,
-          kind: kind,
-        ),
-      EventInput(:final eventId, :final relays, :final author, :final kind) =>
-        _encodeShareableIdentifiers(
-          prefix: 'nevent',
-          special: eventId,
-          relays: relays,
-          author: author,
-          kind: kind,
-        ),
-      AddressInput(
-        :final identifier,
-        :final relays,
-        :final author,
-        :final kind
-      ) =>
-        _encodeShareableIdentifiers(
-          prefix: 'naddr',
-          special: identifier,
-          relays: relays,
-          author: author,
-          kind: kind,
-        ),
-    };
-  }
-
-  /// Decode a shareable identifier to typed output
-  static ShareableIdentifierData decode(String identifier) {
-    final raw = _decodeShareableIdentifier(identifier);
-    final prefix = identifier.split('1')[0];
-
-    return switch (prefix) {
-      'nprofile' => ProfileData(
-          pubkey: raw['special'] as String,
-          relays: raw['relays'] as List<String>?,
-          author: raw['author'] as String?,
-          kind: raw['kind'] as int?,
-        ),
-      'nevent' => EventData(
-          eventId: raw['special'] as String,
-          relays: raw['relays'] as List<String>?,
-          author: raw['author'] as String?,
-          kind: raw['kind'] as int?,
-        ),
-      'naddr' => AddressData(
-          identifier: raw['special'] as String,
-          relays: raw['relays'] as List<String>?,
-          author: raw['author'] as String?,
-          kind: raw['kind'] as int?,
-        ),
-      _ => throw Exception('Unknown shareable identifier prefix: $prefix'),
-    };
-  }
-
-  /// Convenience method to extract pubkey from nprofile
-  static String pubkeyFromNprofile(String nprofile) {
-    final data = decode(nprofile);
-    if (data is! ProfileData) {
-      throw Exception('Expected nprofile, got \\${nprofile.split('1')[0]}');
-    }
-    return data.pubkey;
-  }
-
-  /// Convenience method to extract event ID from nevent
-  static String eventIdFromNevent(String nevent) {
-    final data = decode(nevent);
-    if (data is! EventData) {
-      throw Exception('Expected nevent, got \\${nevent.split('1')[0]}');
-    }
-    return data.eventId;
-  }
-
-  /// Convenience method to extract identifier from naddr
-  static String identifierFromNaddr(String naddr) {
-    final data = decode(naddr);
-    if (data is! AddressData) {
-      throw Exception('Expected naddr, got \\${naddr.split('1')[0]}');
-    }
-    return data.identifier;
-  }
-}
-
 /// Internal function to encode shareable identifiers (nprofile, nevent, naddr) as TLV data
 /// Credit: https://github.com/ethicnology/dart-nostr/blob/master/lib/src/nips/nip_019.dart
 String _encodeShareableIdentifiers({
@@ -240,7 +147,7 @@ String _encodeShareableIdentifiers({
     result =
         '$result${hex.decode(value).length.toRadixString(16).padLeft(2, '0')}$value';
   }
-  return bech32Encode(prefix, result, maxLength: result.length + 90);
+  return _bech32Encode(prefix, result, maxLength: result.length + 90);
 }
 
 /// Internal function to decode shareable identifiers (nprofile, nevent, naddr) from TLV data
@@ -255,7 +162,7 @@ Map<String, dynamic> _decodeShareableIdentifier(String identifier) {
   final prefix = parts[0];
 
   // Decode the bech32 data with appropriate maxLength
-  final hexData = bech32Decode(identifier, maxLength: identifier.length);
+  final hexData = _bech32Decode(identifier, maxLength: identifier.length);
 
   // Parse TLV data
   final result = <String, dynamic>{};
@@ -312,23 +219,23 @@ Map<String, dynamic> _decodeShareableIdentifier(String identifier) {
   return result;
 }
 
-String bech32Encode(String prefix, String hexData, {int? maxLength}) {
+String _bech32Encode(String prefix, String hexData, {int? maxLength}) {
   final data = hex.decode(hexData);
-  final convertedData = convertBits(data, 8, 5, true);
+  final convertedData = _convertBits(data, 8, 5, true);
   final bech32Data = Bech32(prefix, convertedData);
   if (maxLength != null) return bech32.encode(bech32Data, maxLength);
   return bech32.encode(bech32Data);
 }
 
-String bech32Decode(String bech32Data, {int? maxLength}) {
+String _bech32Decode(String bech32Data, {int? maxLength}) {
   final decodedData = maxLength != null
       ? bech32.decode(bech32Data, maxLength)
       : bech32.decode(bech32Data);
-  final convertedData = convertBits(decodedData.data, 5, 8, false);
+  final convertedData = _convertBits(decodedData.data, 5, 8, false);
   return hex.encode(convertedData);
 }
 
-List<int> convertBits(List<int> data, int fromBits, int toBits, bool pad) {
+List<int> _convertBits(List<int> data, int fromBits, int toBits, bool pad) {
   var acc = 0;
   var bits = 0;
   final maxv = (1 << toBits) - 1;

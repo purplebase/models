@@ -60,7 +60,7 @@ class Profile extends ReplaceableModel<Profile> {
   }
 
   String get pubkey => event.pubkey;
-  String get npub => bech32Encode('npub', pubkey);
+  String get npub => _bech32Encode('npub', pubkey);
   String? get name => event.metadata['name'];
   String? get nip05 => event.metadata['nip05'];
   String? get pictureUrl => event.metadata['picture'];
