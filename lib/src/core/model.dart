@@ -94,12 +94,14 @@ sealed class Model<E extends Model<E>>
 
   // Storage-related
 
-  /// Save this model to storage, and optionally publish
-  Future<void> save({Source source = const LocalSource()}) async {
+  /// Save this model to storage
+  Future<void> save() async {
     await storage.save({this});
-    if (source is RemoteSource) {
-      await storage.publish({this}, source: source);
-    }
+  }
+
+  /// Publish this model to relays
+  Future<void> publish({RemoteSource source = const RemoteSource()}) async {
+    await storage.publish({this}, source: source);
   }
 
   // Registry-related
