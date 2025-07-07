@@ -27,6 +27,9 @@ class Utils {
   /// Encode a shareable identifier from typed input
   static String encodeShareableIdentifier(ShareableIdentifierInput input) {
     return switch (input) {
+      NpubInput(:final value) => _bech32Encode('npub', value),
+      NsecInput(:final value) => _bech32Encode('nsec', value),
+      NoteInput(:final value) => _bech32Encode('note', value),
       ProfileInput(:final pubkey, :final relays, :final author, :final kind) =>
         _encodeShareableIdentifiers(
           prefix: 'nprofile',
@@ -55,7 +58,7 @@ class Utils {
           relays: relays,
           author: author,
           kind: kind,
-        ),
+        )
     };
   }
 
@@ -66,8 +69,14 @@ class Utils {
       identifier = identifier.substring(6); // Remove "nostr:" prefix
     }
 
-    final raw = _decodeShareableIdentifier(identifier);
     final prefix = identifier.split('1')[0];
+
+    // Handle simple bech32 types
+    if (prefix == 'npub' || prefix == 'nsec' || prefix == 'note') {
+      return SimpleData(value: _bech32Decode(identifier));
+    }
+
+    final raw = _decodeShareableIdentifier(identifier);
 
     return switch (prefix) {
       'nprofile' => ProfileData(
@@ -88,18 +97,12 @@ class Utils {
           author: raw['author'] as String?,
           kind: raw['kind'] as int?,
         ),
-      'note' => EventData(
-          eventId: raw['special'] as String,
-          relays: raw['relays'] as List<String>?,
-          author: raw['author'] as String?,
-          kind: raw['kind'] as int?,
-        ),
       _ => throw Exception('Unknown shareable identifier prefix: $prefix'),
     };
   }
 
   /// Encode a simple string to NIP-19 format
-  static String encodeShareable(String input, {String? type}) {
+  static String encodeShareableFromString(String input, {String? type}) {
     // Check if already encoded before calling _bech32Encode
     if (input.startsWith('npub') ||
         input.startsWith('nsec') ||
@@ -130,7 +133,7 @@ class Utils {
   }
 
   /// Convenience method to decode NIP-19 entities into a simple string
-  static String decodeShareable(String input) {
+  static String decodeShareableToString(String input) {
     // If not a well-known NIP-19 entity, return as-is (already decoded)
     if (!(input.startsWith('npub') ||
         input.startsWith('nsec') ||
@@ -158,11 +161,18 @@ class Utils {
 
     // Handle complex formats (nprofile, nevent, naddr)
     final data = decodeShareableIdentifier(input);
-    return switch (data) {
-      ProfileData(:final pubkey) => pubkey,
-      EventData(:final eventId) => eventId,
-      AddressData(:final identifier) => identifier,
-    };
+    if (data is ProfileData) {
+      return data.pubkey;
+    } else if (data is EventData) {
+      return data.eventId;
+    } else if (data is AddressData) {
+      return data.identifier;
+    } else if (data is SimpleData) {
+      return data.value;
+    } else {
+      throw Exception(
+          'Unknown decoded shareable identifier type: \\${data.runtimeType}');
+    }
   }
 
   /// Decode NIP-05 identifier to public key

@@ -49,6 +49,30 @@ class AddressInput extends ShareableIdentifierInput {
   final String identifier;
 }
 
+/// Input for encoding a public key (npub)
+class NpubInput extends ShareableIdentifierInput {
+  const NpubInput({
+    required this.value,
+  }) : super();
+  final String value;
+}
+
+/// Input for encoding a private key (nsec)
+class NsecInput extends ShareableIdentifierInput {
+  const NsecInput({
+    required this.value,
+  }) : super();
+  final String value;
+}
+
+/// Input for encoding a note/event id (note)
+class NoteInput extends ShareableIdentifierInput {
+  const NoteInput({
+    required this.value,
+  }) : super();
+  final String value;
+}
+
 /// Sealed class representing decoded shareable identifier data
 sealed class ShareableIdentifierData {
   const ShareableIdentifierData({
@@ -96,6 +120,15 @@ class AddressData extends ShareableIdentifierData {
   });
 
   final String identifier;
+}
+
+/// Simple data for npub, nsec, note (and similar) decoding
+class SimpleData extends ShareableIdentifierData {
+  const SimpleData({
+    required this.value,
+  }) : super(relays: null, author: null, kind: null);
+
+  final String value;
 }
 
 /// Internal function to encode shareable identifiers (nprofile, nevent, naddr) as TLV data

@@ -90,7 +90,7 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
         ids.any((i) => i.length != 64 && !_kReplaceableRegexp.hasMatch(i))) {
       throw Exception('Bad ids input: $ids');
     }
-    final authorsHex = authors?.map(Utils.decodeShareable);
+    final authorsHex = authors?.map(Utils.decodeShareableToString);
     if (authorsHex != null && authorsHex.any((a) => a.length != 64)) {
       throw Exception('Bad authors input: $authors');
     }

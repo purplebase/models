@@ -20,7 +20,7 @@ void main() {
       const expectedPubkey =
           '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
 
-      final pubkey = Utils.decodeShareable(nprofile);
+      final pubkey = Utils.decodeShareableToString(nprofile);
       expect(pubkey, equals(expectedPubkey));
     });
 
@@ -37,7 +37,7 @@ void main() {
       );
 
       // Now decode it using the simpler method
-      final decodedEventId = Utils.decodeShareable(nevent);
+      final decodedEventId = Utils.decodeShareableToString(nevent);
       expect(decodedEventId, equals(eventId));
     });
 
@@ -46,7 +46,7 @@ void main() {
       const hexString =
           '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
 
-      final result = Utils.decodeShareable(hexString);
+      final result = Utils.decodeShareableToString(hexString);
       expect(result, equals(hexString));
     });
 
@@ -183,59 +183,59 @@ void main() {
     test('should encode and decode npub', () {
       final pubkey =
           '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
-      final npub = Utils.encodeShareable(pubkey, type: 'npub');
+      final npub = Utils.encodeShareableFromString(pubkey, type: 'npub');
 
       expect(npub.startsWith('npub'), isTrue);
-      expect(Utils.decodeShareable(npub), equals(pubkey));
+      expect(Utils.decodeShareableToString(npub), equals(pubkey));
     });
 
     test('should encode and decode nsec', () {
       final privateKey =
           '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
-      final nsec = Utils.encodeShareable(privateKey, type: 'nsec');
+      final nsec = Utils.encodeShareableFromString(privateKey, type: 'nsec');
 
       expect(nsec.startsWith('nsec'), isTrue);
-      expect(Utils.decodeShareable(nsec), equals(privateKey));
+      expect(Utils.decodeShareableToString(nsec), equals(privateKey));
     });
 
     test('should encode and decode note', () {
       final eventId =
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1';
-      final note = Utils.encodeShareable(eventId, type: 'note');
+      final note = Utils.encodeShareableFromString(eventId, type: 'note');
 
       expect(note.startsWith('note'), isTrue);
-      expect(Utils.decodeShareable(note), equals(eventId));
+      expect(Utils.decodeShareableToString(note), equals(eventId));
     });
 
     test('should encode simple string with type detection', () {
       final pubkey =
           '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
-      final npub = Utils.encodeShareable(pubkey);
+      final npub = Utils.encodeShareableFromString(pubkey);
 
       expect(npub.startsWith('npub'), isTrue);
-      expect(Utils.decodeShareable(npub), equals(pubkey));
+      expect(Utils.decodeShareableToString(npub), equals(pubkey));
     });
 
     test('should encode simple string with explicit type', () {
       final eventId =
           'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1';
-      final note = Utils.encodeShareable(eventId, type: 'note');
+      final note = Utils.encodeShareableFromString(eventId, type: 'note');
 
       expect(note.startsWith('note'), isTrue);
-      expect(Utils.decodeShareable(note), equals(eventId));
+      expect(Utils.decodeShareableToString(note), equals(eventId));
     });
 
     test('should return already encoded strings as-is', () {
       final npub =
           'npub1qythwumn8ghj7un9d3shjtnswf5k6ctv9ehx2ap0qyvhwumn8ghj7urjv4kkjatd9ec8y6tdv9kzumn9wshsz8rhwden5te0wfjkccte9e3xjarrda5kuurpwf4jucm0d5hsqgrlzamsdttwpt48t20rx3welldwvankltljfxlx276evd67rnknjy2t5aec';
-      final result = Utils.encodeShareable(npub);
+      final result = Utils.encodeShareableFromString(npub);
 
       expect(result, equals(npub));
     });
 
     test('should throw exception for unknown type', () {
       expect(
-        () => Utils.encodeShareable('test', type: 'unknown'),
+        () => Utils.encodeShareableFromString('test', type: 'unknown'),
         throwsException,
       );
     });
@@ -245,10 +245,10 @@ void main() {
     test('should handle nostr: URIs', () {
       final pubkey =
           '7f177706ad6e0aea75a9e3345d9ffdae67676faff249be657b596375e1ced391';
-      final npub = Utils.encodeShareable(pubkey, type: 'npub');
+      final npub = Utils.encodeShareableFromString(pubkey, type: 'npub');
       final nostrUri = 'nostr:$npub';
 
-      final decoded = Utils.decodeShareable(nostrUri);
+      final decoded = Utils.decodeShareableToString(nostrUri);
       expect(decoded, equals(pubkey));
     });
 
@@ -257,7 +257,7 @@ void main() {
           'nprofile1qythwumn8ghj7un9d3shjtnswf5k6ctv9ehx2ap0qyvhwumn8ghj7urjv4kkjatd9ec8y6tdv9kzumn9wshsz8rhwden5te0wfjkccte9e3xjarrda5kuurpwf4jucm0d5hsqgrlzamsdttwpt48t20rx3welldwvankltljfxlx276evd67rnknjy2t5aec';
       final nostrUri = 'nostr:$nprofile';
 
-      final decoded = Utils.decodeShareable(nostrUri);
+      final decoded = Utils.decodeShareableToString(nostrUri);
       expect(
           decoded,
           equals(

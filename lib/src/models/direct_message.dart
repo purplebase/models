@@ -5,7 +5,8 @@ class DirectMessage extends RegularModel<DirectMessage> {
   DirectMessage.fromMap(super.map, super.ref) : super.fromMap();
 
   String get receiver =>
-      Utils.encodeShareable(event.getFirstTagValue('p')!, type: 'npub');
+      Utils.encodeShareableFromString(event.getFirstTagValue('p')!,
+          type: 'npub');
 
   /// Get decrypted content using the active signer
   /// Since decryption is now async, this returns the raw content.
