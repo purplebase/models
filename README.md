@@ -36,35 +36,6 @@ Current implementations:
   - Dummy: In-memory storage and relay fetch simulation, for testing and prototyping (default, included)
   - [Purplebase](https://github.com/purplebase/purplebase): SQLite-powered storage and an efficient relay pool
 
-## Table of Contents 📜
-
-- [Features ✨](#features-)
-- [Installation 🛠️](#installation-️)
-- [Quickstart 🚀](#quickstart-)
-- [Core Concepts 🧠](#core-concepts-)
-  - [Models & Partial Models](#models--partial-models)
-  - [Relationships](#relationships)
-  - [Querying](#querying)
-  - [Storage & Relays](#storage--relays)
-  - [Source Behavior](#source-behavior)
-- [Recipes 🍳](#recipes-)
-  - [Signer Interface & Authentication](#signer-interface--authentication)
-  - [Building a Feed](#building-a-feed)
-  - [Creating Custom Event Kinds](#creating-custom-event-kinds)
-  - [Using the `and` Operator for Relationships](#using-the-and-operator-for-relationships)
-  - [Direct Messages & Encryption](#direct-messages--encryption)
-  - [Working with DVMs (NIP-90)](#working-with-dvms-nip-90)
-- [API Reference 📚](#api-reference-)
-  - [Storage Configuration](#storage-configuration)
-  - [Query Filters](#query-filters)
-  - [Model Types](#model-types)
-  - [Utilities](#utilities)
-  - [Event Verification](#event-verification)
-  - [Error Handling](#error-handling)
-- [Design Notes 📝](#design-notes-)
-- [Contributing 🙏](#contributing-)
-- [License 📄](#license-)
-
 ## Features ✨
 
  - **Domain models**: Instead of NIP-jargon, use type-safe classes with domain language to interact with nostr, many common nostr event kinds are available (or bring your own)
@@ -89,6 +60,33 @@ dependencies:
 ```
 
 Then run `dart pub get` or `flutter pub get`.
+
+## Table of Contents 📜
+
+- [Quickstart 🚀](#quickstart-)
+- [Core Concepts 🧠](#core-concepts-)
+  - [Models & Partial Models](#models--partial-models)
+  - [Relationships](#relationships)
+  - [Querying](#querying)
+  - [Storage & Relays](#storage--relays)
+  - [Source Behavior](#source-behavior)
+- [Recipes 🍳](#recipes-)
+  - [Signer Interface & Authentication](#signer-interface--authentication)
+  - [Building a Feed](#building-a-feed)
+  - [Creating Custom Event Kinds](#creating-custom-event-kinds)
+  - [Using the `and` Operator for Relationships](#using-the-and-operator-for-relationships)
+  - [Direct Messages & Encryption](#direct-messages--encryption)
+  - [Working with DVMs (NIP-90)](#working-with-dvms-nip-90)
+- [API Reference 📚](#api-reference-)
+  - [Storage Configuration](#storage-configuration)
+  - [Query Filters](#query-filters)
+  - [Model Types](#model-types)
+  - [Utilities](#utilities)
+  - [Event Verification](#event-verification)
+  - [Error Handling](#error-handling)
+- [Design Notes 📝](#design-notes-)
+- [Contributing 🙏](#contributing-)
+- [License 📄](#license-)
 
 ## Quickstart 🚀
 
@@ -148,7 +146,7 @@ class NotesScreen extends ConsumerWidget {
             final signer = ref.read(Signer.activeSignerProvider);
             if (signer != null) {
               final newNote = await PartialNote('Hello, nostr!').signWith(signer);
-              await ref.storage.save({newNote}, source: LocalAndRemoteSource());
+              await ref.storage.save({newNote});
             }
           },
         ),
@@ -221,6 +219,35 @@ extension WidgetRefStorage on WidgetRef {
 }
 ```
 
+## NIP Implementation Status 📋
+
+- [x] **NIP-01: Basic protocol flow description**
+- [x] **NIP-02: Follow List**
+- [x] **NIP-04: Encrypted Direct Message**
+- [x] **NIP-05: Mapping Nostr keys to DNS-based internet identifiers**
+- [x] **NIP-09: Event Deletion Request**
+- [x] **NIP-10: Text Notes and Threads**
+- [x] **NIP-11: Relay Information Document**
+- [x] **NIP-19: bech32-encoded entities**
+- [x] **NIP-21: `nostr:` URI scheme**
+- [x] **NIP-22: Comment**
+- [x] **NIP-23: Long-form Content**
+- [x] **NIP-25: Reactions**
+- [x] **NIP-28: Public Chat**
+- [x] **NIP-29: Relay-based Groups**
+- [x] **NIP-39: External Identities in Profiles**
+- [x] **NIP-42: Authentication of clients to relays**
+- [x] **NIP-44: Encrypted Payloads (Versioned)**
+- [x] **NIP-51: Lists**
+- [x] **NIP-55: Android Signer Application**
+- [x] **NIP-57: Lightning Zaps**
+- [x] **NIP-65: Relay List Metadata**
+- [x] **NIP-72: Moderated Communities (Reddit Style)**
+- [x] **NIP-78: Arbitrary custom app data**
+- [x] **NIP-82: Application metadata, releases, assets** _(draft)_
+- [x] **NIP-90: Data Vending Machine**
+- [x] **NIP-94: File Metadata**
+
 ## Core Concepts 🧠
 
 ### Models & Partial Models
@@ -239,7 +266,6 @@ final signedNote = await partialNote.signWith(signer);
 
 **Important Notes:**
 - All public APIs work with "models" (all of which can access the underlying nostr event representation via `model.event`)
-- The default relay group is 'default'
 - All notifier events are already emitted sorted by `created_at` by the framework - no need to sort again
 
 ### Relationships
@@ -326,7 +352,7 @@ source: LocalSource()
 **RemoteSource**: Only query relays, never use local storage
 ```dart
 source: RemoteSource(
-  group: 'social',        // Use specific relay group
+  group: 'social',        // Use specific relay group (defaults to 'default')
   stream: true,           // Enable streaming (default)
   background: false,      // Wait for EOSE before returning
 )
@@ -335,7 +361,7 @@ source: RemoteSource(
 **LocalAndRemoteSource**: Query both local storage and relays
 ```dart
 source: LocalAndRemoteSource(
-  group: 'social',        // Use specific relay group
+  group: 'social',        // Use specific relay group (defaults to 'default')
   stream: true,           // Enable streaming (default)
   background: true,       // Don't wait for EOSE
 )
@@ -360,10 +386,10 @@ The signer system manages authentication and signing across your app.
 final privateKey = 'your_private_key_here';
 final signer = Bip340PrivateKeySigner(privateKey, ref);
 
-// Initialize and set as active
-await signer.initialize(active: true);
+// Initialize (sets the pubkey as active)
+await signer.initialize();
 
-// Watch the active profile (now requires Source parameter)
+// Watch the active profile (use RemoteSource() if you want to fetch from relays)
 final activeProfile = ref.watch(Signer.activeProfileProvider(LocalSource()));
 final activePubkey = ref.watch(Signer.activePubkeyProvider);
 ```
@@ -401,23 +427,7 @@ final socialProfile = ref.watch(Signer.activeProfileProvider(
 ));
 ```
 
-**External Signer Integration:**
-
-```dart
-// For external signers (Amber, etc.), create a custom implementation
-class AmberSigner extends Signer {
-  AmberSigner(super.ref);
-  
-  @override
-  Future<List<E>> sign<E extends Model<dynamic>>(
-      List<PartialModel<Model<dynamic>>> partialModels) async {
-    // Integrate with Amber's signing interface
-    // Return signed models
-  }
-  
-  // Implement other required methods...
-}
-```
+The [amber_signer](https://github.com/purplebase/amber_signer) package implements this interface for Amber / NIP-55.
 
 **Sign Out Flow:**
 
@@ -537,7 +547,7 @@ final storage = ref.read(storageNotifierProvider.notifier);
 
 // Save a new note and it will appear in the feed
 final newNote = await PartialNote('Hello, world!').signWith(signer);
-await storage.save({newNote}, source: LocalAndRemoteSource());
+await storage.save({newNote});
 ```
 
 ### Creating Custom Event Kinds
@@ -603,7 +613,7 @@ final partialJoke = PartialJoke(
 final signedJoke = await partialJoke.signWith(signer);
 
 // Save to storage
-await ref.storage.save({signedJoke}, source: LocalAndRemoteSource());
+await ref.storage.save({signedJoke});
 
 // Query jokes
 final jokesState = ref.watch(
@@ -617,12 +627,12 @@ final jokesState = ref.watch(
 **Different Model Types:**
 
 ```dart
-// Regular events (kind 1-9999, 20000-29999)
+// Regular events (kind 1-9999)
 class RegularEvent extends RegularModel<RegularEvent> {
   RegularEvent.fromMap(super.map, super.ref) : super.fromMap();
 }
 
-// Replaceable events (kind 0, 3, 10000-19999, 30000-39999)
+// Replaceable events (kind 0, 3, 10000-19999)
 class ReplaceableEvent extends ReplaceableModel<ReplaceableEvent> {
   ReplaceableEvent.fromMap(super.map, super.ref) : super.fromMap();
 }
@@ -706,7 +716,7 @@ final newReaction = await PartialReaction(
   emojiTag: ('+', 'https://example.com/plus.png'),
 ).signWith(signer);
 
-await ref.storage.save({newReaction}, source: LocalAndRemoteSource());
+await ref.storage.save({newReaction});
 
 // The note's reactions relationship will automatically update
 // and any UI watching it will rebuild
@@ -730,7 +740,7 @@ final dm = PartialDirectMessage(
 final signedDm = await dm.signWith(signer);
 
 // Save to storage
-await ref.storage.save({signedDm}, source: LocalAndRemoteSource());
+await ref.storage.save({signedDm});
 ```
 
 **Decrypting Messages:**
@@ -1203,7 +1213,7 @@ final config = StorageConfiguration(
 
 ```dart
 // Events are automatically verified when saved (unless skipVerification: true)
-await ref.storage.save({signedEvent}, source: LocalAndRemoteSource());
+await ref.storage.save({signedEvent});
 
 // Manual verification
 final verifier = ref.read(verifierProvider);
@@ -1245,10 +1255,10 @@ switch (queryState) {
 
 // Handle network failures
 try {
-  await ref.storage.save({model}, source: LocalAndRemoteSource());
+  await ref.storage.save({model});
 } catch (e) {
   // Save locally only if remote fails
-  await ref.storage.save({model}, source: LocalSource());
+  await ref.storage.save({model});
   print('Remote save failed, saved locally: $e');
 }
 ```
