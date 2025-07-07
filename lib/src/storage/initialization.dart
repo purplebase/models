@@ -3,10 +3,9 @@ part of models;
 /// Initialization provider that MUST be called from any client
 /// application, with a [config]
 final initializationProvider =
-    FutureProvider.family<bool, StorageConfiguration>((ref, config) async {
+    FutureProvider.family<void, StorageConfiguration>((ref, config) async {
   _dummySigner = DummySigner(ref);
   await ref.read(storageNotifierProvider.notifier).initialize(config);
-  return true;
 });
 
 class StorageConfiguration extends Equatable {
