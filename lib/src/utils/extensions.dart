@@ -7,8 +7,8 @@ extension StringMaybeExt on String? {
 }
 
 extension StringExt on String {
-  String? encodeShareable() => Utils.encodeShareable(this);
-  String? decodeShareable() => Utils.decodeShareable(this);
+  String encodeShareable() => Utils.encodeShareable(this);
+  String decodeShareable() => Utils.decodeShareable(this);
 }
 
 extension DateTimeExt on DateTime {
