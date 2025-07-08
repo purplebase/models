@@ -3,17 +3,15 @@ import 'dart:convert';
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
-import 'helpers.dart';
+import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late Ref ref;
 
   setUpAll(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
-    ref = container.read(refProvider);
   });
 
   group('Repost Tests', () {
