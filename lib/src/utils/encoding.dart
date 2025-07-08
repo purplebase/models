@@ -86,7 +86,7 @@ sealed class ShareableIdentifierData {
   final int? kind;
 }
 
-/// Decoded profile data (nprofile)
+/// Decoded profile data (nprofile, npub)
 class ProfileData extends ShareableIdentifierData {
   const ProfileData({
     required this.pubkey,
@@ -98,7 +98,7 @@ class ProfileData extends ShareableIdentifierData {
   final String pubkey;
 }
 
-/// Decoded event data (nevent)
+/// Decoded event data (nevent, note)
 class EventData extends ShareableIdentifierData {
   const EventData({
     required this.eventId,
@@ -120,15 +120,6 @@ class AddressData extends ShareableIdentifierData {
   });
 
   final String identifier;
-}
-
-/// Simple data for npub, nsec, note (and similar) decoding
-class SimpleData extends ShareableIdentifierData {
-  const SimpleData({
-    required this.value,
-  }) : super(relays: null, author: null, kind: null);
-
-  final String value;
 }
 
 /// Internal function to encode shareable identifiers (nprofile, nevent, naddr) as TLV data

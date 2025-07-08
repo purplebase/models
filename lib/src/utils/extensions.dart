@@ -7,7 +7,8 @@ extension StringMaybeExt on String? {
 }
 
 extension StringExt on String {
-  String encodeShareable() => Utils.encodeShareableFromString(this);
+  String encodeShareable({required String type}) =>
+      Utils.encodeShareableFromString(this, type: type);
   String decodeShareable() => Utils.decodeShareableToString(this);
 }
 

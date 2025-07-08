@@ -1,4 +1,4 @@
-# nostr-models 👯
+# models 👯
 
 Fast local-first nostr framework designed to make developers (and vibe-coders) happy. Written in Dart.
 
@@ -1095,14 +1095,14 @@ final pubkey = Utils.derivePublicKey(privateKey);
 **NIP-19 Encoding/Decoding:**
 ```dart
 // Encode simple entities
-final npub = Utils.encodeShareable(pubkey, type: 'npub');
-final nsec = Utils.encodeShareable(privateKey, type: 'nsec');
-final note = Utils.encodeShareable(eventId, type: 'note');
+final npub = Utils.encodeShareableFromString(pubkey, type: 'npub');
+final nsec = Utils.encodeShareableFromString(privateKey, type: 'nsec');
+final note = Utils.encodeShareableFromString(eventId, type: 'note');
 
 // Decode simple entities
-final decodedPubkey = Utils.decodeShareable(npub);
-final decodedPrivateKey = Utils.decodeShareable(nsec);
-final decodedEventId = Utils.decodeShareable(note);
+final decodedPubkey = Utils.decodeShareableToString(npub);
+final decodedPrivateKey = Utils.decodeShareableToString(nsec); // nsec is always decoded as a string
+final decodedEventId = Utils.decodeShareableToString(note);
 ```
 
 **Complex Shareable Identifiers:**
@@ -1133,9 +1133,9 @@ final addressInput = AddressInput(
 final naddr = Utils.encodeShareableIdentifier(addressInput);
 
 // Decode complex identifiers
-final profileData = Utils.decodeShareableIdentifier(nprofile);
-final eventData = Utils.decodeShareableIdentifier(nevent);
-final addressData = Utils.decodeShareableIdentifier(naddr);
+final profileData = Utils.decodeShareableIdentifier(nprofile) as ProfileData;
+final eventData = Utils.decodeShareableIdentifier(nevent) as EventData;
+final addressData = Utils.decodeShareableIdentifier(naddr) as AddressData;
 ```
 
 **NIP-05 Resolution:**
@@ -1270,7 +1270,7 @@ try {
 - Queries (`ref.watch(query<...>(...))`) primarily interact with the local `Storage`.
 - By default, queries also trigger requests to configured remote relays. Results are saved to `Storage`, automatically updating watchers.
 - The system tracks query timestamps (`since`) to optimize subsequent fetches from relays.
-- Relay pools can be configured (e.g., `storage.configure('my-pool', {'wss://relay.example.com'})`) and used for publishing (`storage.publish(event, to: {'my-pool'})`).
+- Relay groups can be configured and used for publishing
 
 ### Storage vs relay
 

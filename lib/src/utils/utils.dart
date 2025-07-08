@@ -71,20 +71,17 @@ class Utils {
 
     final prefix = identifier.split('1')[0];
 
-    // Handle simple bech32 types
-    if (prefix == 'npub' || prefix == 'nsec' || prefix == 'note') {
-      return SimpleData(value: _bech32Decode(identifier));
-    }
-
     final raw = _decodeShareableIdentifier(identifier);
 
     return switch (prefix) {
+      'npub' => ProfileData(pubkey: _bech32Decode(identifier)),
       'nprofile' => ProfileData(
           pubkey: raw['special'] as String,
           relays: raw['relays'] as List<String>?,
           author: raw['author'] as String?,
           kind: raw['kind'] as int?,
         ),
+      'note' => EventData(eventId: _bech32Decode(identifier)),
       'nevent' => EventData(
           eventId: raw['special'] as String,
           relays: raw['relays'] as List<String>?,
@@ -102,34 +99,28 @@ class Utils {
   }
 
   /// Encode a simple string to NIP-19 format
-  static String encodeShareableFromString(String input, {String? type}) {
+  static String encodeShareableFromString(String value,
+      {required String type}) {
     // Check if already encoded before calling _bech32Encode
-    if (input.startsWith('npub') ||
-        input.startsWith('nsec') ||
-        input.startsWith('note') ||
-        input.startsWith('nprofile') ||
-        input.startsWith('nevent') ||
-        input.startsWith('naddr')) {
+    if (value.startsWith('npub') ||
+        value.startsWith('nsec') ||
+        value.startsWith('note') ||
+        value.startsWith('nprofile') ||
+        value.startsWith('nevent') ||
+        value.startsWith('naddr')) {
       // Already encoded, return as is
-      return input;
+      return value;
     }
 
-    // Try to detect the type if not provided
-    if (type == null) {
-      if (input.length == 64 && RegExp(r'^[0-9a-fA-F]+$').hasMatch(input)) {
-        // 64-character hex string - could be pubkey, private key, or event ID
-        // For now, assume it's a pubkey (most common case)
-        type = 'npub';
-      }
-    }
-
-    return switch (type) {
-      'npub' => _bech32Encode('npub', input),
-      'nsec' => _bech32Encode('nsec', input),
-      'note' => _bech32Encode('note', input),
-      _ => throw Exception(
-          'Unknown type: $type. Supported types: npub, nsec, note'),
+    final input = switch (type) {
+      'nsec' => NsecInput(value: value),
+      'npub' => NpubInput(value: value),
+      'note' => NoteInput(value: value),
+      'nprofile' => ProfileInput(pubkey: value),
+      'nevent' => EventInput(eventId: value),
+      _ => throw Exception('Unknown type: $type'),
     };
+    return encodeShareableIdentifier(input);
   }
 
   /// Convenience method to decode NIP-19 entities into a simple string
@@ -167,8 +158,6 @@ class Utils {
       return data.eventId;
     } else if (data is AddressData) {
       return data.identifier;
-    } else if (data is SimpleData) {
-      return data.value;
     } else {
       throw Exception(
           'Unknown decoded shareable identifier type: \\${data.runtimeType}');
@@ -178,13 +167,7 @@ class Utils {
   /// Decode NIP-05 identifier to public key
   static Future<String> decodeNip05(String nip05) async {
     try {
-      final parts = nip05.split('@');
-      if (parts.length != 2) {
-        throw Exception('Invalid NIP-05 format. Expected: username@domain');
-      }
-
-      final username = parts[0];
-      final domain = parts[1];
+      final [username, domain] = nip05.split('@');
 
       // Make HTTP request to .well-known/nostr.json
       final client = HttpClient();
