@@ -304,3 +304,30 @@ mixin PartialCustomDataMixin
   String? get content => event.content.isEmpty ? null : event.content;
   set content(String? value) => event.content = value ?? '';
 }
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Repost
+mixin PartialRepostMixin on RegularPartialModel<Repost> {
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+  String? get repostedNoteId => event.getFirstTagValue('e');
+  set repostedNoteId(String? value) => event.setTagValue('e', value);
+  String? get repostedNotePubkey => event.getFirstTagValue('p');
+  set repostedNotePubkey(String? value) => event.setTagValue('p', value);
+}
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for GenericRepost
+mixin PartialGenericRepostMixin on RegularPartialModel<GenericRepost> {
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+  int? get repostedEventKind => int.tryParse(event.getFirstTagValue('k') ?? '');
+  set repostedEventKind(int? value) =>
+      event.setTagValue('k', value?.toString());
+  String? get repostedEventId => event.getFirstTagValue('e');
+  set repostedEventId(String? value) => event.setTagValue('e', value);
+  String? get repostedEventPubkey => event.getFirstTagValue('p');
+  set repostedEventPubkey(String? value) => event.setTagValue('p', value);
+}

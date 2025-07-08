@@ -8,6 +8,7 @@ class Note extends RegularModel<Note> {
   late final bool isRoot;
   late final HasMany<Note> replies;
   late final HasMany<Note> allReplies;
+  late final HasMany<Repost> reposts;
 
   Note.fromMap(super.map, super.ref) : super.fromMap() {
     final tagsWithRoot =
@@ -48,6 +49,15 @@ class Note extends RegularModel<Note> {
           return tags.length == 1 &&
               tags.first.length > 3 &&
               tags.first[3] == 'root';
+        },
+      ).toRequest(),
+    );
+
+    reposts = HasMany(
+      ref,
+      RequestFilter<Repost>(
+        tags: {
+          '#e': {event.id}
         },
       ).toRequest(),
     );

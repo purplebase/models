@@ -19,6 +19,7 @@ sealed class Model<E extends Model<E>>
   late final HasMany<Reaction> reactions;
   late final HasMany<Zap> zaps;
   late final HasMany<TargetedPublication> targetedPublications;
+  late final HasMany<GenericRepost> genericReposts;
 
   Model._(this.ref, this.event)
       : storage = ref.read(storageNotifierProvider.notifier) {
@@ -51,6 +52,11 @@ sealed class Model<E extends Model<E>>
         ref,
         RequestFilter<TargetedPublication>(tags: {
           '#d': {id}
+        }).toRequest());
+    genericReposts = HasMany(
+        ref,
+        RequestFilter<GenericRepost>(tags: {
+          '#e': {event.id}
         }).toRequest());
   }
 

@@ -47,6 +47,8 @@ part 'src/models/targeted_publication.dart';
 part 'src/models/verify_reputation_dvm.dart';
 part 'src/models/zap.dart';
 part 'src/models/custom_data.dart';
+part 'src/models/repost.dart';
+part 'src/models/generic_repost.dart';
 
 part 'src/request/request_notifier.dart';
 part 'src/request/request.dart';

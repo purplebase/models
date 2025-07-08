@@ -43,6 +43,8 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     Model.register(kind: 30222, constructor: TargetedPublication.fromMap);
     Model.register(kind: 30267, constructor: AppCurationSet.fromMap);
     Model.register(kind: 32267, constructor: App.fromMap);
+    Model.register(kind: 6, constructor: Repost.fromMap);
+    Model.register(kind: 16, constructor: GenericRepost.fromMap);
 
     this.config = config;
   }
