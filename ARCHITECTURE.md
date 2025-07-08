@@ -185,10 +185,10 @@ Models can reference other models through relationships:
 ```mermaid
 graph LR
     Note[Note] --> |BelongsTo| Author[Profile]
-    Note --> |HasMany| Reactions[Reaction[]]
-    Note --> |HasMany| Zaps[Zap[]]
+    Note --> |HasMany| Reactions["List&lt;Reaction&gt;"]
+    Note --> |HasMany| Zaps["List&lt;Zap&gt;"]
     Note --> |BelongsTo| RootNote[Note]
-    Note --> |HasMany| Replies[Note[]]
+    Note --> |HasMany| Replies["List&lt;Note&gt;"]
     
     subgraph "Relationship Types"
         BelongsTo[BelongsTo&lt;T&gt;<br/>Single Related Model]
