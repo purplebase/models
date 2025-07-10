@@ -58,6 +58,35 @@ void main() {
       expect(targetedPublication.model.value, note);
       expect(targetedPublication.event.identifier, hasLength(64));
     });
+
+    test('community chatMessages relationship', () async {
+      // Create a community
+      final community = PartialCommunity(
+        name: 'Test Community',
+        relayUrls: {'wss://test.relay'},
+        description: 'Test community for chat messages',
+      ).dummySign(nielPubkey);
+
+      // Create chat messages for the community
+      final chatMessage1 = PartialChatMessage(
+        'Hello community!',
+        community: community,
+      ).dummySign();
+
+      final chatMessage2 = PartialChatMessage(
+        'Another message',
+        community: community,
+      ).dummySign();
+
+      // Save all to storage
+      await storage.save({community, chatMessage1, chatMessage2});
+
+      // Test that the chatMessages relationship works
+      final chatMessages = community.chatMessages.toList();
+      expect(chatMessages, hasLength(2));
+      expect(chatMessages.map((m) => m.content),
+          containsAll(['Hello community!', 'Another message']));
+    });
   });
 }
 

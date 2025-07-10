@@ -2,7 +2,17 @@ part of models;
 
 @GeneratePartialModel()
 class Community extends ReplaceableModel<Community> {
-  Community.fromMap(super.map, super.ref) : super.fromMap();
+  late final HasMany<ChatMessage> chatMessages;
+
+  Community.fromMap(super.map, super.ref) : super.fromMap() {
+    chatMessages = HasMany(
+        ref,
+        RequestFilter<ChatMessage>(
+          tags: {
+            '#h': {id}
+          },
+        ).toRequest());
+  }
 
   String? get name => event.getFirstTagValue('name') ?? author.value?.name;
   Set<String> get relayUrls => event.getTagSetValues('r');
