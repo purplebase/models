@@ -4,7 +4,7 @@ part of models;
 class Community extends ReplaceableModel<Community> {
   Community.fromMap(super.map, super.ref) : super.fromMap();
 
-  String get name => event.getFirstTagValue('name')!;
+  String? get name => event.getFirstTagValue('name') ?? author.value?.name;
   Set<String> get relayUrls => event.getTagSetValues('r');
   String? get description => event.getFirstTagValue('description');
 
