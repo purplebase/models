@@ -29,6 +29,10 @@ abstract class Signer {
 
   bool get isInitialized => _pubkey != null;
 
+  Future<bool> get isAvailable async {
+    return true;
+  }
+
   void setActive() {
     ref.read(Signer._activePubkeyProvider.notifier).state = _pubkey;
   }
