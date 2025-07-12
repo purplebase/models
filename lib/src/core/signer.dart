@@ -107,7 +107,9 @@ abstract class Signer {
 class Bip340PrivateKeySigner extends Signer {
   final String _privateKey;
 
-  Bip340PrivateKeySigner(this._privateKey, super.ref);
+  Bip340PrivateKeySigner(String privateKey, super.ref)
+      // Ensure private key is stored in hex format
+      : _privateKey = privateKey.decodeShareable();
 
   @override
   Future<void> initialize({bool active = true}) async {

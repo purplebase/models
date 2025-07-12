@@ -244,6 +244,10 @@ Map<String, dynamic> _decodeShareableIdentifier(String identifier) {
 }
 
 String _bech32Encode(String prefix, String hexData, {int? maxLength}) {
+  // Left pad hexData with '0' to ensure it is 64 characters long
+  if (hexData.length < 64) {
+    hexData = hexData.padLeft(64, '0');
+  }
   final data = hex.decode(hexData);
   final convertedData = _convertBits(data, 8, 5, true);
   final bech32Data = Bech32(prefix, convertedData);

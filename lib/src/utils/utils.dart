@@ -19,7 +19,7 @@ class Utils {
 
   /// Get the public key corresponding to the supplied private key
   static String derivePublicKey(String privateKey) {
-    return bip340.getPublicKey(privateKey).toLowerCase();
+    return bip340.getPublicKey(privateKey.decodeShareable()).toLowerCase();
   }
 
   // Encoding
