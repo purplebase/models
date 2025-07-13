@@ -2,7 +2,19 @@ part of models;
 
 @GeneratePartialModel()
 class FileMetadata extends RegularModel<FileMetadata> {
-  FileMetadata.fromMap(super.map, super.ref) : super.fromMap();
+  late final BelongsTo<Release> release;
+
+  FileMetadata.fromMap(super.map, super.ref) : super.fromMap() {
+    release = BelongsTo(
+        ref,
+        RequestFilter<Release>(
+          authors: {event.pubkey},
+          tags: {
+            '#e': {event.id}
+          },
+          limit: 1,
+        ).toRequest());
+  }
 
   Set<String> get urls => event.getTagSetValues('url').toSet();
   String? get mimeType => event.getFirstTagValue('m');
