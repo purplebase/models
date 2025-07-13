@@ -12,6 +12,8 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   /// `super` MUST be called
   @mustCallSuper
   Future<void> initialize(StorageConfiguration config) async {
+    if (isInitialized) return;
+
     // Regular
     Model.register(kind: 0, constructor: Profile.fromMap);
     Model.register(kind: 1, constructor: Note.fromMap);
@@ -49,7 +51,6 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     Model.register(kind: 16, constructor: GenericRepost.fromMap);
 
     this.config = config;
-    isInitialized = true;
   }
 
   /// Query storage asynchronously, always local

@@ -14,8 +14,11 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<void> initialize(StorageConfiguration config) async {
+    if (isInitialized) return;
+
     await super.initialize(config);
     _relayStorage = MemoryStorage();
+    isInitialized = true;
   }
 
   /// Seeds the storage with a realistic dataset during initialization
