@@ -11,8 +11,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   /// Storage initialization, sets up [config] and registers types,
   /// `super` MUST be called
   @mustCallSuper
-  Future<void> initialize(StorageConfiguration config,
-      {bool obliterate = false}) async {
+  Future<void> initialize(StorageConfiguration config) async {
     // Regular
     Model.register(kind: 0, constructor: Profile.fromMap);
     Model.register(kind: 1, constructor: Note.fromMap);
@@ -74,6 +73,9 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   /// Remove all models from local storage (or those matching [req]).
   /// For errors, listen to this notifier and filter for [StorageError]
   Future<void> clear([Request? req]);
+
+  /// Delete all database related files in the filesystem
+  Future<void> obliterate();
 
   /// Cancel any subscriptions for [req] (this cannot be
   /// done on dispose as we need to pass the request).

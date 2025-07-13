@@ -13,8 +13,7 @@ class DummyStorageNotifier extends StorageNotifier {
       {}; // Track which requests are streaming
 
   @override
-  Future<void> initialize(StorageConfiguration config,
-      {bool obliterate = false}) async {
+  Future<void> initialize(StorageConfiguration config) async {
     await super.initialize(config);
     _relayStorage = MemoryStorage();
   }
@@ -432,6 +431,12 @@ class DummyStorageNotifier extends StorageNotifier {
     for (final event in eventsToKeep) {
       _relayStorage.storeEvent(event);
     }
+  }
+
+  @override
+  Future<void> obliterate() async {
+    // TODO: Implement - there should be an in-memory storage representation
+    // This is pulling from the in-memory relay, which is not the same, fix
   }
 
   @override
