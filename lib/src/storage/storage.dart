@@ -6,10 +6,13 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   StorageNotifier() : super(StorageLoading([]));
   late StorageConfiguration config;
 
+  bool isInitialized = false;
+
   /// Storage initialization, sets up [config] and registers types,
   /// `super` MUST be called
   @mustCallSuper
-  Future<void> initialize(StorageConfiguration config) async {
+  Future<void> initialize(StorageConfiguration config,
+      {bool obliterate = false}) async {
     // Regular
     Model.register(kind: 0, constructor: Profile.fromMap);
     Model.register(kind: 1, constructor: Note.fromMap);
@@ -47,6 +50,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     Model.register(kind: 16, constructor: GenericRepost.fromMap);
 
     this.config = config;
+    isInitialized = true;
   }
 
   /// Query storage asynchronously, always local
@@ -72,8 +76,15 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   Future<void> clear([Request? req]);
 
   /// Cancel any subscriptions for [req] (this cannot be
-  /// done on [dispose] as we need to pass the request).
+  /// done on dispose as we need to pass the request).
   Future<void> cancel(Request req);
+
+  @override
+  void dispose() {
+    if (isInitialized) {
+      super.dispose();
+    }
+  }
 }
 
 final storageNotifierProvider =

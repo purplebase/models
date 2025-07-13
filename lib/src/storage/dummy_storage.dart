@@ -13,7 +13,8 @@ class DummyStorageNotifier extends StorageNotifier {
       {}; // Track which requests are streaming
 
   @override
-  Future<void> initialize(StorageConfiguration config) async {
+  Future<void> initialize(StorageConfiguration config,
+      {bool obliterate = false}) async {
     await super.initialize(config);
     _relayStorage = MemoryStorage();
   }
