@@ -28,7 +28,7 @@ extension ModelsExt<E extends Model<dynamic>> on Set<E> {
 }
 
 extension MapIterableExt on Iterable<Map<String, dynamic>> {
-  Iterable<E> toModels<E extends Model<dynamic>>(Ref ref, {bool sort = true}) {
+  Iterable<E> toModels<E extends Model<dynamic>>(Ref ref) {
     return map((e) {
       return Model.getConstructorForKind(e['kind']!)!.call(e, ref);
     }).cast<E>();
