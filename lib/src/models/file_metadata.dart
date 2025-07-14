@@ -48,6 +48,6 @@ class PartialFileMetadata extends RegularPartialModel<FileMetadata>
     if (version == null) {
       throw UnsupportedError('You must first set version');
     }
-    event.content = '$value@$version';
+    event.content = '${value ?? ''}@$version';
   }
 }
