@@ -22,7 +22,7 @@ extension IntExt on int {
 
 extension ModelsExt<E extends Model<dynamic>> on Iterable<E> {
   List<E> sortByCreatedAt() {
-    return sortedByCompare(
+    return toSet().sortedByCompare(
         (m) => m.createdAt.millisecondsSinceEpoch, (a, b) => b.compareTo(a));
   }
 }
