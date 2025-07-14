@@ -32,7 +32,8 @@ class Release extends ParameterizableReplaceableModel<Release> {
   }
 
   String? get releaseNotes => event.content.isEmpty ? null : event.content;
-  String? get url => event.getFirstTagValue('url');
+  String? get url =>
+      event.getFirstTagValue('url') ?? event.getFirstTagValue('r');
   String? get channel => event.getFirstTagValue('c');
 
   @override
@@ -42,13 +43,14 @@ class Release extends ParameterizableReplaceableModel<Release> {
 
   String get appIdentifier {
     // With fallback to legacy method
-    return event.getFirstTagValue('i') ?? event.identifier.split('@').first;
+    return event.getFirstTagValue('i') ??
+        _getNullableSplit(event.identifier).$1!;
   }
 
   String get version {
     // With fallback to legacy method
     return event.getFirstTagValue('version') ??
-        event.identifier.split('@').last;
+        _getNullableSplit(event.identifier).$2!;
   }
 }
 
@@ -60,7 +62,9 @@ class PartialRelease extends ParameterizableReplaceablePartialEvent<Release>
   @override
   String? get appIdentifier {
     if (!newFormat) {
-      final value = event.identifier?.split('@').firstOrNull;
+      final value = event.identifier != null
+          ? _getNullableSplit(event.identifier!).$1
+          : null;
       if (value == null) return null;
       return value.isEmpty ? null : value;
     }
@@ -70,7 +74,9 @@ class PartialRelease extends ParameterizableReplaceablePartialEvent<Release>
   @override
   String? get version {
     if (!newFormat) {
-      final value = event.identifier?.split('@').lastOrNull;
+      final value = event.identifier != null
+          ? _getNullableSplit(event.identifier!).$2
+          : null;
       if (value == null) return null;
       return value.isEmpty ? null : value;
     }
@@ -92,4 +98,24 @@ class PartialRelease extends ParameterizableReplaceablePartialEvent<Release>
     }
     event.setTagValue('version', value);
   }
+
+  @override
+  set url(String? value) {
+    if (newFormat) {
+      event.setTagValue('r', value);
+    } else {
+      event.setTagValue('url', value);
+    }
+  }
+}
+
+(String? identifier, String? version) _getNullableSplit(String str) {
+  final r = str.split('@');
+  String? identifier;
+  String? version;
+  if (r.length > 1) {
+    identifier = r.first.isNotEmpty ? r.first : null;
+    version = r.last.isNotEmpty ? r.last : null;
+  }
+  return (identifier, version);
 }

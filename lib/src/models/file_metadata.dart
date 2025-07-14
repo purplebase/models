@@ -28,7 +28,8 @@ class FileMetadata extends RegularModel<FileMetadata> {
   String get minSdkVersion => event.getFirstTagValue('min_sdk_version')!;
   String get targetSdkVersion => event.getFirstTagValue('target_sdk_version')!;
 
-  String get appIdentifier => event.content.split('@').first;
+  String get appIdentifier =>
+      event.getFirstTagValue('i') ?? _getNullableSplit(event.content).$1!;
   String get version => event.getFirstTagValue('version')!;
 
   // Android-specific
@@ -40,7 +41,7 @@ class FileMetadata extends RegularModel<FileMetadata> {
 class PartialFileMetadata extends RegularPartialModel<FileMetadata>
     with PartialFileMetadataMixin {
   @override
-  String? get appIdentifier => event.content.split('@').firstOrNull;
+  String? get appIdentifier => _getNullableSplit(event.content).$1;
 
   @override
   set appIdentifier(String? value) {
