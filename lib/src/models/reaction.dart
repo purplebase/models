@@ -18,6 +18,7 @@ class Reaction extends RegularModel<Reaction> with EmojiMixin {
 
 class PartialReaction extends RegularPartialModel<Reaction>
     with PartialReactionMixin, EmojiMixin {
+  PartialReaction.fromMap(Map<String, dynamic> map) : super.fromMap(map);
   PartialReaction(
       {String? content,
       Model? reactedOn,

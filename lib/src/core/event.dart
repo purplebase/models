@@ -1,10 +1,24 @@
 part of models;
 
 sealed class EventBase<E extends Model<E>> {
+  EventBase([Map<String, dynamic>? map])
+      : content = map?['content'] ?? '',
+        createdAt = (map?['created_at'] as int?)?.toDate() ?? DateTime.now(),
+        tags = [
+          for (final tag in map?['tags'] ?? [])
+            if (tag is Iterable && tag.length > 1)
+              [for (final e in tag) e.toString()]
+        ] {
+    if (map != null && map['kind'] != kind) {
+      throw Exception(
+          'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E ($kind)');
+    }
+  }
+
   final int kind = Model._kindFor<E>();
-  DateTime get createdAt;
-  String get content;
-  List<List<String>> get tags;
+  DateTime createdAt;
+  String content;
+  List<List<String>> tags;
 
   Map<String, dynamic> toMap();
 
@@ -31,12 +45,12 @@ sealed class EventBase<E extends Model<E>> {
 final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
   final String id;
   @override
-  final DateTime createdAt;
+  DateTime get createdAt;
   final String pubkey;
   @override
-  final String content;
+  String get content;
   @override
-  final List<List<String>> tags;
+  List<List<String>> get tags;
   // Signature is nullable as it may be removed as optimization
   final String? signature;
 
@@ -49,22 +63,11 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
 
   ImmutableEvent(Map<String, dynamic> map)
       : id = map['id'],
-        content = map['content'],
         pubkey = map['pubkey'],
-        createdAt = (map['created_at'] as int).toDate(),
-        tags = [
-          for (final tag in map['tags'])
-            if (tag is Iterable && tag.length > 1)
-              [for (final e in tag) e.toString()]
-        ],
         signature = map['sig'],
         metadata = Map<String, dynamic>.from(map['metadata'] ?? {}),
-        relays = <String>{...?map['relays']} {
-    if (map['kind'] != kind) {
-      throw Exception(
-          'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E ($kind)');
-    }
-  }
+        relays = <String>{...?map['relays']},
+        super(map);
 
   /// Addressable event ID to use in tags
   String get addressableId {
@@ -135,14 +138,7 @@ final class ImmutableParameterizableReplaceableEvent<E extends Model<E>>
 
 /// A partial, mutable, unsigned nostr event
 final class PartialEvent<E extends Model<E>> extends EventBase<E> {
-  // No ID, pubkey or signature
-  // Kind is inherited
-  @override
-  String content = '';
-  @override
-  DateTime createdAt = DateTime.now();
-  @override
-  List<List<String>> tags = [];
+  PartialEvent([Map<String, dynamic>? map]) : super(map);
 
   String? pubkey;
 

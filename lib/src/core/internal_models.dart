@@ -16,7 +16,7 @@ final class RemoteSource extends Source {
 
   @override
   String toString() {
-    return 'RemoteSource: $group [stream=$stream, background=$background]';
+    return 'RemoteSource: ${group ?? ''} [stream=$stream, background=$background]';
   }
 }
 

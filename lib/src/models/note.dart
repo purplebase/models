@@ -65,6 +65,8 @@ class Note extends RegularModel<Note> {
 }
 
 class PartialNote extends RegularPartialModel<Note> with PartialNoteMixin {
+  PartialNote.fromMap(super.map) : super.fromMap();
+
   PartialNote(String content,
       {DateTime? createdAt,
       Note? replyTo,

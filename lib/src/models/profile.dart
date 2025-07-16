@@ -116,6 +116,8 @@ class Profile extends ReplaceableModel<Profile> {
 }
 
 class PartialProfile extends ReplaceablePartialModel<Profile> {
+  PartialProfile.fromMap(super.map) : super.fromMap();
+
   PartialProfile({
     this.name,
     this.nip05,

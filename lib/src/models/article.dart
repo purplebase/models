@@ -13,8 +13,10 @@ class Article extends ParameterizableReplaceableModel<Article> {
       event.getFirstTagValue('published_at')?.toInt()?.toDate();
 }
 
-class PartialArticle extends ParameterizableReplaceablePartialEvent<Article>
+class PartialArticle extends ParameterizableReplaceablePartialModel<Article>
     with PartialArticleMixin {
+  PartialArticle.fromMap(super.map) : super.fromMap();
+
   PartialArticle(String title, String content,
       {DateTime? publishedAt,
       String? slug,

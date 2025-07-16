@@ -9,6 +9,9 @@ class BunkerAuthorization extends EphemeralModel<BunkerAuthorization> {
 
 class PartialBunkerAuthorization
     extends EphemeralPartialModel<BunkerAuthorization> {
+  PartialBunkerAuthorization.fromMap(super.map) : super.fromMap();
+  PartialBunkerAuthorization();
+
   set content(String value) => event.content = value;
   set pubkey(String value) => event.setTagValue('p', value);
 }

@@ -6,5 +6,8 @@ class AppCurationSet extends ParameterizableReplaceableModel<AppCurationSet> {
 }
 
 class PartialAppCurationSet
-    extends ParameterizableReplaceablePartialEvent<AppCurationSet>
-    with PartialAppCurationSetMixin {}
+    extends ParameterizableReplaceablePartialModel<AppCurationSet>
+    with PartialAppCurationSetMixin {
+  PartialAppCurationSet.fromMap(super.map) : super.fromMap();
+  PartialAppCurationSet();
+}

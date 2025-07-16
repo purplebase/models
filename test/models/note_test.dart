@@ -13,25 +13,22 @@ void main() {
   });
 
   group('Note', () {
-    test('from partial model', () async {
+    test('from/to partial model', () async {
       const pk =
           'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
       final signer = Bip340PrivateKeySigner(pk, container.read(refProvider));
       signer.initialize();
 
       final t = DateTime.parse('2024-07-26');
-      final [signedModel, signedModel2] = await signer.sign([
-        PartialApp()
-          ..name = 'tr'
-          ..event.createdAt = t
-          ..identifier = 's1',
-        PartialApp()
-          ..name = 'tr'
-          ..identifier = 's1'
-          ..event.createdAt = t
+      final [signedNote, signedNote2] = await signer.sign<Note>([
+        PartialNote('tr')..event.createdAt = t,
+        PartialNote('tr')..event.createdAt = t
       ]);
 
-      expect(signedModel, signedModel2);
+      expect(signedNote, signedNote2);
+
+      final partialNote = signedNote.toPartial();
+      expect(await partialNote.signWith(signer), signedNote);
     });
 
     test('tags', () {

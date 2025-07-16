@@ -344,7 +344,7 @@ ${parameters.map((p) => '    $p,').join('\n')}
         'RegularPartialModel',
         'EphemeralPartialModel',
         'ReplaceablePartialModel',
-        'ParameterizableReplaceablePartialEvent'
+        'ParameterizableReplaceablePartialModel'
       }.contains(declaringClassName)) {
         return true;
       }
@@ -476,7 +476,7 @@ ${parameters.map((p) => '    $p,').join('\n')}
           case 'ReplaceableModel':
             return _ModelInfo('ReplaceablePartialModel');
           case 'ParameterizableReplaceableModel':
-            return _ModelInfo('ParameterizableReplaceablePartialEvent');
+            return _ModelInfo('ParameterizableReplaceablePartialModel');
         }
 
         // Move up the inheritance chain

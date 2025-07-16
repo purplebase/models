@@ -53,6 +53,8 @@ class GenericRepost extends RegularModel<GenericRepost> {
 
 class PartialGenericRepost extends RegularPartialModel<GenericRepost>
     with PartialGenericRepostMixin {
+  PartialGenericRepost.fromMap(super.map) : super.fromMap();
+
   PartialGenericRepost({
     String? content,
     Model? repostedEvent,

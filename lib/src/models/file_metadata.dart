@@ -40,6 +40,10 @@ class FileMetadata extends RegularModel<FileMetadata> {
 
 class PartialFileMetadata extends RegularPartialModel<FileMetadata>
     with PartialFileMetadataMixin {
+  PartialFileMetadata.fromMap(super.map) : super.fromMap();
+
+  PartialFileMetadata();
+
   @override
   String? get appIdentifier => _getNullableSplit(event.content).$1;
 

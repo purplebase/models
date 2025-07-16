@@ -25,6 +25,8 @@ class VerifyReputationRequest extends RegularModel<VerifyReputationRequest> {
 
 class PartialVerifyReputationRequest
     extends RegularPartialModel<VerifyReputationRequest> {
+  PartialVerifyReputationRequest.fromMap(super.map) : super.fromMap();
+
   PartialVerifyReputationRequest({
     required String source,
     required String target,

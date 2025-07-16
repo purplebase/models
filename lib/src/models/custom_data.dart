@@ -9,8 +9,10 @@ class CustomData extends ParameterizableReplaceableModel<CustomData> {
 }
 
 class PartialCustomData
-    extends ParameterizableReplaceablePartialEvent<CustomData>
+    extends ParameterizableReplaceablePartialModel<CustomData>
     with PartialCustomDataMixin {
+  PartialCustomData.fromMap(super.map) : super.fromMap();
+
   PartialCustomData({
     required String identifier,
     required String content,

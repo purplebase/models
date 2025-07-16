@@ -25,6 +25,8 @@ class ChatMessage extends RegularModel<ChatMessage> {
 
 class PartialChatMessage extends RegularPartialModel<ChatMessage>
     with PartialChatMessageMixin {
+  PartialChatMessage.fromMap(super.map) : super.fromMap();
+
   PartialChatMessage(String content,
       {DateTime? createdAt, ChatMessage? quotedMessage, Community? community}) {
     event.content = content;

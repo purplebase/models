@@ -22,6 +22,9 @@ class StorageConfiguration extends Equatable {
   /// Example: `{popular: {'wss://relay.damus.io', 'wss://relay.primal.net'}}`
   final Map<String, Set<String>> relayGroups;
 
+  /// The default source for query when absent from query()
+  final Source defaultQuerySource;
+
   /// The default group to use when unspecified
   final String defaultRelayGroup;
 
@@ -43,6 +46,7 @@ class StorageConfiguration extends Equatable {
     this.keepSignatures = false,
     this.skipVerification = false,
     Map<String, Set<String>> relayGroups = const {},
+    this.defaultQuerySource = const LocalAndRemoteSource(stream: false),
     this.defaultRelayGroup = 'default',
     this.idleTimeout = const Duration(minutes: 5),
     this.responseTimeout = const Duration(seconds: 6),

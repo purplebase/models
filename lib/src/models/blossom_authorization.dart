@@ -19,6 +19,9 @@ class BlossomAuthorization extends EphemeralModel<BlossomAuthorization> {
 class PartialBlossomAuthorization
     extends EphemeralPartialModel<BlossomAuthorization>
     with PartialBlossomAuthorizationMixin {
+  PartialBlossomAuthorization.fromMap(super.map) : super.fromMap();
+  PartialBlossomAuthorization();
+
   set type(BlossomAuthorizationType value) =>
       event.setTagValue('t', value.name);
 }

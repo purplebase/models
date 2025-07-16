@@ -84,6 +84,8 @@ class Comment extends RegularModel<Comment> {
 }
 
 class PartialComment extends RegularPartialModel<Comment> {
+  PartialComment.fromMap(super.map) : super.fromMap();
+
   PartialComment({
     required String content,
     Model? rootModel,

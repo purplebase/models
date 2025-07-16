@@ -83,6 +83,8 @@ class Community extends ReplaceableModel<Community> {
 
 class PartialCommunity extends ReplaceablePartialModel<Community>
     with PartialCommunityMixin {
+  PartialCommunity.fromMap(super.map) : super.fromMap();
+
   PartialCommunity(
       {required String name,
       DateTime? createdAt,

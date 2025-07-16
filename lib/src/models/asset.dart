@@ -29,4 +29,7 @@ class SoftwareAsset extends RegularModel<SoftwareAsset> {
 }
 
 class PartialSoftwareAsset extends RegularPartialModel<SoftwareAsset>
-    with PartialSoftwareAssetMixin {}
+    with PartialSoftwareAssetMixin {
+  PartialSoftwareAsset.fromMap(super.map) : super.fromMap();
+  PartialSoftwareAsset();
+}

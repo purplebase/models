@@ -56,6 +56,8 @@ class DirectMessage extends RegularModel<DirectMessage> {
 
 class PartialDirectMessage extends RegularPartialModel<DirectMessage>
     with PartialDirectMessageMixin {
+  PartialDirectMessage.fromMap(super.map) : super.fromMap();
+
   /// Create a new direct message with automatic encryption
   PartialDirectMessage({
     required String content,

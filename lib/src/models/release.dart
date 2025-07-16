@@ -35,6 +35,7 @@ class Release extends ParameterizableReplaceableModel<Release> {
   String? get url =>
       event.getFirstTagValue('url') ?? event.getFirstTagValue('r');
   String? get channel => event.getFirstTagValue('c');
+  String? get commitId => event.getFirstTagValue('commit');
 
   @override
   String get identifier {
@@ -54,8 +55,12 @@ class Release extends ParameterizableReplaceableModel<Release> {
   }
 }
 
-class PartialRelease extends ParameterizableReplaceablePartialEvent<Release>
+class PartialRelease extends ParameterizableReplaceablePartialModel<Release>
     with PartialReleaseMixin {
+  PartialRelease.fromMap(super.map)
+      : newFormat = false,
+        super.fromMap();
+
   final bool newFormat;
   PartialRelease({this.newFormat = false});
 

@@ -1,6 +1,6 @@
 name: models
 description: Nostr models in Dart
-version: 0.3.0
+version: 0.3.1
 repository: https://github.com/purplebase/models
 
 environment:

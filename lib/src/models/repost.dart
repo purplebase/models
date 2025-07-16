@@ -46,6 +46,8 @@ class Repost extends RegularModel<Repost> {
 
 class PartialRepost extends RegularPartialModel<Repost>
     with PartialRepostMixin {
+  PartialRepost.fromMap(super.map) : super.fromMap();
+
   PartialRepost({
     String? content,
     Note? repostedNote,

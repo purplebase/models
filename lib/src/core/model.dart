@@ -89,6 +89,10 @@ sealed class Model<E extends Model<E>>
     return event.toMap();
   }
 
+  P toPartial<P extends PartialModel<E>>() {
+    return Model._getPartialConstructorFor<E>()!.call(toMap()) as P;
+  }
+
   /// Models are equal when they event IDs are (not their addressable IDs)
   @override
   List<Object?> get props => [event.id];
@@ -112,13 +116,24 @@ sealed class Model<E extends Model<E>>
 
   // Registry-related
 
-  static final Map<String, ({int kind, ModelConstructor constructor})>
-      _modelRegistry = {};
+  static final Map<
+      String,
+      ({
+        int kind,
+        ModelConstructor constructor,
+        PartialModelConstructor? partialConstructor
+      })> _modelRegistry = {};
 
   /// Registers a new kind and associates it with its domain model
-  static void register<E extends Model<dynamic>>(
-      {required int kind, required ModelConstructor<E> constructor}) {
-    _modelRegistry[E.toString()] = (kind: kind, constructor: constructor);
+  static void register<E extends Model<E>>(
+      {required int kind,
+      required ModelConstructor<E> constructor,
+      PartialModelConstructor<E>? partialConstructor}) {
+    _modelRegistry[E.toString()] = (
+      kind: kind,
+      constructor: constructor,
+      partialConstructor: partialConstructor
+    );
   }
 
   static Exception _unregisteredException<T>() => Exception(
@@ -133,7 +148,7 @@ sealed class Model<E extends Model<E>>
   }
 
   /// Finds the constructor for type parameter [E]
-  static ModelConstructor<E>? getConstructorFor<E extends Model<dynamic>>() {
+  static ModelConstructor<E>? getConstructorFor<E extends Model<E>>() {
     final constructor =
         _modelRegistry[E.toString()]?.constructor as ModelConstructor<E>?;
     if (constructor == null) {
@@ -152,6 +167,17 @@ sealed class Model<E extends Model<E>>
     }
     return constructor;
   }
+
+  /// Finds the partial constructor for type parameter [E]
+  static PartialModelConstructor<E>?
+      _getPartialConstructorFor<E extends Model<E>>() {
+    final constructor = _modelRegistry[E.toString()]?.partialConstructor
+        as PartialModelConstructor<E>?;
+    if (constructor == null) {
+      throw _unregisteredException();
+    }
+    return constructor;
+  }
 }
 
 /// A mutable domain model entity that wraps a partial nostr event
@@ -160,7 +186,11 @@ sealed class PartialModel<E extends Model<E>>
     with Signable<E>
     implements ModelBase<E> {
   @override
-  final PartialEvent event = PartialEvent<E>();
+  final PartialEvent event;
+
+  PartialModel() : event = PartialEvent<E>();
+
+  PartialModel.fromMap(Map<String, dynamic> map) : event = PartialEvent<E>(map);
 
   final transientData = <String, dynamic>{};
 
@@ -259,8 +289,11 @@ abstract class ReplaceableModel<E extends Model<E>> extends Model<E> {
       : super._(ref, event);
 }
 
-abstract class ReplaceablePartialModel<E extends Model<E>> = PartialModel<E>
-    with _EmptyMixin;
+abstract class ReplaceablePartialModel<E extends Model<E>>
+    extends PartialModel<E> {
+  ReplaceablePartialModel() : super();
+  ReplaceablePartialModel.fromMap(super.map) : super.fromMap();
+}
 
 /// A base domain model class of a parameterizable replaceable event (d tag)
 abstract class ParameterizableReplaceableModel<E extends Model<E>>
@@ -279,14 +312,20 @@ abstract class ParameterizableReplaceableModel<E extends Model<E>>
   String get identifier => event.identifier;
 }
 
-abstract class ParameterizableReplaceablePartialEvent<E extends Model<E>>
+abstract class ParameterizableReplaceablePartialModel<E extends Model<E>>
     extends ReplaceablePartialModel<E> {
+  ParameterizableReplaceablePartialModel() : super();
+  ParameterizableReplaceablePartialModel.fromMap(super.map) : super.fromMap();
+
   String? get identifier => event.getFirstTagValue('d');
   set identifier(String? value) => event.setTagValue('d', value);
 }
 
 typedef ModelConstructor<E extends Model<dynamic>> = E Function(
     Map<String, dynamic>, Ref ref);
+
+typedef PartialModelConstructor<E extends Model<E>> = PartialModel<E> Function(
+    Map<String, dynamic>);
 
 /// Annotation to mark a model class for automatic partial model generation.
 ///

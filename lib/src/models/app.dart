@@ -34,5 +34,8 @@ class App extends ParameterizableReplaceableModel<App> {
   Set<String> get platforms => event.getTagSetValues('f').toSet();
 }
 
-class PartialApp extends ParameterizableReplaceablePartialEvent<App>
-    with PartialAppMixin {}
+class PartialApp extends ParameterizableReplaceablePartialModel<App>
+    with PartialAppMixin {
+  PartialApp.fromMap(super.map) : super.fromMap();
+  PartialApp();
+}

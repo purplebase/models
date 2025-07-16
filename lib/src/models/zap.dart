@@ -51,6 +51,9 @@ class ZapRequest extends RegularModel<ZapRequest> {
 }
 
 class PartialZapRequest extends RegularPartialModel<ZapRequest> {
+  PartialZapRequest.fromMap(super.map) : super.fromMap();
+  PartialZapRequest();
+
   set comment(String? value) => value != null ? event.content = value : null;
   set amount(int value) => event.setTagValue('amount', value.toString());
   set relays(Iterable<String> value) => event.addTag('relays', value.toList());

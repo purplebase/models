@@ -28,8 +28,10 @@ class TargetedPublication
 }
 
 class PartialTargetedPublication
-    extends ParameterizableReplaceablePartialEvent<TargetedPublication>
+    extends ParameterizableReplaceablePartialModel<TargetedPublication>
     with PartialTargetedPublicationMixin {
+  PartialTargetedPublication.fromMap(super.map) : super.fromMap();
+
   PartialTargetedPublication(Model model,
       {required Set<Community> communities, Set<String>? relayUrls}) {
     linkModel(model);

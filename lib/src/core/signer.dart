@@ -319,7 +319,9 @@ class DummySigner extends Signer {
   E signSync<E extends Model<dynamic>>(
       PartialModel<Model<dynamic>> partialModel,
       {required String pubkey}) {
-    return Model.getConstructorFor<E>()!.call({
+    final constructor = Model.getConstructorForKind(partialModel.event.kind)!
+        as ModelConstructor<E>;
+    return constructor.call({
       'id': Utils.getEventId(partialModel.event, pubkey),
       'pubkey': pubkey,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
