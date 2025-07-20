@@ -228,6 +228,7 @@ extension WidgetRefStorage on WidgetRef {
 - [x] **NIP-09: Event Deletion Request**
 - [x] **NIP-10: Text Notes and Threads**
 - [x] **NIP-11: Relay Information Document**
+- [x] **NIP-18: Reposts**
 - [x] **NIP-19: bech32-encoded entities**
 - [x] **NIP-21: `nostr:` URI scheme**
 - [x] **NIP-22: Comment**
@@ -262,6 +263,22 @@ print(note.content); // Access domain properties
 // Mutable, unsigned partial model for creation
 final partialNote = PartialNote('Hello, nostr!');
 final signedNote = await partialNote.signWith(signer);
+```
+
+**Converting Models to Partial Models:**
+
+Models can be converted back to editable partial models using the `toPartial()` method:
+
+```dart
+// Load an existing note
+final note = await ref.storage.get<Note>(noteId);
+
+// Convert to partial for editing
+final partialNote = note.toPartial<PartialNote>();
+
+// Modify and re-sign
+partialNote.content = 'Updated content';
+final updatedNote = await partialNote.signWith(signer);
 ```
 
 **Important Notes:**
@@ -388,6 +405,9 @@ final signer = Bip340PrivateKeySigner(privateKey, ref);
 
 // Initialize (sets the pubkey as active)
 await signer.initialize();
+
+// Check if signer is available for use
+final isAvailable = await signer.isAvailable;
 
 // Watch the active profile (use RemoteSource() if you want to fetch from relays)
 final activeProfile = ref.watch(Signer.activeProfileProvider(LocalSource()));
@@ -722,6 +742,24 @@ await ref.storage.save({newReaction});
 // and any UI watching it will rebuild
 ```
 
+**Community Chat Messages:**
+
+```dart
+// Load a community with its chat messages
+final communityState = ref.watch(
+  query<Community>(
+    ids: {communityId},
+    and: (community) => {
+      community.chatMessages, // Load associated chat messages
+    },
+  ),
+);
+
+// Access the chat messages
+final community = communityState.models.first;
+final messages = community.chatMessages.toList();
+```
+
 ### Direct Messages & Encryption
 
 Create encrypted direct messages using NIP-04 and NIP-44.
@@ -995,6 +1033,9 @@ final config = StorageConfiguration(
   // Default relay group
   defaultRelayGroup: 'popular',
   
+  // Default source for queries when not specified
+  defaultQuerySource: LocalAndRemoteSource(stream: false),
+  
   // Connection timeouts
   idleTimeout: Duration(minutes: 5),
   responseTimeout: Duration(seconds: 6),
@@ -1055,6 +1096,7 @@ Available built-in models and their relationships.
 - `Note` (kind 1) - Text posts with reply threading
 - `ContactList` (kind 3) - Following/followers
 - `DirectMessage` (kind 4) - Encrypted private messages
+- `Repost` (kind 6) - Reposts of other notes (NIP-18)
 - `Reaction` (kind 7) - Emoji reactions to events
 - `ChatMessage` (kind 9) - Public chat messages
 
@@ -1062,11 +1104,11 @@ Available built-in models and their relationships.
 - `Article` (kind 30023) - Long-form articles
 - `App` (kind 32267) - App metadata and listings
 - `Release` (kind 30063) - Software releases
-- `FileMetadata` (kind 1063) - File information
+- `FileMetadata` (kind 1063) - File information with release relationship
 - `SoftwareAsset` (kind 3063) - Software binaries
 
 **Social Models:**
-- `Community` (kind 10222) - Community definitions
+- `Community` (kind 10222) - Community definitions with chatMessages relationship
 - `TargetedPublication` (kind 30222) - Targeted content
 - `Comment` (kind 1111) - Comments on content
 
