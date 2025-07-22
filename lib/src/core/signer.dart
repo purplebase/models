@@ -11,8 +11,18 @@ abstract class Signer {
 
   Signer(this.ref);
 
+  Future<bool> get isAvailable async {
+    return true;
+  }
+
+  // New Public API Methods
+
+  /// Sign in the signer with the current pubkey
+  ///
+  /// This is the preferred method for signing in signers.
+  /// [setAsActive] determines whether this signer becomes the active signer after sign in.
   @mustCallSuper
-  Future<void> initialize({bool active = true}) async {
+  Future<void> signIn({bool setAsActive = true}) async {
     if (_pubkey == null) {
       throw UnsupportedError(
           'Pubkey must be set, bug in $runtimeType implementation');
@@ -22,26 +32,44 @@ abstract class Signer {
     ref.read(Signer._signedInPubkeysProvider.notifier).state =
         ref.read(Signer._signedInPubkeysProvider)..add(_pubkey!);
 
-    if (active) {
-      setActive();
+    if (setAsActive) {
+      setAsActivePubkey();
     }
   }
 
-  bool get isInitialized => _pubkey != null;
+  /// Sign out the signer, removing it from the signed-in set
+  ///
+  /// This is the preferred method for signing out signers.
+  /// If this signer is currently active, it will be removed from active status.
+  Future<void> signOut() async {
+    // Remove from signed in set
+    ref.read(_signedInPubkeysProvider.notifier).state =
+        ref.read(_signedInPubkeysProvider)..remove(_pubkey);
 
-  Future<bool> get isAvailable async {
-    return true;
+    // If pubkey is managed by this signer, remove from active
+    removeAsActivePubkey();
   }
 
-  void setActive() {
+  /// Set this signer as the active pubkey
+  ///
+  /// This is the preferred method for setting a signer as active.
+  void setAsActivePubkey() {
     ref.read(Signer._activePubkeyProvider.notifier).state = _pubkey;
   }
 
-  void removeActive() {
+  /// Remove this signer as the active pubkey if it's currently active
+  ///
+  /// This is the preferred method for removing a signer from active status.
+  void removeAsActivePubkey() {
     if (ref.read(_activePubkeyProvider) == _pubkey) {
       ref.read(_activePubkeyProvider.notifier).state = null;
     }
   }
+
+  /// Whether this signer is signed in
+  ///
+  /// This is the preferred property for checking sign-in status.
+  bool get isSignedIn => _pubkey != null;
 
   /// Sign the partial models, supply `withPubkey` to disambiguate when signer holds multiple keys
   Future<List<E>> sign<E extends Model<dynamic>>(
@@ -58,15 +86,6 @@ abstract class Signer {
 
   /// NIP-44: Decrypt a message using ChaCha20 with HKDF and HMAC-SHA256
   Future<String> nip44Decrypt(String encryptedMessage, String senderPubkey);
-
-  Future<void> dispose() async {
-    // Remove from signed in set
-    ref.read(_signedInPubkeysProvider.notifier).state =
-        ref.read(_signedInPubkeysProvider)..remove(_pubkey);
-
-    // If pubkey is managed by this signer, remove from active
-    removeActive();
-  }
 
   // Signed-in related functions and providers
 
@@ -112,10 +131,10 @@ class Bip340PrivateKeySigner extends Signer {
       : _privateKey = privateKey.decodeShareable();
 
   @override
-  Future<void> initialize({bool active = true}) async {
+  Future<void> signIn({bool setAsActive = true}) async {
     internalSetPubkey(Utils.derivePublicKey(_privateKey));
 
-    return super.initialize(active: active);
+    return super.signIn(setAsActive: setAsActive);
   }
 
   Map<String, dynamic> _prepare(
@@ -129,8 +148,8 @@ class Bip340PrivateKeySigner extends Signer {
   @override
   Future<List<E>> sign<E extends Model<dynamic>>(
       List<PartialModel<Model<dynamic>>> partialModels) async {
-    if (!isInitialized) {
-      throw StateError('Signer has not been initialized');
+    if (!isSignedIn) {
+      throw StateError('Signer has not been signed in');
     }
     return partialModels
         .map((partialModel) {
@@ -147,8 +166,8 @@ class Bip340PrivateKeySigner extends Signer {
 
   @override
   Future<String> nip04Encrypt(String message, String recipientPubkey) async {
-    if (!isInitialized) {
-      throw StateError('Signer has not been initialized');
+    if (!isSignedIn) {
+      throw StateError('Signer has not been signed in');
     }
     return _nip04Encrypt(message, recipientPubkey);
   }
@@ -156,16 +175,16 @@ class Bip340PrivateKeySigner extends Signer {
   @override
   Future<String> nip04Decrypt(
       String encryptedMessage, String senderPubkey) async {
-    if (!isInitialized) {
-      throw StateError('Signer has not been initialized');
+    if (!isSignedIn) {
+      throw StateError('Signer has not been signed in');
     }
     return _nip04Decrypt(encryptedMessage, senderPubkey);
   }
 
   @override
   Future<String> nip44Encrypt(String message, String recipientPubkey) async {
-    if (!isInitialized) {
-      throw StateError('Signer has not been initialized');
+    if (!isSignedIn) {
+      throw StateError('Signer has not been signed in');
     }
     try {
       return await nip44.Nip44.encryptMessage(
@@ -178,8 +197,8 @@ class Bip340PrivateKeySigner extends Signer {
   @override
   Future<String> nip44Decrypt(
       String encryptedMessage, String senderPubkey) async {
-    if (!isInitialized) {
-      throw StateError('Signer has not been initialized');
+    if (!isSignedIn) {
+      throw StateError('Signer has not been signed in');
     }
     try {
       return await nip44.Nip44.decryptMessage(
@@ -311,9 +330,9 @@ class DummySigner extends Signer {
       : __pubkey = pubkey ?? Utils.generateRandomHex64();
 
   @override
-  Future<void> initialize({bool active = true}) async {
+  Future<void> signIn({bool setAsActive = true}) async {
     internalSetPubkey(__pubkey);
-    return super.initialize(active: active);
+    return super.signIn(setAsActive: setAsActive);
   }
 
   E signSync<E extends Model<dynamic>>(

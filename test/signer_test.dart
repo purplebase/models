@@ -26,18 +26,18 @@ void main() {
       });
 
       test('initialization', () async {
-        expect(signer.isInitialized, isFalse);
+        expect(signer.isSignedIn, isFalse);
         expect(() => signer.pubkey, throwsA(isA<TypeError>()));
 
-        await signer.initialize();
+        await signer.signIn();
 
-        expect(signer.isInitialized, isTrue);
+        expect(signer.isSignedIn, isTrue);
         expect(signer.pubkey, isNotNull);
         expect(signer.pubkey, hasLength(64));
       });
 
       test('signing models', () async {
-        await signer.initialize();
+        await signer.signIn();
 
         final partialNote = PartialNote('Test note content');
         final signedModels = await signer.sign<Note>([partialNote]);
@@ -51,7 +51,7 @@ void main() {
       });
 
       test('signing multiple models', () async {
-        await signer.initialize();
+        await signer.signIn();
 
         final partialModels = [
           PartialNote('Note 1'),
@@ -69,7 +69,7 @@ void main() {
       });
 
       test('signing DirectMessage with encryption works correctly', () async {
-        await signer.initialize();
+        await signer.signIn();
         final recipientNpub =
             Utils.encodeShareableFromString(nielPubkey, type: 'npub');
         const message = 'Hello, this is a secret message!';
@@ -94,7 +94,7 @@ void main() {
       });
 
       test('NIP-04 encryption methods work with real implementation', () async {
-        await signer.initialize();
+        await signer.signIn();
         const recipientPubkey =
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
         const message = 'Hello, secret message!';
@@ -108,7 +108,7 @@ void main() {
       });
 
       test('NIP-44 encryption methods work with real implementation', () async {
-        await signer.initialize();
+        await signer.signIn();
         const recipientPubkey =
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
         const message = 'Hello, secret message!';
@@ -161,12 +161,12 @@ void main() {
       });
 
       test('initialization', () async {
-        expect(signer.isInitialized, isFalse);
+        expect(signer.isSignedIn, isFalse);
         expect(() => signer.pubkey, throwsA(isA<TypeError>()));
 
-        await signer.initialize();
+        await signer.signIn();
 
-        expect(signer.isInitialized, isTrue);
+        expect(signer.isSignedIn, isTrue);
         expect(signer.pubkey, isNotNull);
         expect(signer.pubkey, hasLength(64));
       });
@@ -176,13 +176,13 @@ void main() {
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
         final customSigner = DummySigner(ref, pubkey: customPubkey);
 
-        await customSigner.initialize();
+        await customSigner.signIn();
 
         expect(customSigner.pubkey, customPubkey);
       });
 
       test('NIP-04 dummy encryption/decryption', () async {
-        await signer.initialize();
+        await signer.signIn();
         const recipientPubkey =
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
         const message = 'Hello, secret message!';
@@ -199,7 +199,7 @@ void main() {
       });
 
       test('NIP-44 dummy encryption/decryption', () async {
-        await signer.initialize();
+        await signer.signIn();
         const recipientPubkey =
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
         const message = 'Hello, secret message!';
@@ -221,7 +221,7 @@ void main() {
         const pubkey =
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
         final signer = DummySigner(ref, pubkey: pubkey);
-        await signer.initialize();
+        await signer.signIn();
 
         // Check that signer is registered
         final retrievedSigner = container.read(Signer.signerProvider(pubkey));
@@ -248,7 +248,7 @@ void main() {
 
     setUp(() async {
       signer = Bip340PrivateKeySigner(privateKey, ref);
-      await signer.initialize();
+      await signer.signIn();
     });
 
     test('PartialDirectMessage creation with encryption', () {
@@ -334,7 +334,7 @@ void main() {
 
     setUp(() async {
       signer = Bip340PrivateKeySigner(privateKey, ref);
-      await signer.initialize();
+      await signer.signIn();
     });
 
     test('signWith method for regular models', () async {
@@ -406,7 +406,7 @@ void main() {
 
     setUp(() async {
       signer = Bip340PrivateKeySigner(privateKey, ref);
-      await signer.initialize();
+      await signer.signIn();
 
       // Get storage instance
       storage = container.read(storageNotifierProvider.notifier)
@@ -439,7 +439,7 @@ void main() {
       const secondPrivateKey =
           'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
       final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, ref);
-      await secondSigner.initialize();
+      await secondSigner.signIn();
 
       // Wait for the provider to update with the new profile
       await profileTester.expect(isNull);
@@ -490,7 +490,7 @@ void main() {
       const secondPrivateKey =
           'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
       final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, ref);
-      await secondSigner.initialize(active: false); // Don't set as active
+      await secondSigner.signIn(setAsActive: false); // Don't set as active
 
       // Test signedInPubkeysProvider has both signers
       final signedInPubkeys = container.read(Signer.signedInPubkeysProvider);
@@ -512,7 +512,7 @@ void main() {
       expect(activeSigner, equals(signer));
 
       // Set second signer as active
-      secondSigner.setActive();
+      secondSigner.setAsActivePubkey();
       final newActiveSigner = container.read(Signer.activeSignerProvider);
       expect(newActiveSigner, equals(secondSigner));
 

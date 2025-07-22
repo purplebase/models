@@ -403,10 +403,11 @@ The signer system manages authentication and signing across your app.
 final privateKey = 'your_private_key_here';
 final signer = Bip340PrivateKeySigner(privateKey, ref);
 
-// Initialize (sets the pubkey as active)
-await signer.initialize();
+// Sign in (sets the pubkey as active)
+await signer.signIn();
 
-// Check if signer is available for use
+// Check if signer is signed in and available for use
+final isSignedIn = signer.isSignedIn;
 final isAvailable = await signer.isAvailable;
 
 // Watch the active profile (use RemoteSource() if you want to fetch from relays)
@@ -421,12 +422,12 @@ final activePubkey = ref.watch(Signer.activePubkeyProvider);
 final signer1 = Bip340PrivateKeySigner(privateKey1, ref);
 final signer2 = Bip340PrivateKeySigner(privateKey2, ref);
 
-await signer1.initialize(active: false); // Don't set as active
-await signer2.initialize(active: true);  // Set as active
+await signer1.signIn(setAsActive: false); // Don't set as active
+await signer2.signIn(setAsActive: true);  // Set as active
 
 // Switch between accounts
-signer1.setActive();
-signer2.removeActive();
+await signer1.setAsActivePubkey();
+await signer2.removeAsActivePubkey();
 
 // Get all signed-in accounts
 final signedInPubkeys = ref.watch(Signer.signedInPubkeysProvider);
@@ -453,7 +454,7 @@ The [amber_signer](https://github.com/purplebase/amber_signer) package implement
 
 ```dart
 // Clean up when user signs out
-await signer.dispose();
+await signer.signOut();
 
 // The active profile provider will automatically update
 // as the signer is removed from the system

@@ -17,7 +17,7 @@ void main() {
       const pk =
           'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
       final signer = Bip340PrivateKeySigner(pk, container.read(refProvider));
-      signer.initialize();
+      signer.signIn();
 
       final t = DateTime.parse('2024-07-26');
       final [signedNote, signedNote2] = await signer.sign<Note>([

@@ -31,7 +31,7 @@ class DummyStorageNotifier extends StorageNotifier {
         List.generate(20 + r.nextInt(30), (i) => generateProfile());
     seededModels.addAll(profiles);
     final signer = DummySigner(ref, pubkey: profiles.first.pubkey);
-    await signer.initialize();
+    await signer.signIn();
 
     // Generate contact lists for some profiles
     for (int i = 0; i < profiles.length ~/ 3; i++) {
