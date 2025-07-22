@@ -6,8 +6,9 @@ class Zap extends RegularModel<Zap> {
   @override
   BelongsTo<Profile> get author => BelongsTo(
       ref,
-      RequestFilter<Profile>(authors: {event.getFirstTagValue('P')!})
-          .toRequest());
+      RequestFilter<Profile>(authors: {
+        event.getFirstTagValue('P') ?? event.metadata['author']
+      }).toRequest());
   late final BelongsTo<Model> zappedModel;
   late final BelongsTo<Profile> recipient;
   late final BelongsTo<ZapRequest> zapRequest;
@@ -29,7 +30,11 @@ class Zap extends RegularModel<Zap> {
   Map<String, dynamic> processMetadata() {
     final amount = _getSatsFromBolt11(event.getFirstTagValue('bolt11')!);
     final description = jsonDecode(event.getFirstTagValue('description')!);
-    return {'amount': amount, 'zapRequestId': description['id']};
+    return {
+      'amount': amount,
+      'zapRequestId': description['id'],
+      'author': description['pubkey']
+    };
   }
 
   @override

@@ -5,6 +5,7 @@ class Note extends RegularModel<Note> {
   String get content => event.content;
 
   late final BelongsTo<Note> root;
+  late final BelongsTo<Note> replyTo;
   late final bool isRoot;
   late final HasMany<Note> replies;
   late final HasMany<Note> allReplies;
@@ -20,6 +21,36 @@ class Note extends RegularModel<Note> {
         isRoot
             ? null
             : RequestFilter<Note>(ids: {tagsWithRoot.first[1]}).toRequest());
+
+    // Find the immediate replied-to note ID
+    String? replyToId;
+    if (!isRoot) {
+      // First try to find a tag with 'reply' marker
+      final tagsWithReply =
+          event.getTagSet('e').where((t) => t.length > 3 && t[3] == 'reply');
+      if (tagsWithReply.isNotEmpty) {
+        replyToId = tagsWithReply.first[1];
+      } else {
+        // If no 'reply' marker, check for single e tag (direct reply to root)
+        final eTags = event.getTagSet('e');
+        if (eTags.length == 1) {
+          replyToId = eTags.first[1];
+        } else if (eTags.length > 1) {
+          // If multiple e tags but no 'reply' marker, use the last non-root tag
+          final nonRootTags =
+              eTags.where((t) => t.length <= 3 || t[3] != 'root');
+          if (nonRootTags.isNotEmpty) {
+            replyToId = nonRootTags.last[1];
+          }
+        }
+      }
+    }
+
+    replyTo = BelongsTo(
+        ref,
+        replyToId != null
+            ? RequestFilter<Note>(ids: {replyToId}).toRequest()
+            : null);
 
     allReplies = HasMany(
       ref,

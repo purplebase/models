@@ -87,6 +87,61 @@ void main() {
       expect(replyToReplyNote.root.value, c);
       expect(c.replies.toList(), {replyNote});
       expect(c.allReplies.toList(), {replyNote, replyToReplyNote});
+
+      expect(c.replyTo.value, isNull); // Root note has no replyTo
+      expect(replyNote.replyTo.value, c); // Direct reply points to root
+      expect(replyToReplyNote.replyTo.value,
+          replyNote); // Nested reply points to immediate parent
+    });
+
+    test('complex threading with root and reply markers', () async {
+      late Note rootNote, intermediateNote, complexReplyNote;
+      late DummyStorageNotifier storage;
+
+      storage = container.read(storageNotifierProvider.notifier)
+          as DummyStorageNotifier;
+
+      // Create a root note
+      rootNote = PartialNote('Root note content').dummySign(nielPubkey);
+
+      // Create an intermediate note that replies to root
+      intermediateNote = PartialNote('Intermediate reply', replyTo: rootNote)
+          .dummySign(franzapPubkey);
+
+      await storage.save({rootNote, intermediateNote});
+
+      // Create a complex note that has both root and reply markers
+      // Simulating the event structure from the provided data
+      final complexReply = PartialNote('Complex reply with both markers');
+
+      // Manually add both root and reply e tags to simulate the complex scenario
+      complexReply.event.addTag('e', [rootNote.event.id, '', 'root']);
+      complexReply.event.addTag('e', [intermediateNote.event.id, '', 'reply']);
+
+      complexReplyNote = complexReply.dummySign(verbirichaPubkey);
+
+      await storage.save({complexReplyNote});
+
+      // Test the complex threading relationships
+      expect(rootNote.isRoot, isTrue);
+      expect(rootNote.root.value, isNull);
+      expect(rootNote.replyTo.value, isNull);
+
+      expect(intermediateNote.isRoot, isFalse);
+      expect(intermediateNote.root.value, rootNote);
+      expect(intermediateNote.replyTo.value, rootNote); // Direct reply to root
+
+      expect(complexReplyNote.isRoot, isFalse);
+      expect(
+          complexReplyNote.root.value, rootNote); // Root marker points to root
+      expect(complexReplyNote.replyTo.value,
+          intermediateNote); // Reply marker points to intermediate
+
+      // Test the HasMany relationships
+      expect(rootNote.allReplies.toList(),
+          containsAll([intermediateNote, complexReplyNote]));
+      expect(intermediateNote.allReplies.toList(),
+          isEmpty); // No replies to intermediate
     });
   });
 }
