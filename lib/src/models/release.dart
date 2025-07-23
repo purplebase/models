@@ -1,6 +1,5 @@
 part of models;
 
-@GeneratePartialModel()
 class Release extends ParameterizableReplaceableModel<Release> {
   late final BelongsTo<App> app;
   late final HasMany<FileMetadata> fileMetadatas;
@@ -8,27 +7,32 @@ class Release extends ParameterizableReplaceableModel<Release> {
 
   Release.fromMap(super.map, super.ref) : super.fromMap() {
     app = BelongsTo(
-        ref,
-        event.containsTag('a')
-            ? Request<App>.fromIds({event.getFirstTagValue('a')!})
-            // New format
-            : RequestFilter<App>(
-                authors: {event.pubkey},
-                tags: {
-                  '#d': {event.identifier}
-                },
-                limit: 1,
-              ).toRequest());
+      ref,
+      event.containsTag('a')
+          ? Request<App>.fromIds({event.getFirstTagValue('a')!})
+          // New format
+          : RequestFilter<App>(
+              authors: {event.pubkey},
+              tags: {
+                '#d': {event.identifier},
+              },
+              limit: 1,
+            ).toRequest(),
+    );
     fileMetadatas = HasMany(
-        ref,
-        RequestFilter<FileMetadata>(
-            ids: event.getTagSetValues('e').toSet(),
-            kinds: {1063}).toRequest());
+      ref,
+      RequestFilter<FileMetadata>(
+        ids: event.getTagSetValues('e').toSet(),
+        kinds: {1063},
+      ).toRequest(),
+    );
     softwareAssets = HasMany(
-        ref,
-        RequestFilter<SoftwareAsset>(
-            ids: event.getTagSetValues('e').toSet(),
-            kinds: {3063}).toRequest());
+      ref,
+      RequestFilter<SoftwareAsset>(
+        ids: event.getTagSetValues('e').toSet(),
+        kinds: {3063},
+      ).toRequest(),
+    );
   }
 
   String? get releaseNotes => event.content.isEmpty ? null : event.content;
@@ -55,11 +59,27 @@ class Release extends ParameterizableReplaceableModel<Release> {
   }
 }
 
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Release
+mixin PartialReleaseMixin on ParameterizableReplaceablePartialModel<Release> {
+  String? get releaseNotes => event.content.isEmpty ? null : event.content;
+  set releaseNotes(String? value) => event.content = value ?? '';
+  String? get url => event.getFirstTagValue('url');
+  set url(String? value) => event.setTagValue('url', value);
+  String? get channel => event.getFirstTagValue('c');
+  set channel(String? value) => event.setTagValue('c', value);
+  String? get commitId => event.getFirstTagValue('commit');
+  set commitId(String? value) => event.setTagValue('commit', value);
+  String? get appIdentifier => event.getFirstTagValue('i');
+  set appIdentifier(String? value) => event.setTagValue('i', value);
+  String? get version => event.getFirstTagValue('version');
+  set version(String? value) => event.setTagValue('version', value);
+}
+
 class PartialRelease extends ParameterizableReplaceablePartialModel<Release>
     with PartialReleaseMixin {
-  PartialRelease.fromMap(super.map)
-      : newFormat = false,
-        super.fromMap();
+  PartialRelease.fromMap(super.map) : newFormat = false, super.fromMap();
 
   final bool newFormat;
   PartialRelease({this.newFormat = false});

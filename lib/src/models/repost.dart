@@ -1,6 +1,5 @@
 part of models;
 
-@GeneratePartialModel()
 class Repost extends RegularModel<Repost> {
   String get content => event.content;
 
@@ -32,7 +31,8 @@ class Repost extends RegularModel<Repost> {
     final eTag = event.getFirstTagValue('e');
     if (eTag == null) {
       throw Exception(
-          'Repost event must contain an "e" tag with the reposted note ID');
+        'Repost event must contain an "e" tag with the reposted note ID',
+      );
     }
 
     repostedNote = BelongsTo(ref, RequestFilter<Note>(ids: {eTag}).toRequest());
@@ -40,8 +40,22 @@ class Repost extends RegularModel<Repost> {
     // Should include a 'p' tag with the pubkey of the event being reposted
     final pTag = event.getFirstTagValue('p');
     repostedNoteAuthor = BelongsTo(
-        ref, RequestFilter<Profile>(ids: {if (pTag != null) pTag}).toRequest());
+      ref,
+      RequestFilter<Profile>(ids: {if (pTag != null) pTag}).toRequest(),
+    );
   }
+}
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Repost
+mixin PartialRepostMixin on RegularPartialModel<Repost> {
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+  String? get repostedNoteId => event.getFirstTagValue('e');
+  set repostedNoteId(String? value) => event.setTagValue('e', value);
+  String? get repostedNotePubkey => event.getFirstTagValue('p');
+  set repostedNotePubkey(String? value) => event.setTagValue('p', value);
 }
 
 class PartialRepost extends RegularPartialModel<Repost>

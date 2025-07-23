@@ -1,17 +1,17 @@
 part of models;
 
-@GeneratePartialModel()
 class Community extends ReplaceableModel<Community> {
   late final HasMany<ChatMessage> chatMessages;
 
   Community.fromMap(super.map, super.ref) : super.fromMap() {
     chatMessages = HasMany(
-        ref,
-        RequestFilter<ChatMessage>(
-          tags: {
-            '#h': {id}
-          },
-        ).toRequest());
+      ref,
+      RequestFilter<ChatMessage>(
+        tags: {
+          '#h': {id},
+        },
+      ).toRequest(),
+    );
   }
 
   String? get name => event.getFirstTagValue('name') ?? author.value?.name;
@@ -30,11 +30,13 @@ class Community extends ReplaceableModel<Community> {
       if (key == 'content') {
         // Finalize previous section if one was being built
         if (currentContent != null) {
-          sections.add(CommunityContentSection(
-            content: currentContent,
-            kinds: currentKinds,
-            feeInSats: currentFeeInSats,
-          ));
+          sections.add(
+            CommunityContentSection(
+              content: currentContent,
+              kinds: currentKinds,
+              feeInSats: currentFeeInSats,
+            ),
+          );
         }
         // Start new section
         currentContent = value;
@@ -51,11 +53,13 @@ class Community extends ReplaceableModel<Community> {
           currentFeeInSats = int.tryParse(value);
         } else {
           // Found a tag not belonging to the current section, finalize the current section
-          sections.add(CommunityContentSection(
-            content: currentContent,
-            kinds: currentKinds,
-            feeInSats: currentFeeInSats,
-          ));
+          sections.add(
+            CommunityContentSection(
+              content: currentContent,
+              kinds: currentKinds,
+              feeInSats: currentFeeInSats,
+            ),
+          );
           // Reset section tracking
           currentContent = null;
           currentKinds = {};
@@ -66,11 +70,13 @@ class Community extends ReplaceableModel<Community> {
 
     // Finalize the last section if one was being built
     if (currentContent != null) {
-      sections.add(CommunityContentSection(
-        content: currentContent,
-        kinds: currentKinds,
-        feeInSats: currentFeeInSats,
-      ));
+      sections.add(
+        CommunityContentSection(
+          content: currentContent,
+          kinds: currentKinds,
+          feeInSats: currentFeeInSats,
+        ),
+      );
     }
 
     return sections.toSet();
@@ -81,19 +87,46 @@ class Community extends ReplaceableModel<Community> {
   String? get termsOfService => event.getFirstTagValue('tos');
 }
 
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Community
+mixin PartialCommunityMixin on ReplaceablePartialModel<Community> {
+  String? get name => event.getFirstTagValue('name');
+  set name(String? value) => event.setTagValue('name', value);
+  Set<String> get relayUrls => event.getTagSetValues('r');
+  set relayUrls(Set<String> value) => event.setTagValues('r', value);
+  void addRelayUrl(String? value) => event.addTagValue('r', value);
+  void removeRelayUrl(String? value) => event.removeTagWithValue('r', value);
+  String? get description => event.getFirstTagValue('description');
+  set description(String? value) => event.setTagValue('description', value);
+  Set<String> get blossomUrls => event.getTagSetValues('blossom');
+  set blossomUrls(Set<String> value) => event.setTagValues('blossom', value);
+  void addBlossomUrl(String? value) => event.addTagValue('blossom', value);
+  void removeBlossomUrl(String? value) =>
+      event.removeTagWithValue('blossom', value);
+  Set<String> get cashuMintUrls => event.getTagSetValues('mint');
+  set cashuMintUrls(Set<String> value) => event.setTagValues('mint', value);
+  void addCashuMintUrl(String? value) => event.addTagValue('mint', value);
+  void removeCashuMintUrl(String? value) =>
+      event.removeTagWithValue('mint', value);
+  String? get termsOfService => event.getFirstTagValue('tos');
+  set termsOfService(String? value) => event.setTagValue('tos', value);
+}
+
 class PartialCommunity extends ReplaceablePartialModel<Community>
     with PartialCommunityMixin {
   PartialCommunity.fromMap(super.map) : super.fromMap();
 
-  PartialCommunity(
-      {required String name,
-      DateTime? createdAt,
-      required Set<String> relayUrls,
-      String? description,
-      Set<CommunityContentSection>? contentSections,
-      Set<String> blossomUrls = const {},
-      Set<String> cashuMintUrls = const {},
-      String? termsOfService}) {
+  PartialCommunity({
+    required String name,
+    DateTime? createdAt,
+    required Set<String> relayUrls,
+    String? description,
+    Set<CommunityContentSection>? contentSections,
+    Set<String> blossomUrls = const {},
+    Set<String> cashuMintUrls = const {},
+    String? termsOfService,
+  }) {
     event.addTagValue('name', name);
     if (createdAt != null) {
       event.createdAt = createdAt;
@@ -128,6 +161,9 @@ class CommunityContentSection {
   final Set<int> kinds;
   final int? feeInSats;
 
-  CommunityContentSection(
-      {required this.content, required this.kinds, this.feeInSats});
+  CommunityContentSection({
+    required this.content,
+    required this.kinds,
+    this.feeInSats,
+  });
 }

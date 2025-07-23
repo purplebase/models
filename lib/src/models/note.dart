@@ -1,6 +1,5 @@
 part of models;
 
-@GeneratePartialModel()
 class Note extends RegularModel<Note> {
   String get content => event.content;
 
@@ -12,22 +11,25 @@ class Note extends RegularModel<Note> {
   late final HasMany<Repost> reposts;
 
   Note.fromMap(super.map, super.ref) : super.fromMap() {
-    final tagsWithRoot =
-        event.getTagSet('e').where((t) => t.length > 3 && t[3] == 'root');
+    final tagsWithRoot = event
+        .getTagSet('e')
+        .where((t) => t.length > 3 && t[3] == 'root');
     isRoot = tagsWithRoot.isEmpty;
 
     root = BelongsTo(
-        ref,
-        isRoot
-            ? null
-            : RequestFilter<Note>(ids: {tagsWithRoot.first[1]}).toRequest());
+      ref,
+      isRoot
+          ? null
+          : RequestFilter<Note>(ids: {tagsWithRoot.first[1]}).toRequest(),
+    );
 
     // Find the immediate replied-to note ID
     String? replyToId;
     if (!isRoot) {
       // First try to find a tag with 'reply' marker
-      final tagsWithReply =
-          event.getTagSet('e').where((t) => t.length > 3 && t[3] == 'reply');
+      final tagsWithReply = event
+          .getTagSet('e')
+          .where((t) => t.length > 3 && t[3] == 'reply');
       if (tagsWithReply.isNotEmpty) {
         replyToId = tagsWithReply.first[1];
       } else {
@@ -37,8 +39,9 @@ class Note extends RegularModel<Note> {
           replyToId = eTags.first[1];
         } else if (eTags.length > 1) {
           // If multiple e tags but no 'reply' marker, use the last non-root tag
-          final nonRootTags =
-              eTags.where((t) => t.length <= 3 || t[3] != 'root');
+          final nonRootTags = eTags.where(
+            (t) => t.length <= 3 || t[3] != 'root',
+          );
           if (nonRootTags.isNotEmpty) {
             replyToId = nonRootTags.last[1];
           }
@@ -47,23 +50,25 @@ class Note extends RegularModel<Note> {
     }
 
     replyTo = BelongsTo(
-        ref,
-        replyToId != null
-            ? RequestFilter<Note>(ids: {replyToId}).toRequest()
-            : null);
+      ref,
+      replyToId != null
+          ? RequestFilter<Note>(ids: {replyToId}).toRequest()
+          : null,
+    );
 
     allReplies = HasMany(
       ref,
       RequestFilter<Note>(
         tags: {
-          '#e': {event.id}
+          '#e': {event.id},
         },
         where: (e) {
           // Querying in-memory as nostr filters do not support this
           // Passes if its matching e tag with ID has a root marker
           final tags = e.event.getTagSet('e');
-          return tags
-              .any((e) => e.length > 3 && e[1] == event.id && e[3] == 'root');
+          return tags.any(
+            (e) => e.length > 3 && e[1] == event.id && e[3] == 'root',
+          );
         },
       ).toRequest(),
     );
@@ -71,7 +76,7 @@ class Note extends RegularModel<Note> {
       ref,
       RequestFilter<Note>(
         tags: {
-          '#e': {event.id}
+          '#e': {event.id},
         },
         where: (e) {
           // Querying in-memory as nostr filters do not support this
@@ -88,21 +93,31 @@ class Note extends RegularModel<Note> {
       ref,
       RequestFilter<Repost>(
         tags: {
-          '#e': {event.id}
+          '#e': {event.id},
         },
       ).toRequest(),
     );
   }
 }
 
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Note
+mixin PartialNoteMixin on RegularPartialModel<Note> {
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+}
+
 class PartialNote extends RegularPartialModel<Note> with PartialNoteMixin {
   PartialNote.fromMap(super.map) : super.fromMap();
 
-  PartialNote(String content,
-      {DateTime? createdAt,
-      Note? replyTo,
-      Note? root,
-      Set<String> tags = const {}}) {
+  PartialNote(
+    String content, {
+    DateTime? createdAt,
+    Note? replyTo,
+    Note? root,
+    Set<String> tags = const {},
+  }) {
     event.content = content;
     if (createdAt != null) {
       event.createdAt = createdAt;

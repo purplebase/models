@@ -1,6 +1,5 @@
 part of models;
 
-@GeneratePartialModel()
 class GenericRepost extends RegularModel<GenericRepost> {
   String get content => event.content;
 
@@ -45,6 +44,21 @@ class GenericRepost extends RegularModel<GenericRepost> {
       RequestFilter<Profile>(ids: {if (pTag != null) pTag}).toRequest(),
     );
   }
+}
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for GenericRepost
+mixin PartialGenericRepostMixin on RegularPartialModel<GenericRepost> {
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+  int? get repostedEventKind => int.tryParse(event.getFirstTagValue('k') ?? '');
+  set repostedEventKind(int? value) =>
+      event.setTagValue('k', value?.toString());
+  String? get repostedEventId => event.getFirstTagValue('e');
+  set repostedEventId(String? value) => event.setTagValue('e', value);
+  String? get repostedEventPubkey => event.getFirstTagValue('p');
+  set repostedEventPubkey(String? value) => event.setTagValue('p', value);
 }
 
 class PartialGenericRepost extends RegularPartialModel<GenericRepost>

@@ -1,6 +1,5 @@
 part of models;
 
-@GeneratePartialModel()
 class TargetedPublication
     extends ParameterizableReplaceableModel<TargetedPublication> {
   late final BelongsTo<Model> model;
@@ -23,6 +22,24 @@ class TargetedPublication
   int get targetedKind => int.parse(event.getFirstTagValue('k')!);
   Set<String> get relayUrls => event.getTagSetValues('r');
   Set<String> get communityPubkeys => event.getTagSetValues('p');
+}
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for TargetedPublication
+mixin PartialTargetedPublicationMixin
+    on ParameterizableReplaceablePartialModel<TargetedPublication> {
+  int? get targetedKind => int.tryParse(event.getFirstTagValue('k') ?? '');
+  set targetedKind(int? value) => event.setTagValue('k', value?.toString());
+  Set<String> get relayUrls => event.getTagSetValues('r');
+  set relayUrls(Set<String> value) => event.setTagValues('r', value);
+  void addRelayUrl(String? value) => event.addTagValue('r', value);
+  void removeRelayUrl(String? value) => event.removeTagWithValue('r', value);
+  Set<String> get communityPubkeys => event.getTagSetValues('p');
+  set communityPubkeys(Set<String> value) => event.setTagValues('p', value);
+  void addCommunityPubkey(String? value) => event.addTagValue('p', value);
+  void removeCommunityPubkey(String? value) =>
+      event.removeTagWithValue('p', value);
 }
 
 class PartialTargetedPublication

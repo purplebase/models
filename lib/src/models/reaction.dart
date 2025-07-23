@@ -1,6 +1,5 @@
 part of models;
 
-@GeneratePartialModel()
 class Reaction extends RegularModel<Reaction> with EmojiMixin {
   late final BelongsTo<Model> reactedOn;
   late final BelongsTo<Profile> reactedOnAuthor;
@@ -12,6 +11,13 @@ class Reaction extends RegularModel<Reaction> with EmojiMixin {
       Request.fromIds({?event.getFirstTagValue('p')}),
     );
   }
+}
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Reaction
+mixin PartialReactionMixin on RegularPartialModel<Reaction> {
+  // No event-based getters found in Reaction
 }
 
 class PartialReaction extends RegularPartialModel<Reaction>

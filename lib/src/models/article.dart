@@ -1,6 +1,5 @@
 part of models;
 
-@GeneratePartialModel()
 class Article extends ParameterizableReplaceableModel<Article> {
   Article.fromMap(super.map, super.ref) : super.fromMap();
 
@@ -13,15 +12,38 @@ class Article extends ParameterizableReplaceableModel<Article> {
       event.getFirstTagValue('published_at')?.toInt()?.toDate();
 }
 
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Article
+mixin PartialArticleMixin on ParameterizableReplaceablePartialModel<Article> {
+  String? get title => event.getFirstTagValue('title');
+  set title(String? value) => event.setTagValue('title', value);
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+  String? get slug => event.getFirstTagValue('d');
+  set slug(String? value) => event.setTagValue('d', value);
+  String? get imageUrl => event.getFirstTagValue('image');
+  set imageUrl(String? value) => event.setTagValue('image', value);
+  String? get summary => event.getFirstTagValue('summary');
+  set summary(String? value) => event.setTagValue('summary', value);
+  DateTime? get publishedAt =>
+      event.getFirstTagValue('published_at')?.toInt()?.toDate();
+  set publishedAt(DateTime? value) =>
+      event.setTagValue('published_at', value?.toSeconds().toString());
+}
+
 class PartialArticle extends ParameterizableReplaceablePartialModel<Article>
     with PartialArticleMixin {
   PartialArticle.fromMap(super.map) : super.fromMap();
 
-  PartialArticle(String title, String content,
-      {DateTime? publishedAt,
-      String? slug,
-      String? imageUrl,
-      String? summary}) {
+  PartialArticle(
+    String title,
+    String content, {
+    DateTime? publishedAt,
+    String? slug,
+    String? imageUrl,
+    String? summary,
+  }) {
     this.title = title;
     this.publishedAt = publishedAt;
     this.slug = slug ?? Utils.generateRandomHex64();

@@ -3,7 +3,6 @@ part of models;
 /// Comment represents a comment (kind 1111) on various types of content as specified in NIP-22.
 /// It provides a structured approach for commenting on long-form articles, files,
 /// and other non-text-note content with clear parent-child relationships.
-@GeneratePartialModel()
 class Comment extends RegularModel<Comment> {
   late final BelongsTo<Model> rootModel;
   late final BelongsTo<Model> parentModel;
@@ -81,6 +80,22 @@ class Comment extends RegularModel<Comment> {
 
   int? get rootKind => event.getFirstTagValue('K').toInt();
   int? get parentKind => event.getFirstTagValue('k').toInt();
+}
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for Comment
+mixin PartialCommentMixin on RegularPartialModel<Comment> {
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+  String? get externalRootUri => event.getFirstTagValue('I');
+  set externalRootUri(String? value) => event.setTagValue('I', value);
+  String? get externalParentUri => event.getFirstTagValue('i');
+  set externalParentUri(String? value) => event.setTagValue('i', value);
+  int? get rootKind => int.tryParse(event.getFirstTagValue('K') ?? '');
+  set rootKind(int? value) => event.setTagValue('K', value?.toString());
+  int? get parentKind => int.tryParse(event.getFirstTagValue('k') ?? '');
+  set parentKind(int? value) => event.setTagValue('k', value?.toString());
 }
 
 class PartialComment extends RegularPartialModel<Comment>

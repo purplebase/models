@@ -22,7 +22,7 @@ sealed class Model<E extends Model<E>>
   late final HasMany<GenericRepost> genericReposts;
 
   Model._(this.ref, this.event)
-      : storage = ref.read(storageNotifierProvider.notifier) {
+    : storage = ref.read(storageNotifierProvider.notifier) {
     // Process metadata every time we construct
     if (event.metadata.isEmpty) {
       event.metadata.addAll(processMetadata());
@@ -38,30 +38,43 @@ sealed class Model<E extends Model<E>>
 
     if (!kindCheck) {
       throw Exception(
-          'Kind ${event.kind} does not match the type of model: regular, replaceable, etc. Check the model definition inherits the right one.');
+        'Kind ${event.kind} does not match the type of model: regular, replaceable, etc. Check the model definition inherits the right one.',
+      );
     }
 
     // Set up generic relationships
     author = BelongsTo(
-        ref, RequestFilter<Profile>(authors: {event.pubkey}).toRequest());
-    reactions = HasMany(ref,
-        RequestFilter<Reaction>(tags: event.addressableIdTagMap).toRequest());
+      ref,
+      RequestFilter<Profile>(authors: {event.pubkey}).toRequest(),
+    );
+    reactions = HasMany(
+      ref,
+      RequestFilter<Reaction>(tags: event.addressableIdTagMap).toRequest(),
+    );
     zaps = HasMany(
-        ref, RequestFilter<Zap>(tags: event.addressableIdTagMap).toRequest());
+      ref,
+      RequestFilter<Zap>(tags: event.addressableIdTagMap).toRequest(),
+    );
     targetedPublications = HasMany(
-        ref,
-        RequestFilter<TargetedPublication>(tags: {
-          '#d': {id}
-        }).toRequest());
+      ref,
+      RequestFilter<TargetedPublication>(
+        tags: {
+          '#d': {id},
+        },
+      ).toRequest(),
+    );
     genericReposts = HasMany(
-        ref,
-        RequestFilter<GenericRepost>(tags: {
-          '#e': {event.id}
-        }).toRequest());
+      ref,
+      RequestFilter<GenericRepost>(
+        tags: {
+          '#e': {event.id},
+        },
+      ).toRequest(),
+    );
   }
 
   Model.fromMap(Map<String, dynamic> map, Ref ref)
-      : this._(ref, ImmutableEvent<E>(map));
+    : this._(ref, ImmutableEvent<E>(map));
 
   // General wrapper getters
 
@@ -117,27 +130,31 @@ sealed class Model<E extends Model<E>>
   // Registry-related
 
   static final Map<
-      String,
-      ({
-        int kind,
-        ModelConstructor constructor,
-        PartialModelConstructor? partialConstructor
-      })> _modelRegistry = {};
+    String,
+    ({
+      int kind,
+      ModelConstructor constructor,
+      PartialModelConstructor? partialConstructor,
+    })
+  >
+  _modelRegistry = {};
 
   /// Registers a new kind and associates it with its domain model
-  static void register<E extends Model<E>>(
-      {required int kind,
-      required ModelConstructor<E> constructor,
-      PartialModelConstructor<E>? partialConstructor}) {
+  static void register<E extends Model<E>>({
+    required int kind,
+    required ModelConstructor<E> constructor,
+    PartialModelConstructor<E>? partialConstructor,
+  }) {
     _modelRegistry[E.toString()] = (
       kind: kind,
       constructor: constructor,
-      partialConstructor: partialConstructor
+      partialConstructor: partialConstructor,
     );
   }
 
   static Exception _unregisteredException<T>() => Exception(
-      'Type $T has not been registered. Are you sure you initialized the storage? Otherwise register it with Model.registerModel.');
+    'Type $T has not been registered. Are you sure you initialized the storage? Otherwise register it with Model.registerModel.',
+  );
 
   static int _kindFor<E extends Model<dynamic>>() {
     final kind = Model._modelRegistry[E.toString()]?.kind;
@@ -170,9 +187,10 @@ sealed class Model<E extends Model<E>>
 
   /// Finds the partial constructor for type parameter [E]
   static PartialModelConstructor<E>?
-      _getPartialConstructorFor<E extends Model<E>>() {
-    final constructor = _modelRegistry[E.toString()]?.partialConstructor
-        as PartialModelConstructor<E>?;
+  _getPartialConstructorFor<E extends Model<E>>() {
+    final constructor =
+        _modelRegistry[E.toString()]?.partialConstructor
+            as PartialModelConstructor<E>?;
     if (constructor == null) {
       throw _unregisteredException();
     }
@@ -195,20 +213,28 @@ sealed class PartialModel<E extends Model<E>>
   final transientData = <String, dynamic>{};
 
   /// Add an a/e tag of the passed model
-  void linkModel(Model model,
-      {String? relayUrl, String? marker, String? pubkey}) {
-    return linkModelById(model.id,
-        isReplaceable: model is ReplaceableModel,
-        relayUrl: relayUrl,
-        marker: marker,
-        pubkey: pubkey);
+  void linkModel(
+    Model model, {
+    String? relayUrl,
+    String? marker,
+    String? pubkey,
+  }) {
+    return linkModelById(
+      model.id,
+      isReplaceable: model is ReplaceableModel,
+      relayUrl: relayUrl,
+      marker: marker,
+      pubkey: pubkey,
+    );
   }
 
-  void linkModelById(String modelId,
-      {bool isReplaceable = false,
-      String? relayUrl,
-      String? marker,
-      String? pubkey}) {
+  void linkModelById(
+    String modelId, {
+    bool isReplaceable = false,
+    String? relayUrl,
+    String? marker,
+    String? pubkey,
+  }) {
     if (isReplaceable) {
       event.addTag('a', [modelId, if (relayUrl != null) relayUrl]);
     } else {
@@ -283,10 +309,10 @@ abstract class ReplaceableModel<E extends Model<E>> extends Model<E> {
       super.event as ImmutableReplaceableEvent<E>;
 
   ReplaceableModel.fromMap(Map<String, dynamic> map, Ref ref)
-      : this._(ref, ImmutableReplaceableEvent<E>(map));
+    : this._(ref, ImmutableReplaceableEvent<E>(map));
 
   ReplaceableModel._(Ref ref, ImmutableReplaceableEvent event)
-      : super._(ref, event);
+    : super._(ref, event);
 }
 
 abstract class ReplaceablePartialModel<E extends Model<E>>
@@ -303,7 +329,7 @@ abstract class ParameterizableReplaceableModel<E extends Model<E>>
       super.event as ImmutableParameterizableReplaceableEvent<E>;
 
   ParameterizableReplaceableModel.fromMap(Map<String, dynamic> map, Ref ref)
-      : super._(ref, ImmutableParameterizableReplaceableEvent<E>(map)) {
+    : super._(ref, ImmutableParameterizableReplaceableEvent<E>(map)) {
     if (!event.containsTag('d')) {
       throw Exception('Model must contain a `d` tag');
     }
@@ -321,17 +347,11 @@ abstract class ParameterizableReplaceablePartialModel<E extends Model<E>>
   set identifier(String? value) => event.setTagValue('d', value);
 }
 
-typedef ModelConstructor<E extends Model<dynamic>> = E Function(
-    Map<String, dynamic>, Ref ref);
+typedef ModelConstructor<E extends Model<dynamic>> =
+    E Function(Map<String, dynamic>, Ref ref);
 
-typedef PartialModelConstructor<E extends Model<E>> = PartialModel<E> Function(
-    Map<String, dynamic>);
+typedef PartialModelConstructor<E extends Model<E>> =
+    PartialModel<E> Function(Map<String, dynamic>);
 
-/// Annotation to mark a model class for automatic partial model generation.
-///
-/// When applied to a model class that extends RegularModel, EphemeralModel,
-/// ReplaceableModel, or ParameterizableReplaceableModel, the code generator
-/// will create a corresponding partial model class.
-class GeneratePartialModel {
-  const GeneratePartialModel();
-}
+// Removed: GeneratePartialModel annotation is no longer used
+// Partial model mixins are now manually maintained in models.g.dart

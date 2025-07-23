@@ -1,12 +1,12 @@
 part of models;
 
-@GeneratePartialModel()
 class DirectMessage extends RegularModel<DirectMessage> {
   DirectMessage.fromMap(super.map, super.ref) : super.fromMap();
 
-  String get receiver =>
-      Utils.encodeShareableFromString(event.getFirstTagValue('p')!,
-          type: 'npub');
+  String get receiver => Utils.encodeShareableFromString(
+    event.getFirstTagValue('p')!,
+    type: 'npub',
+  );
 
   /// Get decrypted content using the active signer
   /// Since decryption is now async, this returns the raw content.
@@ -52,6 +52,18 @@ class DirectMessage extends RegularModel<DirectMessage> {
   /// Check if this message appears to be encrypted
   bool get isEncrypted =>
       encryptedContent.contains('?') || encryptedContent.startsWith('A');
+}
+
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for DirectMessage
+mixin PartialDirectMessageMixin on RegularPartialModel<DirectMessage> {
+  String? get receiver => event.getFirstTagValue('p');
+  set receiver(String? value) => event.setTagValue('p', value);
+  String? get content => event.content.isEmpty ? null : event.content;
+  set content(String? value) => event.content = value ?? '';
+  String? get encryptedContent => event.content.isEmpty ? null : event.content;
+  set encryptedContent(String? value) => event.content = value ?? '';
 }
 
 class PartialDirectMessage extends RegularPartialModel<DirectMessage>
