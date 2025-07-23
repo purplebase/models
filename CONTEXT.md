@@ -116,6 +116,32 @@ class PartialNote extends RegularPartialModel<Note> with PartialNoteMixin {
 }
 ```
 
+### 6. Model Registration (CRITICAL STEP)
+
+**After creating a new model and its partial mixin, you MUST register the model type.** This step is essential for the storage system to work properly.
+
+Add the registration call in the appropriate initialization file (typically `lib/src/storage/initialization.dart` or similar):
+
+```dart
+Model.register<Highlight>(
+  kind: 9802, // Replace with the actual Nostr kind number
+  constructor: (map, ref) => Highlight.fromMap(map, ref),
+  partialConstructor: (map) => PartialHighlight.fromMap(map),
+);
+```
+
+**Registration Parameters:**
+- `kind`: The Nostr event kind number for this model type
+- `constructor`: Factory function to create the immutable model from a map
+- `partialConstructor`: Factory function to create the partial model from a map
+
+**Without proper registration:**
+- Storage queries will fail
+- Model relationships won't work
+- Runtime exceptions will occur when trying to use the model
+
+This registration step connects the model classes to the storage system and enables proper serialization/deserialization.
+
 ## Key Features
 
 ### Smart Property Detection
