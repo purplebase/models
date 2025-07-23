@@ -6,24 +6,23 @@ class Reaction extends RegularModel<Reaction> with EmojiMixin {
   late final BelongsTo<Profile> reactedOnAuthor;
 
   Reaction.fromMap(super.map, super.ref) : super.fromMap() {
-    reactedOn = BelongsTo(ref,
-        RequestFilter<Model>(ids: {event.getFirstTagValue('e')!}).toRequest());
+    reactedOn = BelongsTo(ref, Request.fromIds({?event.getFirstTagValue('e')}));
     reactedOnAuthor = BelongsTo(
-        ref,
-        RequestFilter<Profile>(
-                ids: {if (event.containsTag('p')) event.getFirstTagValue('p')!})
-            .toRequest());
+      ref,
+      Request.fromIds({?event.getFirstTagValue('p')}),
+    );
   }
 }
 
 class PartialReaction extends RegularPartialModel<Reaction>
     with PartialReactionMixin, EmojiMixin {
   PartialReaction.fromMap(Map<String, dynamic> map) : super.fromMap(map);
-  PartialReaction(
-      {String? content,
-      Model? reactedOn,
-      Profile? reactedOnAuthor,
-      (String, String)? emojiTag}) {
+  PartialReaction({
+    String? content,
+    Model? reactedOn,
+    Profile? reactedOnAuthor,
+    (String, String)? emojiTag,
+  }) {
     if (emojiTag case (final name, final url)) {
       event.content = ':$name:';
       event.addTag('emoji', [name, url]);

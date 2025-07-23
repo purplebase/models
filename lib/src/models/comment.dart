@@ -16,58 +16,58 @@ class Comment extends RegularModel<Comment> {
     // Root reference
     if (event.containsTag('A')) {
       rootModel = BelongsTo(
-          ref, Request<Model>.fromIds({event.getFirstTagValue('A')!}));
+        ref,
+        Request<Model>.fromIds({event.getFirstTagValue('A')!}),
+      );
     } else if (event.containsTag('E')) {
       rootModel = BelongsTo(
-          ref,
-          RequestFilter<Model>(ids: {event.getFirstTagValue('E')!})
-              .toRequest());
+        ref,
+        Request.fromIds({?event.getFirstTagValue('E')}),
+      );
     } else {
       rootModel = BelongsTo(ref, null);
     }
 
     // Parent article reference
-    if (event.containsTag('a')) {
-      parentModel = BelongsTo(
-          ref, Request<Model>.fromIds({event.getFirstTagValue('a')!}));
-    } else if (event.containsTag('e')) {
-      parentModel = BelongsTo(
-          ref,
-          RequestFilter<Model>(ids: {event.getFirstTagValue('e')!})
-              .toRequest());
-    } else {
-      parentModel = BelongsTo(ref, null);
-    }
+    parentModel = BelongsTo(
+      ref,
+      Request.fromIds({
+        ?event.getFirstTagValue('e'),
+        ?event.getFirstTagValue('a'),
+      }),
+    );
 
-    if (event.containsTag('q')) {
-      quotedModel = BelongsTo(
-          ref,
-          RequestFilter<Model>(ids: {event.getFirstTagValue('q')!})
-              .toRequest());
-    }
+    quotedModel = BelongsTo(
+      ref,
+      Request.fromIds({?event.getFirstTagValue('q')}),
+    );
 
     // Root author relationship
     rootAuthor = BelongsTo(
-        ref,
-        event.containsTag('P')
-            ? RequestFilter<Profile>(authors: {event.getFirstTagValue('P')!})
-                .toRequest()
-            : null);
+      ref,
+      event.containsTag('P')
+          ? RequestFilter<Profile>(
+              authors: {event.getFirstTagValue('P')!},
+            ).toRequest()
+          : null,
+    );
 
     // Parent author relationship
     parentAuthor = BelongsTo(
-        ref,
-        event.containsTag('p')
-            ? RequestFilter<Profile>(authors: {event.getFirstTagValue('p')!})
-                .toRequest()
-            : null);
+      ref,
+      event.containsTag('p')
+          ? RequestFilter<Profile>(
+              authors: {event.getFirstTagValue('p')!},
+            ).toRequest()
+          : null,
+    );
 
     // Child replies to this comment
     replies = HasMany(
       ref,
       RequestFilter<Comment>(
         tags: {
-          '#e': {event.id}
+          '#e': {event.id},
         },
         kinds: {1111},
       ).toRequest(),
@@ -83,7 +83,8 @@ class Comment extends RegularModel<Comment> {
   int? get parentKind => event.getFirstTagValue('k').toInt();
 }
 
-class PartialComment extends RegularPartialModel<Comment> {
+class PartialComment extends RegularPartialModel<Comment>
+    with PartialCommentMixin {
   PartialComment.fromMap(super.map) : super.fromMap();
 
   PartialComment({

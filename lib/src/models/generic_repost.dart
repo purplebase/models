@@ -36,18 +36,14 @@ class GenericRepost extends RegularModel<GenericRepost> {
   GenericRepost.fromMap(super.map, super.ref) : super.fromMap() {
     // According to NIP-18, generic repost event MUST include an 'e' tag with the id of the event being reposted
     final eTag = event.getFirstTagValue('e');
-    if (eTag == null) {
-      throw Exception(
-          'GenericRepost event must contain an "e" tag with the reposted event ID');
-    }
-
-    repostedEvent =
-        BelongsTo(ref, RequestFilter<Model>(ids: {eTag}).toRequest());
+    repostedEvent = BelongsTo(ref, Request.fromIds({?eTag}));
 
     // Should include a 'p' tag with the pubkey of the event being reposted
     final pTag = event.getFirstTagValue('p');
     repostedEventAuthor = BelongsTo(
-        ref, RequestFilter<Profile>(ids: {if (pTag != null) pTag}).toRequest());
+      ref,
+      RequestFilter<Profile>(ids: {if (pTag != null) pTag}).toRequest(),
+    );
   }
 }
 

@@ -5,25 +5,35 @@ part of models;
 class Zap extends RegularModel<Zap> {
   @override
   BelongsTo<Profile> get author => BelongsTo(
-      ref,
-      RequestFilter<Profile>(authors: {
-        event.getFirstTagValue('P') ?? event.metadata['author']
-      }).toRequest());
+    ref,
+    RequestFilter<Profile>(
+      authors: {event.getFirstTagValue('P') ?? event.metadata['author']},
+    ).toRequest(),
+  );
   late final BelongsTo<Model> zappedModel;
   late final BelongsTo<Profile> recipient;
   late final BelongsTo<ZapRequest> zapRequest;
 
   Zap.fromMap(super.map, super.ref) : super.fromMap() {
     recipient = BelongsTo(
-        ref,
-        RequestFilter<Profile>(authors: {event.getFirstTagValue('p')!})
-            .toRequest());
-    zappedModel = BelongsTo(ref,
-        RequestFilter<Model>(ids: {event.getFirstTagValue('e')!}).toRequest());
+      ref,
+      RequestFilter<Profile>(
+        authors: {event.getFirstTagValue('p')!},
+      ).toRequest(),
+    );
+    zappedModel = BelongsTo(
+      ref,
+      Request.fromIds({
+        ?event.getFirstTagValue('e'),
+        ?event.getFirstTagValue('a'),
+      }),
+    );
     zapRequest = BelongsTo(
-        ref,
-        RequestFilter<ZapRequest>(ids: {event.metadata['zapRequestId']!})
-            .toRequest());
+      ref,
+      RequestFilter<ZapRequest>(
+        ids: {event.metadata['zapRequestId']!},
+      ).toRequest(),
+    );
   }
 
   @override
@@ -33,7 +43,7 @@ class Zap extends RegularModel<Zap> {
     return {
       'amount': amount,
       'zapRequestId': description['id'],
-      'author': description['pubkey']
+      'author': description['pubkey'],
     };
   }
 
@@ -41,7 +51,8 @@ class Zap extends RegularModel<Zap> {
   Map<String, dynamic> transformMap(Map<String, dynamic> map) {
     // Remove bolt11, preimage, description
     (map['tags'] as List).removeWhere(
-        (t) => ['bolt11', 'preimage', 'description'].contains(t[0]));
+      (t) => ['bolt11', 'preimage', 'description'].contains(t[0]),
+    );
     return super.transformMap(map);
   }
 

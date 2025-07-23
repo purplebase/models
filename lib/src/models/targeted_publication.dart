@@ -7,15 +7,13 @@ class TargetedPublication
   late final HasMany<Community> communities;
 
   TargetedPublication.fromMap(super.map, super.ref) : super.fromMap() {
-    if (event.getFirstTagValue('e') != null) {
-      model = BelongsTo(
-          ref,
-          RequestFilter<Model>(ids: {event.getFirstTagValue('e')!})
-              .toRequest());
-    } else {
-      model = BelongsTo(
-          ref, Request<Model>.fromIds({event.getFirstTagValue('a')!}));
-    }
+    model = BelongsTo(
+      ref,
+      Request.fromIds({
+        ?event.getFirstTagValue('e'),
+        ?event.getFirstTagValue('a'),
+      }),
+    );
 
     // This is only possible because communities are replaceable events (without a d tag)
     final req = RequestFilter<Community>(authors: communityPubkeys).toRequest();
@@ -32,8 +30,11 @@ class PartialTargetedPublication
     with PartialTargetedPublicationMixin {
   PartialTargetedPublication.fromMap(super.map) : super.fromMap();
 
-  PartialTargetedPublication(Model model,
-      {required Set<Community> communities, Set<String>? relayUrls}) {
+  PartialTargetedPublication(
+    Model model, {
+    required Set<Community> communities,
+    Set<String>? relayUrls,
+  }) {
     linkModel(model);
 
     event.addTagValue('d', Utils.generateRandomHex64());
