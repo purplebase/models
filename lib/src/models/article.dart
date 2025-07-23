@@ -1,7 +1,16 @@
 part of models;
 
 class Article extends ParameterizableReplaceableModel<Article> {
-  Article.fromMap(super.map, super.ref) : super.fromMap();
+  Article.fromMap(super.map, super.ref) : super.fromMap() {
+    highlights = HasMany(
+      ref,
+      RequestFilter<Highlight>(
+        tags: {
+          'a': {event.id},
+        },
+      ).toRequest(),
+    );
+  }
 
   String? get title => event.getFirstTagValue('title');
   String get content => event.content;
@@ -10,6 +19,8 @@ class Article extends ParameterizableReplaceableModel<Article> {
   String? get summary => event.getFirstTagValue('summary');
   DateTime? get publishedAt =>
       event.getFirstTagValue('published_at')?.toInt()?.toDate();
+
+  late final HasMany<Highlight> highlights;
 }
 
 // ignore_for_file: annotate_overrides

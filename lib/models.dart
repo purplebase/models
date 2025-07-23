@@ -36,6 +36,7 @@ part 'src/models/community.dart';
 part 'src/models/contact_list.dart';
 part 'src/models/direct_message.dart';
 part 'src/models/file_metadata.dart';
+part 'src/models/highlight.dart';
 part 'src/models/lists.dart';
 part 'src/models/note.dart';
 part 'src/models/profile.dart';
