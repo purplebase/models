@@ -4,7 +4,7 @@ version: 0.3.2
 repository: https://github.com/purplebase/models
 
 environment:
-  sdk: ">=3.7.0 <4.0.0"
+  sdk: ">=3.8.0 <4.0.0"
 
 dependencies:
   riverpod: ^2.6.1

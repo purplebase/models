@@ -12,20 +12,23 @@ class RequestNotifier<E extends Model<dynamic>>
   final List<Request> relationshipRequests = [];
 
   RequestNotifier(this.ref, this.req, this.source)
-      : storage = ref.read(storageNotifierProvider.notifier),
-        super(StorageLoading([])) {
+    : storage = ref.read(storageNotifierProvider.notifier),
+      super(StorageLoading([])) {
     if (req.filters.isEmpty) return;
 
-    storage.query(req, source: source).then((models) {
-      _emitNewModels(models);
-      _startSubscription();
-    }).catchError((e, stack) {
-      if (mounted) {
-        state = StorageError(state.models, exception: e, stackTrace: stack);
-      } else {
-        print(e);
-      }
-    });
+    storage
+        .query(req, source: source)
+        .then((models) {
+          _emitNewModels(models);
+          _startSubscription();
+        })
+        .catchError((e, stack) {
+          if (mounted) {
+            state = StorageError(state.models, exception: e, stackTrace: stack);
+          } else {
+            print(e);
+          }
+        });
 
     ref.onDispose(() => storage.cancel(req));
   }
@@ -34,17 +37,21 @@ class RequestNotifier<E extends Model<dynamic>>
     final sub = ref.listen(storageNotifierProvider, (_, storageState) async {
       if (!mounted) return;
 
-      if (storageState
-          case InternalStorageData(req: final incomingReq, :final updatedIds)
-          when updatedIds.isNotEmpty) {
+      if (storageState case InternalStorageData(
+        req: final incomingReq,
+        :final updatedIds,
+      ) when updatedIds.isNotEmpty) {
         if (incomingReq == null) {
           // No incomingReq means saved locally, get models that apply to req
           // with the incoming updated IDs
-          final newRequest =
-              req.filters.map((f) => f.copyWith(ids: updatedIds)).toRequest();
+          final newRequest = req.filters
+              .map((f) => f.copyWith(ids: updatedIds))
+              .toRequest();
           try {
-            final newModels =
-                await storage.query(newRequest, source: LocalSource());
+            final newModels = await storage.query(
+              newRequest,
+              source: LocalSource(),
+            );
             _emitNewModels(newModels);
           } catch (e, stack) {
             state = StorageError(state.models, exception: e, stackTrace: stack);
@@ -53,8 +60,9 @@ class RequestNotifier<E extends Model<dynamic>>
           try {
             // In case the first query did not return before EOSE, handle it here
             final newModels = await storage.query(
-                RequestFilter<E>(ids: updatedIds).toRequest(),
-                source: LocalSource());
+              RequestFilter<E>(ids: updatedIds).toRequest(),
+              source: LocalSource(),
+            );
             _emitNewModels(newModels);
           } catch (e, stack) {
             state = StorageError(state.models, exception: e, stackTrace: stack);
@@ -75,7 +83,7 @@ class RequestNotifier<E extends Model<dynamic>>
     final andFns = req.filters.map((f) => f.and).nonNulls;
     return [
       for (final andFn in andFns)
-        for (final m in models) ...andFn(m)
+        for (final m in models) ...andFn(m),
     ];
   }
 
@@ -88,19 +96,25 @@ class RequestNotifier<E extends Model<dynamic>>
     // Calculate new relationships
     final newRelationshipRequests = [
       for (final r in _getRelationshipsFrom(models))
-        if (!relationshipRequests.contains(r.req)) r.req
+        if (!relationshipRequests.contains(r.req)) r.req,
     ].nonNulls;
     relationshipRequests.addAll(newRelationshipRequests);
 
     final mergedRelationshipRequest = RequestFilter.mergeMultiple(
-            newRelationshipRequests.expand((r) => r.filters).toList())
-        .toRequest();
+      newRelationshipRequests.expand((r) => r.filters).toList(),
+    ).toRequest();
     if (mergedRelationshipRequest.filters.isNotEmpty &&
         source is RemoteSource) {
-      storage.query(mergedRelationshipRequest,
-          source: RemoteSource(
-              group: (source as RemoteSource).group, background: true));
+      storage.query(
+        mergedRelationshipRequest,
+        source: RemoteSource(
+          group: (source as RemoteSource).group,
+          background: true,
+        ),
+      );
     }
+
+    if (!mounted) return;
 
     // Handle replaceable events: remove old models with same addressable ID
     final existingModels = state.models.toList();
@@ -108,10 +122,12 @@ class RequestNotifier<E extends Model<dynamic>>
 
     for (final existingModel in existingModels) {
       // Check if any new model has the same addressable ID as this existing model
-      final hasReplacement = newModels.any((newModel) =>
-          newModel is ReplaceableModel &&
-          existingModel is ReplaceableModel &&
-          newModel.id == existingModel.id);
+      final hasReplacement = newModels.any(
+        (newModel) =>
+            newModel is ReplaceableModel &&
+            existingModel is ReplaceableModel &&
+            newModel.id == existingModel.id,
+      );
 
       if (!hasReplacement) {
         modelsToKeep.add(existingModel);
@@ -127,25 +143,26 @@ class RequestNotifier<E extends Model<dynamic>>
   }
 }
 
-final Map<RequestFilter,
-        AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>>
-    _typedProviderCache = {};
+final Map<
+  RequestFilter,
+  AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
+>
+_typedProviderCache = {};
 
 /// Family of notifier providers, one per request
 /// Manually caching since a factory function is needed to pass the type
 _requestNotifierProvider<E extends Model<dynamic>>(
-        RequestFilter<E> filter, Source source) =>
-    _typedProviderCache[filter] ??= StateNotifierProvider.autoDispose
-        .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>(
-      (ref, req) {
-        // Defer Request creation til this point so we leverage
-        // equality on the RequestFilter at the provider level
+  RequestFilter<E> filter,
+  Source source,
+) => _typedProviderCache[filter] ??= StateNotifierProvider.autoDispose
+    .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>((ref, req) {
+      // Defer Request creation til this point so we leverage
+      // equality on the RequestFilter at the provider level
 
-        // Clean up cache entry when provider is disposed
-        ref.onDispose(() => _typedProviderCache.remove(filter));
-        return RequestNotifier(ref, filter.toRequest(), source);
-      },
-    )(filter);
+      // Clean up cache entry when provider is disposed
+      ref.onDispose(() => _typedProviderCache.remove(filter));
+      return RequestNotifier(ref, filter.toRequest(), source);
+    })(filter);
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
 /// with default type ([Model]), [remote] is true by default
@@ -180,7 +197,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter<E>(...))`
 /// with type [E] (one specific kind), [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
-    query<E extends Model<E>>({
+query<E extends Model<E>>({
   Set<String>? ids,
   Set<String>? authors,
   Map<String, Set<String>>? tags,
@@ -209,17 +226,19 @@ AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 /// Syntax sugar for watching one model of type [E],
 /// [remote] is true by default
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
-    model<E extends Model<E>>(E model,
-        {Source source = const LocalAndRemoteSource(background: true),
-        AndFunction<E> and,
-        bool remote = true}) {
+model<E extends Model<E>>(
+  E model, {
+  Source source = const LocalAndRemoteSource(background: true),
+  AndFunction<E> and,
+  bool remote = true,
+}) {
   // Note: does not need kind or other arguments as it queries by ID
   final filter = RequestFilter<E>(ids: {model.id}, and: _castAnd(and));
   return _requestNotifierProvider<E>(filter, source);
 }
 
-typedef AndFunction<E extends Model<dynamic>> = Set<Relationship<Model>>
-    Function(E)?;
+typedef AndFunction<E extends Model<dynamic>> =
+    Set<Relationship<Model>> Function(E)?;
 
 typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
 
