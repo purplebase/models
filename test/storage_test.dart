@@ -13,15 +13,16 @@ void main() async {
     container = ProviderContainer();
     final config = StorageConfiguration(
       relayGroups: {
-        'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'}
+        'big-relays': {'wss://damus.relay.io', 'wss://relay.primal.net'},
       },
       defaultRelayGroup: 'big-relays',
       streamingBufferWindow: Duration.zero,
       keepMaxModels: 1000,
     );
     await container.read(initializationProvider(config).future);
-    storage = container.read(storageNotifierProvider.notifier)
-        as DummyStorageNotifier;
+    storage =
+        container.read(storageNotifierProvider.notifier)
+            as DummyStorageNotifier;
   });
 
   tearDown(() async {
@@ -47,15 +48,21 @@ void main() async {
       f = PartialNote('Note F', tags: {'nostr'}).dummySign(franzapPubkey);
       g = PartialNote('Note G').dummySign(verbirichaPubkey);
       nielProfile = PartialProfile(name: 'neil').dummySign(nielPubkey);
-      replyToA =
-          PartialNote('reply to a', replyTo: a).dummySign(nielProfile.pubkey);
-      replyToB = PartialNote('reply to b', createdAt: yesterday, replyTo: b)
-          .dummySign(nielProfile.pubkey);
+      replyToA = PartialNote(
+        'reply to a',
+        replyTo: a,
+      ).dummySign(nielProfile.pubkey);
+      replyToB = PartialNote(
+        'reply to b',
+        createdAt: yesterday,
+        replyTo: b,
+      ).dummySign(nielProfile.pubkey);
 
       await storage.save({a, b, c, d, e, f, g, replyToA, replyToB});
       await storage.save({nielProfile});
-      await storage
-          .publish({nielProfile}, source: RemoteSource(group: 'big-relays'));
+      await storage.publish({
+        nielProfile,
+      }, source: RemoteSource(group: 'big-relays'));
     });
 
     tearDown(() async {
@@ -64,81 +71,116 @@ void main() async {
 
     test('ids', () async {
       tester = container.testerFor(
-          queryKinds(ids: {a.event.id, e.event.id}, source: LocalSource()));
+        queryKinds(ids: {a.event.id, e.event.id}, source: LocalSource()),
+      );
       await tester.expectModels(unorderedEquals({a, e}));
     });
 
     test('authors', () async {
-      tester = container.testerFor(queryKinds(
-          authors: {franzapPubkey, verbirichaPubkey}, source: LocalSource()));
+      tester = container.testerFor(
+        queryKinds(
+          authors: {franzapPubkey, verbirichaPubkey},
+          source: LocalSource(),
+        ),
+      );
       await tester.expectModels(unorderedEquals({e, f, g}));
     });
 
     test('kinds', () async {
       tester = container.testerFor(query<Note>(source: LocalSource()));
-      await tester.expectModels(allOf(
-        hasLength(9),
-        everyElement((e) => e is Model && e.event.kind == 1),
-      ));
+      await tester.expectModels(
+        allOf(
+          hasLength(9),
+          everyElement((e) => e is Model && e.event.kind == 1),
+        ),
+      );
 
       tester = container.testerFor(query<Profile>(source: LocalSource()));
       await tester.expectModels(hasLength(1));
     });
 
     test('tags', () async {
-      tester = container.testerFor(queryKinds(authors: {
-        nielPubkey
-      }, tags: {
-        '#t': {'nostr'}
-      }, source: LocalSource()));
+      tester = container.testerFor(
+        queryKinds(
+          authors: {nielPubkey},
+          tags: {
+            '#t': {'nostr'},
+          },
+          source: LocalSource(),
+        ),
+      );
       await tester.expectModels(equals({d}));
 
-      tester = container.testerFor(queryKinds(tags: {
-        '#t': {'nostr', 'test'}
-      }, source: LocalSource()));
+      tester = container.testerFor(
+        queryKinds(
+          tags: {
+            '#t': {'nostr', 'test'},
+          },
+          source: LocalSource(),
+        ),
+      );
       await tester.expectModels(unorderedEquals({d, f}));
 
-      tester = container.testerFor(queryKinds(tags: {
-        '#t': {'test'}
-      }, source: LocalSource()));
+      tester = container.testerFor(
+        queryKinds(
+          tags: {
+            '#t': {'test'},
+          },
+          source: LocalSource(),
+        ),
+      );
       await tester.expectModels(isEmpty);
 
-      tester = container.testerFor(queryKinds(tags: {
-        '#t': {'nostr'},
-        '#e': {nielPubkey}
-      }, source: LocalSource()));
+      tester = container.testerFor(
+        queryKinds(
+          tags: {
+            '#t': {'nostr'},
+            '#e': {nielPubkey},
+          },
+          source: LocalSource(),
+        ),
+      );
       await tester.expectModels(isEmpty);
     });
 
     test('until', () async {
-      tester = container.testerFor(query<Note>(
+      tester = container.testerFor(
+        query<Note>(
           authors: {nielPubkey},
           until: DateTime.now().subtract(Duration(minutes: 1)),
-          source: LocalSource()));
+          source: LocalSource(),
+        ),
+      );
       await tester.expectModels(orderedEquals({a, b, replyToB}));
     });
 
     test('since', () async {
-      tester = container.testerFor(queryKinds(
+      tester = container.testerFor(
+        queryKinds(
           authors: {nielPubkey},
           since: DateTime.now().subtract(Duration(minutes: 1)),
-          source: LocalSource()));
+          source: LocalSource(),
+        ),
+      );
       await tester.expectModels(orderedEquals({c, d, nielProfile, replyToA}));
     });
 
     test('limit and order', () async {
       tester = container.testerFor(
-          query<Note>(authors: {nielPubkey}, limit: 3, source: LocalSource()));
+        query<Note>(authors: {nielPubkey}, limit: 3, source: LocalSource()),
+      );
       await tester.expectModels(orderedEquals({d, c, replyToA}));
     });
 
     test('replaceable updates', () async {
       tester = container.testerFor(
-          query<Profile>(authors: {nielPubkey}, source: LocalSource()));
+        query<Profile>(authors: {nielPubkey}, source: LocalSource()),
+      );
       await tester.expectModels(unorderedEquals({nielProfile}));
 
-      final nielcho =
-          nielProfile.copyWith(name: 'Nielcho').dummySign(nielPubkey);
+      final nielcho = nielProfile
+          .copyWith(name: 'Nielcho')
+          .dummySign(nielPubkey);
       // Check processMetadata() was called when constructing
       expect(nielcho.name, equals('Nielcho'));
       // Content should NOT be empty as this new event could be sent to relays
@@ -148,65 +190,130 @@ void main() async {
       // Wait for the storage state to update with the new profile
       // The replaceable update should replace the old profile with the new one
       // We need to wait for the state to propagate through the notifier
-      await tester.expectModels(allOf(
-        hasLength(1),
-        everyElement((p) => p is Profile && p.name == 'Nielcho'),
-      ));
+      await tester.expectModels(
+        allOf(
+          hasLength(1),
+          everyElement((p) => p is Profile && p.name == 'Nielcho'),
+        ),
+      );
     });
 
     test('relationships with model watcher', () async {
       tester = container.testerFor(
-          model(a, and: (note) => {note.author}, source: LocalSource()));
+        model(a, and: (note) => {note.author}, source: LocalSource()),
+      );
       await tester.expectModels(unorderedEquals({a}));
       // NOTE: note.author will be cached, but only note is returned
     });
 
     test('multiple relationships', () async {
-      tester = container.testerFor(query<Note>(
+      tester = container.testerFor(
+        query<Note>(
           ids: {a.id, b.id},
           and: (note) => {note.author, note.replies},
-          source: LocalSource()));
+          source: LocalSource(),
+        ),
+      );
       await tester.expectModels(unorderedEquals({a, b}));
       // NOTE: author and replies will be cached, can't assert here
     });
 
     test('relay metadata', () async {
       tester = container.testerFor(
-          query<Profile>(authors: {nielPubkey}, source: LocalSource()));
+        query<Profile>(authors: {nielPubkey}, source: LocalSource()),
+      );
 
       if (tester.notifier.state is StorageData) {
         expect(
           tester.notifier.state,
-          isA<StorageData>()
-              .having((s) => s.models.first.event.relays, 'relays', <String>{}),
+          isA<StorageData>().having(
+            (s) => s.models.first.event.relays,
+            'relays',
+            <String>{},
+          ),
         );
       } else {
         await tester.expect(
-          isA<StorageData>()
-              .having((s) => s.models.first.event.relays, 'relays', <String>{}),
+          isA<StorageData>().having(
+            (s) => s.models.first.event.relays,
+            'relays',
+            <String>{},
+          ),
         );
       }
+    });
+  });
+
+  group('storage configuration', () {
+    test('getRelays should prioritize relayUrls over groups', () {
+      final config = StorageConfiguration(
+        relayGroups: {
+          'primary': {'wss://primary1.relay.io', 'wss://primary2.relay.io'},
+          'secondary': {
+            'wss://secondary1.relay.io',
+            'wss://secondary2.relay.io',
+          },
+        },
+        defaultRelayGroup: 'primary',
+      );
+
+      // Test relayUrls takes priority over group
+      final customRelayUrls = {
+        'wss://custom1.relay.io',
+        'wss://custom2.relay.io',
+      };
+      final sourceWithUrls = RemoteSource(
+        relayUrls: customRelayUrls,
+        group: 'primary',
+      );
+      expect(config.getRelays(source: sourceWithUrls), equals(customRelayUrls));
+
+      // Test group fallback when relayUrls is empty
+      final sourceWithGroup = RemoteSource(group: 'secondary');
+      expect(
+        config.getRelays(source: sourceWithGroup),
+        equals({'wss://secondary1.relay.io', 'wss://secondary2.relay.io'}),
+      );
+
+      // Test default group fallback when neither relayUrls nor group specified
+      final sourceDefault = RemoteSource();
+      expect(
+        config.getRelays(source: sourceDefault),
+        equals({'wss://primary1.relay.io', 'wss://primary2.relay.io'}),
+      );
+
+      // Test empty set when group doesn't exist
+      final sourceNonExistent = RemoteSource(group: 'nonexistent');
+      expect(config.getRelays(source: sourceNonExistent), equals(<String>{}));
     });
   });
 
   group('storage', () {
     test('clear with req', () async {
       final a = List.generate(
-          30,
-          (_) => storage.generateModel(
-              kind: 1, createdAt: DateTime.parse('2025-03-12'))!);
+        30,
+        (_) => storage.generateModel(
+          kind: 1,
+          createdAt: DateTime.parse('2025-03-12'),
+        )!,
+      );
       final b = List.generate(30, (_) => storage.generateModel(kind: 1)!);
       await storage.save({...a, ...b});
       final beginOfYear = DateTime.parse('2025-01-01');
       final beginOfMonth = DateTime.parse('2025-04-01');
-      expect(await storage.query(RequestFilter(since: beginOfYear).toRequest()),
-          hasLength(60));
       expect(
-          await storage.query(RequestFilter(since: beginOfMonth).toRequest()),
-          hasLength(30));
+        await storage.query(RequestFilter(since: beginOfYear).toRequest()),
+        hasLength(60),
+      );
+      expect(
+        await storage.query(RequestFilter(since: beginOfMonth).toRequest()),
+        hasLength(30),
+      );
       await storage.clear(RequestFilter(until: beginOfMonth).toRequest());
-      expect(await storage.query(Request([RequestFilter(since: beginOfYear)])),
-          hasLength(30));
+      expect(
+        await storage.query(Request([RequestFilter(since: beginOfYear)])),
+        hasLength(30),
+      );
     });
 
     test('max models config', () async {
@@ -221,26 +328,26 @@ void main() async {
     });
 
     test('request filter', () {
-      final r1 = RequestFilter<Reaction>(authors: {
-        nielPubkey,
-        franzapPubkey
-      }, tags: {
-        'foo': {'bar'},
-        '#t': {'nostr'}
-      });
-      final r2 = RequestFilter<Reaction>(authors: {
-        franzapPubkey,
-        nielPubkey
-      }, tags: {
-        '#t': {'nostr'},
-        'foo': {'bar'}
-      });
-      final r3 = RequestFilter<Reaction>(authors: {
-        franzapPubkey,
-        nielPubkey
-      }, tags: {
-        'foo': {'bar'}
-      });
+      final r1 = RequestFilter<Reaction>(
+        authors: {nielPubkey, franzapPubkey},
+        tags: {
+          'foo': {'bar'},
+          '#t': {'nostr'},
+        },
+      );
+      final r2 = RequestFilter<Reaction>(
+        authors: {franzapPubkey, nielPubkey},
+        tags: {
+          '#t': {'nostr'},
+          'foo': {'bar'},
+        },
+      );
+      final r3 = RequestFilter<Reaction>(
+        authors: {franzapPubkey, nielPubkey},
+        tags: {
+          'foo': {'bar'},
+        },
+      );
       expect(r1.kinds.first, 7);
       expect(r1, equals(r2));
       expect(r1.toMap(), equals(r2.toMap()));
@@ -251,7 +358,7 @@ void main() async {
         authors: {nielPubkey, franzapPubkey},
         tags: {
           'foo': {'bar'},
-          '#t': {'nostr'}
+          '#t': {'nostr'},
         },
       );
 
@@ -268,14 +375,13 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
-        final tester = container.testerFor(query<Profile>(
-          authors: {pubkey2},
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(
+          query<Profile>(authors: {pubkey2}, source: LocalSource()),
+        );
 
         // Should start with loading state
         expect(tester.notifier.state, isA<StorageLoading>());
@@ -288,10 +394,12 @@ void main() async {
       });
 
       test('should handle empty results', () async {
-        final tester = container.testerFor(query<Note>(
-          authors: {Utils.generateRandomHex64()},
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(
+          query<Note>(
+            authors: {Utils.generateRandomHex64()},
+            source: LocalSource(),
+          ),
+        );
 
         // Should transition to data state with empty list
         await tester.expectModels(isEmpty);
@@ -303,9 +411,7 @@ void main() async {
 
       test('should handle empty request filters', () async {
         // This should not cause any issues and should return empty results
-        final tester = container.testerFor(query<Note>(
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(query<Note>(source: LocalSource()));
 
         await tester.expectModels(isEmpty);
         tester.dispose();
@@ -315,35 +421,33 @@ void main() async {
     group('error handling', () {
       test('should handle query errors gracefully', () async {
         // Create a malformed request that might cause errors
-        final tester = container.testerFor(query<Note>(
-          authors: {Utils.generateRandomHex64()},
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(
+          query<Note>(
+            authors: {Utils.generateRandomHex64()},
+            source: LocalSource(),
+          ),
+        );
 
         // Simulate an error by clearing storage during query
         await storage.clear();
 
         // Should handle the error and maintain previous state or show error
         // Note: The exact behavior depends on implementation, but it shouldn't crash
-        await tester.expect(anyOf(
-          isA<StorageData>(),
-          isA<StorageError>(),
-        ));
+        await tester.expect(anyOf(isA<StorageData>(), isA<StorageError>()));
 
         tester.dispose();
       });
 
       test('should handle network failures gracefully', () async {
-        final tester = container.testerFor(query<Note>(
-          authors: {Utils.generateRandomHex64()},
-          source: RemoteSource(group: 'nonexistent-group'),
-        ));
+        final tester = container.testerFor(
+          query<Note>(
+            authors: {Utils.generateRandomHex64()},
+            source: RemoteSource(group: 'nonexistent-group'),
+          ),
+        );
 
         // Should handle network failures without crashing
-        await tester.expect(anyOf(
-          isA<StorageData>(),
-          isA<StorageError>(),
-        ));
+        await tester.expect(anyOf(isA<StorageData>(), isA<StorageError>()));
 
         tester.dispose();
       });
@@ -353,14 +457,16 @@ void main() async {
       test('should cancel requests when disposed', () async {
         final [franzap, niel] = [
           storage.generateProfile(franzapPubkey),
-          storage.generateProfile(nielPubkey)
+          storage.generateProfile(nielPubkey),
         ];
         await storage.save({franzap, niel});
 
-        final tester = container.testerFor(query<Profile>(
-          authors: {nielPubkey, franzapPubkey},
-          source: RemoteSource(stream: true),
-        ));
+        final tester = container.testerFor(
+          query<Profile>(
+            authors: {nielPubkey, franzapPubkey},
+            source: RemoteSource(stream: true),
+          ),
+        );
 
         // Wait for initial results
         await tester.expectModels(hasLength(2));
@@ -385,25 +491,22 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
         // Create multiple notifiers watching different queries
-        final tester1 = container.testerFor(query<Profile>(
-          authors: {pubkey2},
-          source: LocalSource(),
-        ));
+        final tester1 = container.testerFor(
+          query<Profile>(authors: {pubkey2}, source: LocalSource()),
+        );
 
-        final tester2 = container.testerFor(query<Profile>(
-          authors: {pubkey1},
-          source: LocalSource(),
-        ));
+        final tester2 = container.testerFor(
+          query<Profile>(authors: {pubkey1}, source: LocalSource()),
+        );
 
-        final tester3 = container.testerFor(query<Note>(
-          authors: {pubkey2},
-          source: LocalSource(),
-        ));
+        final tester3 = container.testerFor(
+          query<Note>(authors: {pubkey2}, source: LocalSource()),
+        );
 
         // All should work independently
         await tester1.expectModels(hasLength(1));
@@ -425,25 +528,29 @@ void main() async {
         final originalProfile = storage.generateProfile(pubkey1);
         await storage.save({originalProfile});
 
-        final tester = container.testerFor(query<Profile>(
-          authors: {pubkey1},
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(
+          query<Profile>(authors: {pubkey1}, source: LocalSource()),
+        );
 
         await tester.expectModels(hasLength(1));
-        expect((tester.notifier.state as StorageData).models.first,
-            originalProfile);
+        expect(
+          (tester.notifier.state as StorageData).models.first,
+          originalProfile,
+        );
 
         // Create updated profile (replaceable event)
-        final updatedProfile =
-            originalProfile.copyWith(name: 'Updated Name').dummySign(pubkey1);
+        final updatedProfile = originalProfile
+            .copyWith(name: 'Updated Name')
+            .dummySign(pubkey1);
         await storage.save({updatedProfile});
 
         // Should replace the old profile with the new one
-        await tester.expectModels(allOf(
-          hasLength(1),
-          everyElement((p) => p is Profile && p.name == 'Updated Name'),
-        ));
+        await tester.expectModels(
+          allOf(
+            hasLength(1),
+            everyElement((p) => p is Profile && p.name == 'Updated Name'),
+          ),
+        );
       });
 
       test('should handle streaming updates correctly', () async {
@@ -452,14 +559,16 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
-        final tester = container.testerFor(query<Note>(
-          authors: {pubkey2, pubkey1},
-          source: RemoteSource(stream: true),
-        ));
+        final tester = container.testerFor(
+          query<Note>(
+            authors: {pubkey2, pubkey1},
+            source: RemoteSource(stream: true),
+          ),
+        );
 
         // Initial results
         await tester.expectModels(hasLength(0)); // No notes initially
@@ -482,18 +591,21 @@ void main() async {
         final note = storage.generateModel(kind: 1, pubkey: pubkey1)!;
         await storage.save({author, note});
 
-        final tester = container.testerFor(query<Note>(
-          ids: {note.id},
-          and: (note) => {note.author},
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(
+          query<Note>(
+            ids: {note.id},
+            and: (note) => {note.author},
+            source: LocalSource(),
+          ),
+        );
 
         await tester.expectModels(hasLength(1));
 
         // Update the author profile - this should trigger a rerender
         // even though relationships aren't cached
-        final updatedAuthor =
-            author.copyWith(name: 'Updated Author').dummySign(pubkey1);
+        final updatedAuthor = author
+            .copyWith(name: 'Updated Author')
+            .dummySign(pubkey1);
         await storage.save({updatedAuthor});
 
         // Should trigger a state update due to relationship change
@@ -508,14 +620,16 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
-        final tester = container.testerFor(query<Profile>(
-          authors: {pubkey2, pubkey1},
-          source: LocalAndRemoteSource(stream: false),
-        ));
+        final tester = container.testerFor(
+          query<Profile>(
+            authors: {pubkey2, pubkey1},
+            source: LocalAndRemoteSource(stream: false),
+          ),
+        );
 
         await tester.expectModels(hasLength(2));
         expect(tester.notifier.state, isA<StorageData>());
@@ -527,14 +641,16 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
-        final tester = container.testerFor(query<Profile>(
-          authors: {pubkey2, pubkey1},
-          source: RemoteSource(background: true),
-        ));
+        final tester = container.testerFor(
+          query<Profile>(
+            authors: {pubkey2, pubkey1},
+            source: RemoteSource(background: true),
+          ),
+        );
 
         await tester.expectModels(hasLength(2));
       });
@@ -545,17 +661,97 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
-        final tester = container.testerFor(query<Profile>(
-          authors: {pubkey2, pubkey1},
-          source: RemoteSource(group: 'big-relays'),
-        ));
+        final tester = container.testerFor(
+          query<Profile>(
+            authors: {pubkey2, pubkey1},
+            source: RemoteSource(group: 'big-relays'),
+          ),
+        );
 
         await tester.expectModels(hasLength(2));
       });
+
+      test('should handle RemoteSource with relayUrls parameter', () async {
+        final pubkey1 = Utils.generateRandomHex64();
+        final pubkey2 = Utils.generateRandomHex64();
+
+        final [franzap, niel] = [
+          storage.generateProfile(pubkey1),
+          storage.generateProfile(pubkey2),
+        ];
+        await storage.save({franzap, niel});
+
+        // Test with custom relay URLs that override group settings
+        final customRelayUrls = {
+          'wss://custom1.relay.io',
+          'wss://custom2.relay.io',
+        };
+        final tester = container.testerFor(
+          query<Profile>(
+            authors: {pubkey2, pubkey1},
+            source: RemoteSource(relayUrls: customRelayUrls),
+          ),
+        );
+
+        await tester.expectModels(hasLength(2));
+
+        // Verify that storage configuration correctly uses the custom relayUrls
+        final config = storage.config;
+        final sourceWithUrls = RemoteSource(relayUrls: customRelayUrls);
+        final sourceWithGroup = RemoteSource(group: 'big-relays');
+
+        // relayUrls should take priority over group
+        expect(
+          config.getRelays(source: sourceWithUrls),
+          equals(customRelayUrls),
+        );
+        // Without relayUrls, should fall back to group
+        expect(
+          config.getRelays(source: sourceWithGroup),
+          equals({'wss://damus.relay.io', 'wss://relay.primal.net'}),
+        );
+      });
+
+      test(
+        'should prioritize relayUrls over group in LocalAndRemoteSource',
+        () async {
+          final pubkey1 = Utils.generateRandomHex64();
+          final pubkey2 = Utils.generateRandomHex64();
+
+          final [franzap, niel] = [
+            storage.generateProfile(pubkey1),
+            storage.generateProfile(pubkey2),
+          ];
+          await storage.save({franzap, niel});
+
+          // Test LocalAndRemoteSource with both relayUrls and group
+          final customRelayUrls = {'wss://priority.relay.io'};
+          final tester = container.testerFor(
+            query<Profile>(
+              authors: {pubkey2, pubkey1},
+              source: LocalAndRemoteSource(
+                relayUrls: customRelayUrls,
+                group:
+                    'big-relays', // This should be ignored when relayUrls is provided
+              ),
+            ),
+          );
+
+          await tester.expectModels(hasLength(2));
+
+          // Verify priority: relayUrls should override group even in LocalAndRemoteSource
+          final config = storage.config;
+          final source = LocalAndRemoteSource(
+            relayUrls: customRelayUrls,
+            group: 'big-relays',
+          );
+          expect(config.getRelays(source: source), equals(customRelayUrls));
+        },
+      );
     });
 
     group('model type safety', () {
@@ -565,32 +761,28 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         final note = storage.generateModel(kind: 1, pubkey: pubkey2)!;
         await storage.save({franzap, niel, note});
 
         // Query for profiles only
-        final profileTester = container.testerFor(query<Profile>(
-          authors: {pubkey2, pubkey1},
-          source: LocalSource(),
-        ));
+        final profileTester = container.testerFor(
+          query<Profile>(authors: {pubkey2, pubkey1}, source: LocalSource()),
+        );
 
-        await profileTester.expectModels(allOf(
-          hasLength(2),
-          everyElement((m) => m is Profile),
-        ));
+        await profileTester.expectModels(
+          allOf(hasLength(2), everyElement((m) => m is Profile)),
+        );
 
         // Query for notes only
-        final noteTester = container.testerFor(query<Note>(
-          authors: {pubkey2, pubkey1},
-          source: LocalSource(),
-        ));
+        final noteTester = container.testerFor(
+          query<Note>(authors: {pubkey2, pubkey1}, source: LocalSource()),
+        );
 
-        await noteTester.expectModels(allOf(
-          hasLength(1),
-          everyElement((m) => m is Note),
-        ));
+        await noteTester.expectModels(
+          allOf(hasLength(1), everyElement((m) => m is Note)),
+        );
       });
 
       test('should handle mixed kind queries correctly', () async {
@@ -599,22 +791,28 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         final note = storage.generateModel(kind: 1, pubkey: pubkey2)!;
-        final reaction =
-            storage.generateModel(kind: 7, parentId: note.id, pubkey: pubkey1)!;
+        final reaction = storage.generateModel(
+          kind: 7,
+          parentId: note.id,
+          pubkey: pubkey1,
+        )!;
         await storage.save({franzap, niel, note, reaction});
 
         // Query for multiple kinds
-        final tester = container.testerFor(queryKinds(
-          kinds: {0, 1, 7}, // Profile, Note, Reaction
-          authors: {pubkey2, pubkey1},
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(
+          queryKinds(
+            kinds: {0, 1, 7}, // Profile, Note, Reaction
+            authors: {pubkey2, pubkey1},
+            source: LocalSource(),
+          ),
+        );
 
-        await tester
-            .expectModels(hasLength(4)); // 2 profiles + 1 note + 1 reaction
+        await tester.expectModels(
+          hasLength(4),
+        ); // 2 profiles + 1 note + 1 reaction
       }, skip: true);
       // TODO: Test not passing because of blurry line between dummy storage and dummy relay
     });
@@ -626,19 +824,21 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         final note1 = storage.generateModel(kind: 1, pubkey: pubkey2)!;
         final note2 = storage.generateModel(kind: 1, pubkey: pubkey1)!;
         await storage.save({franzap, niel, note1, note2});
 
         // Complex filter with multiple conditions
-        final tester = container.testerFor(query<Note>(
-          authors: {pubkey2, pubkey1},
-          since: DateTime.now().subtract(Duration(hours: 1)),
-          limit: 10,
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(
+          query<Note>(
+            authors: {pubkey2, pubkey1},
+            since: DateTime.now().subtract(Duration(hours: 1)),
+            limit: 10,
+            source: LocalSource(),
+          ),
+        );
 
         await tester.expectModels(hasLength(2));
       });
@@ -649,23 +849,27 @@ void main() async {
 
         final [franzap, niel] = [
           storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2)
+          storage.generateProfile(pubkey2),
         ];
         final note1 = storage.generateModel(kind: 1, pubkey: pubkey2)!;
         final note2 = storage.generateModel(kind: 1, pubkey: pubkey1)!;
         await storage.save({franzap, niel, note1, note2});
 
         // Use where function to filter
-        final tester = container.testerFor(query<Note>(
-          authors: {pubkey2, pubkey1},
-          where: (note) => note.author.value?.pubkey == pubkey2,
-          source: LocalSource(),
-        ));
+        final tester = container.testerFor(
+          query<Note>(
+            authors: {pubkey2, pubkey1},
+            where: (note) => note.author.value?.pubkey == pubkey2,
+            source: LocalSource(),
+          ),
+        );
 
-        await tester.expectModels(allOf(
-          hasLength(1),
-          everyElement((n) => n.author.value?.pubkey == pubkey2),
-        ));
+        await tester.expectModels(
+          allOf(
+            hasLength(1),
+            everyElement((n) => n.author.value?.pubkey == pubkey2),
+          ),
+        );
       });
     });
 
@@ -674,23 +878,30 @@ void main() async {
       final pubkey1 = Utils.generateRandomHex64();
       final pubkey2 = Utils.generateRandomHex64();
 
-      final [
-        franzap,
-        niel
-      ] = [storage.generateProfile(pubkey1), storage.generateProfile(pubkey2)];
+      final [franzap, niel] = [
+        storage.generateProfile(pubkey1),
+        storage.generateProfile(pubkey2),
+      ];
       await storage.save({
         franzap,
         niel,
         ...List.generate(
-            20, (i) => storage.generateModel(kind: 1, pubkey: pubkey1)!),
+          20,
+          (i) => storage.generateModel(kind: 1, pubkey: pubkey1)!,
+        ),
         ...List.generate(
-            20, (i) => storage.generateModel(kind: 1, pubkey: pubkey2)!),
+          20,
+          (i) => storage.generateModel(kind: 1, pubkey: pubkey2)!,
+        ),
       });
 
-      final tester = container.testerFor(query<Note>(
+      final tester = container.testerFor(
+        query<Note>(
           authors: {pubkey2, pubkey1},
           limit: 1,
-          source: RemoteSource(stream: false)));
+          source: RemoteSource(stream: false),
+        ),
+      );
 
       await tester.expectModels(hasLength(1));
       expect(tester.notifier.state, isA<StorageData>());
@@ -701,24 +912,30 @@ void main() async {
       final pubkey1 = Utils.generateRandomHex64();
       final pubkey2 = Utils.generateRandomHex64();
 
-      final [
-        franzap,
-        niel
-      ] = [storage.generateProfile(pubkey1), storage.generateProfile(pubkey2)];
+      final [franzap, niel] = [
+        storage.generateProfile(pubkey1),
+        storage.generateProfile(pubkey2),
+      ];
       await storage.save({
         franzap,
         niel,
         ...List.generate(
-            20, (i) => storage.generateModel(kind: 1, pubkey: pubkey1)!),
+          20,
+          (i) => storage.generateModel(kind: 1, pubkey: pubkey1)!,
+        ),
         ...List.generate(
-            20, (i) => storage.generateModel(kind: 1, pubkey: pubkey2)!),
+          20,
+          (i) => storage.generateModel(kind: 1, pubkey: pubkey2)!,
+        ),
       });
 
-      final tester = container.testerFor(query<Note>(
-        authors: {pubkey2, pubkey1},
-        limit: 5,
-        source: RemoteSource(stream: true),
-      ));
+      final tester = container.testerFor(
+        query<Note>(
+          authors: {pubkey2, pubkey1},
+          limit: 5,
+          source: RemoteSource(stream: true),
+        ),
+      );
 
       await tester.expectModels(hasLength(5));
       expect(tester.notifier.state, isA<StorageData>());
@@ -729,15 +946,15 @@ void main() async {
   group('profile roundtrip', () {
     test('should save and fetch a Profile', () async {
       final pubkey = Utils.generateRandomHex64();
-      final profile =
-          PartialProfile(name: 'Roundtrip User', about: 'Test roundtrip')
-              .dummySign(pubkey);
+      final profile = PartialProfile(
+        name: 'Roundtrip User',
+        about: 'Test roundtrip',
+      ).dummySign(pubkey);
       await storage.save({profile});
 
-      final tester = container.testerFor(query<Profile>(
-        authors: {pubkey},
-        source: LocalSource(),
-      ));
+      final tester = container.testerFor(
+        query<Profile>(authors: {pubkey}, source: LocalSource()),
+      );
       await tester.expectModels(hasLength(1));
       final fetched =
           (tester.notifier.state as StorageData).models.first as Profile;

@@ -4,9 +4,9 @@ part of models;
 /// application, with a [config]
 final initializationProvider =
     FutureProvider.family<void, StorageConfiguration>((ref, config) async {
-  _dummySigner = DummySigner(ref);
-  await ref.read(storageNotifierProvider.notifier).initialize(config);
-});
+      _dummySigner = DummySigner(ref);
+      await ref.read(storageNotifierProvider.notifier).initialize(config);
+    });
 
 class StorageConfiguration extends Equatable {
   /// Path to the database (write to memory if absent)
@@ -56,7 +56,8 @@ class StorageConfiguration extends Equatable {
 
   /// Normalize and sanitize relay URLs
   static Map<String, Set<String>> _normalizeRelayGroups(
-      Map<String, Set<String>> groups) {
+    Map<String, Set<String>> groups,
+  ) {
     final normalized = <String, Set<String>>{};
 
     for (final entry in groups.entries) {
@@ -86,8 +87,9 @@ class StorageConfiguration extends Equatable {
       final uri = Uri.parse(url.trim());
 
       // Default to wss if not ws or wss
-      final scheme =
-          (uri.scheme == 'ws' || uri.scheme == 'wss') ? uri.scheme : 'wss';
+      final scheme = (uri.scheme == 'ws' || uri.scheme == 'wss')
+          ? uri.scheme
+          : 'wss';
 
       // Keep consistent trailing slash logic - remove if present
       final path = uri.path == '/' ? '' : uri.path;
@@ -108,21 +110,20 @@ class StorageConfiguration extends Equatable {
 
   /// Find relays given a group,
   /// [useDefault] if missing whether to return the default one
-  Set<String> getRelays(
-      {Source source = const LocalAndRemoteSource(), bool useDefault = true}) {
-    if (source is LocalSource) return {};
-    source as RemoteSource;
-
-    final group = source.group ?? (useDefault ? (defaultRelayGroup) : null);
+  Set<String> getRelays({RemoteSource source = const RemoteSource()}) {
+    if (source.relayUrls.isNotEmpty) {
+      return source.relayUrls;
+    }
+    final group = source.group ?? defaultRelayGroup;
     return relayGroups[group] ?? {};
   }
 
   @override
   List<Object?> get props => [
-        databasePath,
-        keepSignatures,
-        skipVerification,
-        relayGroups,
-        defaultRelayGroup
-      ];
+    databasePath,
+    keepSignatures,
+    skipVerification,
+    relayGroups,
+    defaultRelayGroup,
+  ];
 }

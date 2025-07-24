@@ -9,10 +9,16 @@ final class LocalSource extends Source {
 }
 
 final class RemoteSource extends Source {
-  final bool background;
   final String? group;
+  final Set<String> relayUrls;
   final bool stream;
-  const RemoteSource({this.group, this.stream = true, this.background = false});
+  final bool background;
+  const RemoteSource({
+    this.group,
+    this.relayUrls = const {},
+    this.stream = true,
+    this.background = false,
+  });
 
   @override
   String toString() {
@@ -21,8 +27,12 @@ final class RemoteSource extends Source {
 }
 
 final class LocalAndRemoteSource extends RemoteSource {
-  const LocalAndRemoteSource(
-      {super.group, super.stream = true, super.background = false});
+  const LocalAndRemoteSource({
+    super.group,
+    super.relayUrls = const {},
+    super.stream = true,
+    super.background = false,
+  });
   @override
   String toString() {
     return 'LocalAnd${super.toString()}';
@@ -61,15 +71,16 @@ final class InternalStorageData extends StorageState {
   final Set<String> updatedIds;
   final Request? req;
   const InternalStorageData({this.updatedIds = const {}, this.req})
-      : super(const []);
+    : super(const []);
 }
 
 final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
   late final Exception exception;
   final StackTrace? stackTrace;
   StorageError(super.models, {required dynamic exception, this.stackTrace}) {
-    this.exception =
-        exception is Exception ? exception : Exception(e.toString());
+    this.exception = exception is Exception
+        ? exception
+        : Exception(e.toString());
   }
 }
 

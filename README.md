@@ -371,6 +371,10 @@ source: LocalSource()
 ```dart
 source: RemoteSource(
   group: 'social',        // Use specific relay group (defaults to 'default')
+  relayUrls: {            // Custom relay URLs (overrides group)
+    'wss://custom1.relay.io',
+    'wss://custom2.relay.io',
+  },
   stream: true,           // Enable streaming (default)
   background: false,      // Wait for EOSE before returning
 )
@@ -380,9 +384,52 @@ source: RemoteSource(
 ```dart
 source: LocalAndRemoteSource(
   group: 'social',        // Use specific relay group (defaults to 'default')
+  relayUrls: {            // Custom relay URLs (overrides group)
+    'wss://priority.relay.io',
+  },
   stream: true,           // Enable streaming (default)
   background: true,       // Don't wait for EOSE
 )
+```
+
+**Relay Selection Priority**:
+1. **`relayUrls`** - When provided, these specific relay URLs are used
+2. **`group`** - Falls back to the relay group defined in `StorageConfiguration`
+3. **`defaultRelayGroup`** - Uses the default group when neither is specified
+
+This provides flexibility between:
+- **Initialization-time groups**: Define stable relay collections in `StorageConfiguration.relayGroups`
+- **Runtime flexibility**: Override with specific `relayUrls` for individual queries
+
+```dart
+// Use predefined relay groups (configured at initialization)
+final socialNotes = ref.watch(
+  query<Note>(
+    authors: {pubkey},
+    source: RemoteSource(group: 'social'),
+  ),
+);
+
+// Override with custom relays at runtime
+final privateNotes = ref.watch(
+  query<Note>(
+    authors: {pubkey},
+    source: RemoteSource(
+      relayUrls: {'wss://my-private-relay.com'},
+    ),
+  ),
+);
+
+// Combine local storage with custom relays
+final hybridQuery = ref.watch(
+  query<Note>(
+    authors: {pubkey},
+    source: LocalAndRemoteSource(
+      relayUrls: {'wss://fast-relay.io', 'wss://backup-relay.io'},
+      background: true,
+    ),
+  ),
+);
 ```
 
 **Query Behavior**:

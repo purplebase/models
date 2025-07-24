@@ -27,8 +27,10 @@ class DummyStorageNotifier extends StorageNotifier {
     final seededModels = <Model>{};
 
     // Generate 20-50 profiles
-    final profiles =
-        List.generate(20 + r.nextInt(30), (i) => generateProfile());
+    final profiles = List.generate(
+      20 + r.nextInt(30),
+      (i) => generateProfile(),
+    );
     seededModels.addAll(profiles);
     final signer = DummySigner(ref, pubkey: profiles.first.pubkey);
     await signer.signIn();
@@ -52,9 +54,11 @@ class DummyStorageNotifier extends StorageNotifier {
     final noteCount = 200 + r.nextInt(300);
     for (int i = 0; i < noteCount; i++) {
       final author = profiles[r.nextInt(profiles.length)];
-      final createdAt = DateTime.now().subtract(Duration(
-        minutes: r.nextInt(7 * 24 * 60), // Random time in last 7 days
-      ));
+      final createdAt = DateTime.now().subtract(
+        Duration(
+          minutes: r.nextInt(7 * 24 * 60), // Random time in last 7 days
+        ),
+      );
       final note = generateModel(
         kind: 1,
         pubkey: author.pubkey,
@@ -68,7 +72,10 @@ class DummyStorageNotifier extends StorageNotifier {
           final reactions = List.generate(r.nextInt(20), (j) {
             final reactor = profiles[r.nextInt(profiles.length)];
             return generateModel(
-                kind: 7, parentId: note.event.id, pubkey: reactor.pubkey);
+              kind: 7,
+              parentId: note.event.id,
+              pubkey: reactor.pubkey,
+            );
           }).whereType<Model>();
           seededModels.addAll(reactions);
         }
@@ -78,7 +85,10 @@ class DummyStorageNotifier extends StorageNotifier {
           final zaps = List.generate(r.nextInt(5), (j) {
             final zapper = profiles[r.nextInt(profiles.length)];
             return generateModel(
-                kind: 9735, parentId: note.event.id, pubkey: zapper.pubkey);
+              kind: 9735,
+              parentId: note.event.id,
+              pubkey: zapper.pubkey,
+            );
           }).whereType<Model>();
           seededModels.addAll(zaps);
         }
@@ -108,10 +118,7 @@ class DummyStorageNotifier extends StorageNotifier {
 
     if (mounted && models.isNotEmpty) {
       final updatedIds = {for (final e in models) e.id};
-      state = InternalStorageData(
-        req: null,
-        updatedIds: updatedIds,
-      );
+      state = InternalStorageData(req: null, updatedIds: updatedIds);
     }
 
     return true;
@@ -125,10 +132,12 @@ class DummyStorageNotifier extends StorageNotifier {
     }
     // Sort events by created_at descending (newest first)
     allEvents.sort((a, b) {
-      final aCreatedAt =
-          DateTime.fromMillisecondsSinceEpoch((a['created_at'] as int) * 1000);
-      final bCreatedAt =
-          DateTime.fromMillisecondsSinceEpoch((b['created_at'] as int) * 1000);
+      final aCreatedAt = DateTime.fromMillisecondsSinceEpoch(
+        (a['created_at'] as int) * 1000,
+      );
+      final bCreatedAt = DateTime.fromMillisecondsSinceEpoch(
+        (b['created_at'] as int) * 1000,
+      );
       final timeComparison = bCreatedAt.compareTo(aCreatedAt);
       if (timeComparison != 0) return timeComparison;
       return (a['id'] as String).compareTo(b['id'] as String);
@@ -143,17 +152,23 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<PublishResponse> publish(Set<Model<dynamic>> models,
-      {RemoteSource source = const RemoteSource()}) async {
+  Future<PublishResponse> publish(
+    Set<Model<dynamic>> models, {
+    RemoteSource source = const RemoteSource(),
+  }) async {
     final response = PublishResponse();
 
     if (models.isNotEmpty) {
-      final relayUrls = config.getRelays(source: source, useDefault: true);
+      final relayUrls = config.getRelays(source: source);
       for (final relayUrl in relayUrls) {
         final message = 'Fake publishing ${models.length} models to $relayUrl';
         for (final model in models) {
-          response.addEvent(model.event.id,
-              relayUrl: relayUrl, accepted: true, message: message);
+          response.addEvent(
+            model.event.id,
+            relayUrl: relayUrl,
+            accepted: true,
+            message: message,
+          );
         }
       }
     }
@@ -161,8 +176,10 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<List<E>> query<E extends Model<dynamic>>(Request<E> req,
-      {Source? source}) async {
+  Future<List<E>> query<E extends Model<dynamic>>(
+    Request<E> req, {
+    Source? source,
+  }) async {
     source ??= config.defaultQuerySource;
 
     // Always start with local results
@@ -239,7 +256,7 @@ class DummyStorageNotifier extends StorageNotifier {
                 authors: {pubkey},
                 tags: dTag.isNotEmpty
                     ? {
-                        '#d': {dTag}
+                        '#d': {dTag},
                       }
                     : null,
               );
@@ -247,8 +264,9 @@ class DummyStorageNotifier extends StorageNotifier {
               final events = _relayStorage.queryEvents([replaceableFilter]);
               final models = events
                   .map((event) {
-                    final constructor =
-                        Model.getConstructorForKind(event['kind']);
+                    final constructor = Model.getConstructorForKind(
+                      event['kind'],
+                    );
                     if (constructor == null) return null;
 
                     // Apply transformMap before constructing the model
@@ -324,8 +342,9 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     // Generate new events periodically that match the filter
-    _streamingTimers[filter] =
-        Timer.periodic(config.streamingBufferWindow, (timer) async {
+    _streamingTimers[filter] = Timer.periodic(config.streamingBufferWindow, (
+      timer,
+    ) async {
       if (!mounted) {
         timer.cancel();
         _streamingTimers.remove(filter);
@@ -404,11 +423,7 @@ class DummyStorageNotifier extends StorageNotifier {
       pubkey = filter.authors.elementAt(r.nextInt(filter.authors.length));
     }
 
-    return generateModel(
-      kind: kind,
-      pubkey: pubkey,
-      createdAt: DateTime.now(),
-    );
+    return generateModel(kind: kind, pubkey: pubkey, createdAt: DateTime.now());
   }
 
   @override
@@ -469,33 +484,40 @@ class DummyStorageNotifier extends StorageNotifier {
   /// Generates a fake profile
   Profile generateProfile([String? pubkey]) {
     return PartialProfile(
-            name: faker.person.name(),
-            nip05: faker.internet.freeEmail(),
-            pictureUrl: faker.internet.httpsUrl())
-        .dummySign(pubkey);
+      name: faker.person.name(),
+      nip05: faker.internet.freeEmail(),
+      pictureUrl: faker.internet.httpsUrl(),
+    ).dummySign(pubkey);
   }
 
   /// Generates a fake model, supported kinds: 0, 1, 3, 7, 9735
-  Model? generateModel(
-      {required int kind,
-      String? parentId,
-      String? pubkey,
-      DateTime? createdAt,
-      Set<String> pTags = const {}}) {
+  Model? generateModel({
+    required int kind,
+    String? parentId,
+    String? pubkey,
+    DateTime? createdAt,
+    Set<String> pTags = const {},
+  }) {
     pubkey ??= Utils.generateRandomHex64();
     return switch (kind) {
       0 => generateProfile(),
-      1 => PartialNote(faker.lorem.sentence(), createdAt: createdAt)
-          .dummySign(pubkey),
+      1 => PartialNote(
+        faker.lorem.sentence(),
+        createdAt: createdAt,
+      ).dummySign(pubkey),
       3 => PartialContactList(followPubkeys: pTags).dummySign(pubkey),
-      7 => parentId == null
-          ? null
-          : (PartialReaction()..event.addTag('e', [parentId])).dummySign(),
+      7 =>
+        parentId == null
+            ? null
+            : (PartialReaction()..event.addTag('e', [parentId])).dummySign(),
       9 => PartialChatMessage(faker.lorem.sentence()).dummySign(pubkey),
-      9735 => parentId != null
-          ? Zap.fromMap(
-              _sampleZap(zapperPubkey: pubkey, eventId: parentId), ref)
-          : null,
+      9735 =>
+        parentId != null
+            ? Zap.fromMap(
+                _sampleZap(zapperPubkey: pubkey, eventId: parentId),
+                ref,
+              )
+            : null,
       _ => null,
     };
   }
