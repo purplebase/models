@@ -52,10 +52,7 @@ class ProviderTester {
   var i = 0;
 
   /// Creates a tester from a Provider
-  ProviderTester(
-    ProviderContainer container,
-    Provider provider,
-  ) {
+  ProviderTester(ProviderContainer container, Provider provider) {
     // Keep the provider alive and listen to changes
     final subscription = container.listen(provider, (previous, next) {
       _completers.last.complete(next);
@@ -84,7 +81,8 @@ class ProviderTester {
 
 extension AutoDisposeProviderContainerExt on ProviderContainer {
   StateNotifierProviderTester testerFor(
-      AutoDisposeStateNotifierProvider provider) {
+    AutoDisposeStateNotifierProvider provider,
+  ) {
     // Keep the provider alive during the test
     listen(provider, (_, __) {}).read();
 

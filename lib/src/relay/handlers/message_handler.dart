@@ -38,7 +38,10 @@ class MessageHandler {
   }
 
   void _processMessage(
-      String messageType, List<dynamic> data, WebSocket webSocket) {
+    String messageType,
+    List<dynamic> data,
+    WebSocket webSocket,
+  ) {
     switch (messageType) {
       case 'EVENT':
         _handleEvent(data, webSocket);
@@ -79,11 +82,91 @@ class MessageHandler {
     // Store event
     storage.storeEvent(event);
 
+    // Handle NWC requests (kind 23194) by generating automatic responses
+    if (event['kind'] == 23194) {
+      _handleNwcRequest(event);
+    }
+
     // Broadcast to active subscriptions (excluding closed ones)
-    _broadcastEvent(event, webSocket);
+    _broadcastEvent(event, null);
 
     // Send OK response
     _sendOk(eventId, true, 'Event stored', webSocket);
+  }
+
+  /// Handles NWC requests by generating fake responses for testing
+  void _handleNwcRequest(Map<String, dynamic> nwcRequest) {
+    print('🎭 Dummy NWC: Handling NWC request ${nwcRequest['id']}');
+
+    // Simulate realistic delay
+    Timer(Duration(milliseconds: 200), () {
+      try {
+        _generateNwcResponse(nwcRequest);
+      } catch (e) {
+        print('🎭 Dummy NWC: Error generating response: $e');
+      }
+    });
+  }
+
+  void _generateNwcResponse(Map<String, dynamic> nwcRequest) {
+    final requestId = nwcRequest['id'] as String;
+    final clientPubkey = nwcRequest['pubkey'] as String;
+    final walletPubkey = _getWalletPubkey(nwcRequest);
+
+    if (walletPubkey == null) {
+      print('🎭 Dummy NWC: No wallet pubkey found in request');
+      return;
+    }
+
+    print(
+      '🎭 Dummy NWC: Generating response from wallet $walletPubkey to client $clientPubkey',
+    );
+
+    // For dummy purposes, we'll create a basic success response
+    // In a real implementation, you'd decrypt the content and parse the method
+
+    // Generate fake successful pay_invoice response
+    final responseContent = {
+      'result_type': 'pay_invoice',
+      'result': {
+        'preimage': 'fake_preimage_$requestId',
+        'fees_paid': 100, // 100 millisats
+      },
+    };
+
+    // Create NWC response event (kind 23195)
+    final responseEvent = {
+      'id': Utils.generateRandomHex64(),
+      'pubkey': walletPubkey,
+      'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      'kind': 23195,
+      'tags': [
+        ['p', clientPubkey],
+        ['e', requestId],
+      ],
+      'content': jsonEncode(responseContent),
+      'sig': 'fake_signature_${Utils.generateRandomHex64()}',
+    };
+
+    print('🎭 Dummy NWC: Storing response event ${responseEvent['id']}');
+
+    // Store the response
+    storage.storeEvent(responseEvent);
+
+    // Broadcast to active subscriptions
+    _broadcastEvent(responseEvent, null);
+  }
+
+  String? _getWalletPubkey(Map<String, dynamic> nwcRequest) {
+    final tags = nwcRequest['tags'] as List?;
+    if (tags == null) return null;
+
+    for (final tag in tags) {
+      if (tag is List && tag.length >= 2 && tag[0] == 'p') {
+        return tag[1] as String;
+      }
+    }
+    return null;
   }
 
   /// Handles REQ messages
@@ -156,22 +239,27 @@ class MessageHandler {
     _sendError('AUTH not implemented', webSocket);
   }
 
-  void _broadcastEvent(Map<String, dynamic> event, WebSocket webSocket) {
+  void _broadcastEvent(Map<String, dynamic> event, WebSocket? excludeSocket) {
     final activeKeys = List<String>.from(_activeSubs.keys);
     for (final subId in activeKeys) {
       final sub = _activeSubs[subId];
       if (sub == null) continue;
       final closedVersion = _closedVersions[subId] ?? -1;
       if (sub.version <= closedVersion) continue;
-      if (sub.webSocket.readyState == WebSocket.open &&
+      if (sub.webSocket != excludeSocket &&
+          sub.webSocket.readyState == WebSocket.open &&
           sub.filters.any((f) => storage._matchesFilter(event, f))) {
         _sendEvent(subId, event, sub.webSocket);
       }
     }
   }
 
-  void _sendMatchingEvents(String subId, List<RequestFilter> filters,
-      WebSocket webSocket, int version) {
+  void _sendMatchingEvents(
+    String subId,
+    List<RequestFilter> filters,
+    WebSocket webSocket,
+    int version,
+  ) {
     final events = storage.queryEvents(filters);
 
     for (final event in events) {
@@ -191,7 +279,10 @@ class MessageHandler {
   }
 
   void _sendEvent(
-      String subId, Map<String, dynamic> event, WebSocket webSocket) {
+    String subId,
+    Map<String, dynamic> event,
+    WebSocket webSocket,
+  ) {
     final message = jsonEncode(['EVENT', subId, event]);
     webSocket.add(message);
   }
@@ -202,7 +293,11 @@ class MessageHandler {
   }
 
   void _sendOk(
-      String eventId, bool accepted, String message, WebSocket webSocket) {
+    String eventId,
+    bool accepted,
+    String message,
+    WebSocket webSocket,
+  ) {
     final response = jsonEncode(['OK', eventId, accepted, message]);
     webSocket.add(response);
   }
@@ -237,8 +332,10 @@ class MessageHandler {
       List<List<String>> safeTags;
       if (event['tags'] is List) {
         safeTags = (event['tags'] as List)
-            .map((e) =>
-                e is List ? e.map((v) => v.toString()).toList() : <String>[])
+            .map(
+              (e) =>
+                  e is List ? e.map((v) => v.toString()).toList() : <String>[],
+            )
             .where((e) => e.isNotEmpty)
             .toList();
       } else {
@@ -252,7 +349,7 @@ class MessageHandler {
         event['created_at'] as int,
         event['kind'] as int,
         safeTags,
-        event['content'] as String
+        event['content'] as String,
       ];
 
       // Serialize and hash

@@ -17,14 +17,182 @@ abstract class NwcCommand<T> {
     DateTime? expiration,
     DateTime? createdAt,
   }) {
-    return PartialNwcRequest(
+    print('🏗️ NWC: Creating request for method: $method');
+    print('🏗️ NWC: Wallet pubkey: $walletPubkey');
+    print('🏗️ NWC: Parameters: $params');
+    print('🏗️ NWC: Expiration: $expiration');
+
+    final request = PartialNwcRequest(
       walletPubkey: walletPubkey,
       method: method,
       params: params,
       expiration: expiration,
       createdAt: createdAt,
     );
+
+    print('🏗️ NWC: Request created with tags: ${request.event.tags}');
+    return request;
   }
+
+  /// Publish a signed NWC request to the appropriate relay
+  /// Automatically uses the relay URL from the NWC connection
+  Future<PublishResponse> publishRequest(
+    NwcRequest signedRequest,
+    NwcConnection connection,
+    StorageNotifier storage,
+  ) async {
+    print('📤 NWC: Publishing request to relay ${connection.relay}');
+    print('📤 NWC: Request event ID: ${signedRequest.event.id}');
+    print('📤 NWC: Request kind: ${signedRequest.event.kind}');
+    print('📤 NWC: Request tags: ${signedRequest.event.tags}');
+    print(
+      '📤 NWC: Request content length: ${signedRequest.event.content.length}',
+    );
+
+    final result = await storage.publish({
+      signedRequest,
+    }, source: RemoteSource(relayUrls: {connection.relay}));
+
+    print('📤 NWC: Publish result: ${result.results}');
+    return result;
+  }
+
+  /// Execute command with full error handling (recommended)
+  /// Creates a signer from the connection's secret as per NIP-47 specification
+  Future<T> executeRequest({
+    required NwcConnection connection,
+    required Ref ref,
+    required StorageNotifier storage,
+    DateTime? expiration,
+    DateTime? createdAt,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    print('🔸 NWC: Starting executeAndWaitForResponse for method: $method');
+    print('🔸 NWC: Connection relay: ${connection.relay}');
+    print('🔸 NWC: Wallet pubkey: ${connection.walletPubkey}');
+    print('🔸 NWC: Timeout: ${timeout.inSeconds}s');
+
+    // Create a signer from the connection's secret (NIP-47 requirement)
+    final connectionSigner = Bip340PrivateKeySigner(connection.secret, ref);
+    await connectionSigner.signIn(setAsActive: false);
+    print('🔸 NWC: Connection signer pubkey: ${connectionSigner.pubkey}');
+
+    // Create the request
+    final request = toRequest(
+      walletPubkey: connection.walletPubkey,
+      expiration: expiration,
+      createdAt: createdAt,
+    );
+
+    // Sign the request with the connection signer
+    final signedRequest = await request.signWith(connectionSigner);
+    print('🔸 NWC: Request signed, event ID: ${signedRequest.event.id}');
+
+    // Start listening for response
+    print('🔸NWC: Waiting for response from wallet service...');
+    final completer = Completer<NwcResponse>();
+
+    // Create direct relay subscription for NWC responses
+    final relayRequest = Request([
+      RequestFilter<NwcResponse>(
+        authors: {connection.walletPubkey},
+        tags: {
+          '#p': {connectionSigner.pubkey}, // Response directed to us
+          '#e': {signedRequest.id}, // Response to our specific request
+        },
+      ),
+    ]);
+
+    final sub = ref.listen(relaySubscriptionProvider(relayRequest), (
+      previous,
+      current,
+    ) {
+      if (completer.isCompleted) return;
+
+      // Look for new events that weren't in previous state
+      final newEvents = previous == null
+          ? current.events
+          : current.events.skip(previous.events.length).toList();
+
+      for (final eventMap in newEvents) {
+        try {
+          // Convert event map to NwcResponse model
+          final nwcResponse = NwcResponse.fromMap(eventMap, ref);
+
+          // Check if this response is for our request
+          if (nwcResponse.requestEventId == signedRequest.id) {
+            print(
+              '🔸 NWC: Found matching response for request ${signedRequest.id}',
+            );
+            completer.complete(nwcResponse);
+            return;
+          }
+        } catch (e) {
+          print('🔸 NWC: Error parsing response event: $e');
+        }
+      }
+    });
+
+    // Publish to the connection's relay
+    print('🔸 NWC: Publishing request to relay...');
+    final publishResponse = await publishRequest(
+      signedRequest,
+      connection,
+      storage,
+    );
+
+    // Check if publish was successful
+    final publishSuccessful = publishResponse.results.values.any(
+      (states) => states.any((state) => state.accepted),
+    );
+
+    print('🔸 NWC: Publish successful: $publishSuccessful');
+    print('🔸 NWC: Publish results: ${publishResponse.results}');
+
+    if (!publishSuccessful) {
+      throw Exception('Failed to publish NWC request to relay');
+    }
+
+    final response = await completer.future.timeout(timeout);
+    sub.close();
+
+    print('🔸 NWC: Got response from wallet! Event ID: ${response.event.id}');
+
+    // Decrypt and process the response
+    print('🔸 NWC: Decrypting response content...');
+    final decryptedContent = await response.decryptContent(connectionSigner);
+    print('🔸 NWC: Decrypted content: $decryptedContent');
+
+    // Check for errors first
+    final errorData = decryptedContent['error'] as Map<String, dynamic>?;
+    if (errorData != null) {
+      final error = NwcError.fromMap(errorData);
+      print(
+        '🔸 NWC: ❌ Wallet returned error: ${error.code} - ${error.message}',
+      );
+      throw NwcException(error);
+    }
+
+    // Extract and parse the result
+    final resultData = decryptedContent['result'] as Map<String, dynamic>?;
+    if (resultData == null) {
+      print('🔸 NWC: ❌ Response missing result data');
+      throw Exception('NWC response missing result data');
+    }
+
+    print('🔸 NWC: ✅ Success! Result data: $resultData');
+    return parseResponse(resultData);
+  }
+}
+
+/// Exception thrown when NWC wallet service returns an error
+class NwcException implements Exception {
+  final NwcError error;
+
+  const NwcException(this.error);
+
+  @override
+  String toString() => 'NwcException: ${error.code} - ${error.message}';
 }
 
 /// Result type for pay_invoice command
@@ -48,6 +216,67 @@ class PayInvoiceCommand extends NwcCommand<PayInvoiceResult> {
   final int? amount;
 
   PayInvoiceCommand({required this.invoice, this.amount});
+
+  /// Create a PayInvoiceCommand for a zap by handling all the complexity internally
+  /// Handles zap request creation, profile lookup, and Lightning invoice generation
+  static Future<PayInvoiceCommand> fromPubkey({
+    required String recipientPubkey,
+    required int amountSats,
+    required Ref ref,
+    String? comment,
+    List<String> zapRelays = const [],
+    Model? linkedModel,
+  }) async {
+    final storage = ref.read(storageNotifierProvider.notifier);
+
+    // Step 1: Get the active signer
+    final activeSigner = ref.read(Signer.activeSignerProvider);
+    if (activeSigner == null) {
+      throw Exception('No active signer found. Please sign in first.');
+    }
+
+    // Step 2: Create zap request
+    final zapRequest = PartialZapRequest();
+    zapRequest.amount = amountSats * 1000; // Convert to millisats
+    zapRequest.comment = comment ?? '';
+    zapRequest.relays = zapRelays;
+
+    // Link to recipient
+    zapRequest.linkProfileByPubkey(recipientPubkey);
+
+    // Link to model if provided
+    if (linkedModel != null) {
+      zapRequest.linkModel(linkedModel);
+    }
+
+    final signedZapRequest = await zapRequest.signWith(activeSigner);
+
+    // Step 3: Get recipient profile
+    final recipientProfileState = await storage.query(
+      RequestFilter<Profile>(authors: {recipientPubkey}).toRequest(),
+      source: LocalAndRemoteSource(),
+    );
+
+    if (recipientProfileState.isEmpty) {
+      throw Exception('Could not find recipient profile for Lightning invoice');
+    }
+
+    final recipientProfile = recipientProfileState.first;
+
+    // Step 4: Get Lightning invoice
+    final lightningInvoice = await recipientProfile.getLightningInvoice(
+      amountSats: amountSats,
+      comment: jsonEncode(signedZapRequest.toMap()),
+    );
+
+    if (lightningInvoice == null) {
+      throw Exception(
+        'Recipient does not support Lightning payments (no LNURL)',
+      );
+    }
+
+    return PayInvoiceCommand(invoice: lightningInvoice);
+  }
 
   @override
   String get method => NwcInfo.payInvoice;

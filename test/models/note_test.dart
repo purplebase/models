@@ -6,10 +6,15 @@ import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  setUpAll(() async {
+
+  setUp(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
+  });
+
+  tearDown(() async {
+    container.dispose();
   });
 
   group('Note', () {
@@ -22,7 +27,7 @@ void main() {
       final t = DateTime.parse('2024-07-26');
       final [signedNote, signedNote2] = await signer.sign<Note>([
         PartialNote('tr')..event.createdAt = t,
-        PartialNote('tr')..event.createdAt = t
+        PartialNote('tr')..event.createdAt = t,
       ]);
 
       expect(signedNote, signedNote2);
@@ -51,8 +56,9 @@ void main() {
       late Profile profile;
       late DummyStorageNotifier storage;
 
-      storage = container.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      storage =
+          container.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
@@ -70,16 +76,21 @@ void main() {
       expect(a.author.value, profile);
       expect(profile.notes.toList(), orderedEquals({a, b, c, d}));
 
-      final replyNote =
-          PartialNote('replying', replyTo: c).dummySign(franzapPubkey);
+      final replyNote = PartialNote(
+        'replying',
+        replyTo: c,
+      ).dummySign(franzapPubkey);
 
-      final replyToReplyNote =
-          PartialNote('replying to reply', replyTo: replyNote, root: c)
-              .dummySign(verbirichaPubkey);
+      final replyToReplyNote = PartialNote(
+        'replying to reply',
+        replyTo: replyNote,
+        root: c,
+      ).dummySign(verbirichaPubkey);
 
-      await container
-          .read(storageNotifierProvider.notifier)
-          .save({replyNote, replyToReplyNote});
+      await container.read(storageNotifierProvider.notifier).save({
+        replyNote,
+        replyToReplyNote,
+      });
 
       expect(c.isRoot, isTrue);
       expect(c.root.value, isNull);
@@ -90,23 +101,28 @@ void main() {
 
       expect(c.replyTo.value, isNull); // Root note has no replyTo
       expect(replyNote.replyTo.value, c); // Direct reply points to root
-      expect(replyToReplyNote.replyTo.value,
-          replyNote); // Nested reply points to immediate parent
+      expect(
+        replyToReplyNote.replyTo.value,
+        replyNote,
+      ); // Nested reply points to immediate parent
     });
 
     test('complex threading with root and reply markers', () async {
       late Note rootNote, intermediateNote, complexReplyNote;
       late DummyStorageNotifier storage;
 
-      storage = container.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      storage =
+          container.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
 
       // Create a root note
       rootNote = PartialNote('Root note content').dummySign(nielPubkey);
 
       // Create an intermediate note that replies to root
-      intermediateNote = PartialNote('Intermediate reply', replyTo: rootNote)
-          .dummySign(franzapPubkey);
+      intermediateNote = PartialNote(
+        'Intermediate reply',
+        replyTo: rootNote,
+      ).dummySign(franzapPubkey);
 
       await storage.save({rootNote, intermediateNote});
 
@@ -133,15 +149,23 @@ void main() {
 
       expect(complexReplyNote.isRoot, isFalse);
       expect(
-          complexReplyNote.root.value, rootNote); // Root marker points to root
-      expect(complexReplyNote.replyTo.value,
-          intermediateNote); // Reply marker points to intermediate
+        complexReplyNote.root.value,
+        rootNote,
+      ); // Root marker points to root
+      expect(
+        complexReplyNote.replyTo.value,
+        intermediateNote,
+      ); // Reply marker points to intermediate
 
       // Test the HasMany relationships
-      expect(rootNote.allReplies.toList(),
-          containsAll([intermediateNote, complexReplyNote]));
-      expect(intermediateNote.allReplies.toList(),
-          isEmpty); // No replies to intermediate
+      expect(
+        rootNote.allReplies.toList(),
+        containsAll([intermediateNote, complexReplyNote]),
+      );
+      expect(
+        intermediateNote.allReplies.toList(),
+        isEmpty,
+      ); // No replies to intermediate
     });
   });
 }

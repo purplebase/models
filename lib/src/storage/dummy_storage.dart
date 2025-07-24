@@ -3,152 +3,48 @@ part of models;
 /// Reactive storage with dummy data using internal relay backend
 class DummyStorageNotifier extends StorageNotifier {
   final Ref ref;
-  late MemoryStorage _relayStorage;
+  late NostrRelay _relay;
 
   DummyStorageNotifier(this.ref);
 
   final Map<RequestFilter, Timer> _streamingTimers = {};
-  final Map<RequestFilter, StreamSubscription> _streamingSubscriptions = {};
   final Set<String> _streamingRequestIds =
       {}; // Track which requests are streaming
+  final Map<String, ProviderSubscription> _relaySubscriptions = {};
 
   @override
   Future<void> initialize(StorageConfiguration config) async {
     if (isInitialized) return;
 
     await super.initialize(config);
-    _relayStorage = MemoryStorage();
+    _relay = ref.read(relayProvider);
     isInitialized = true;
-  }
-
-  /// Seeds the storage with a realistic dataset during initialization
-  Future<void> _seedStorage() async {
-    final r = Random();
-    final seededModels = <Model>{};
-
-    // Generate 20-50 profiles
-    final profiles = List.generate(
-      20 + r.nextInt(30),
-      (i) => generateProfile(),
-    );
-    seededModels.addAll(profiles);
-    final signer = DummySigner(ref, pubkey: profiles.first.pubkey);
-    await signer.signIn();
-
-    // Generate contact lists for some profiles
-    for (int i = 0; i < profiles.length ~/ 3; i++) {
-      final profile = profiles[i];
-      final follows = profiles
-          .where((p) => p.pubkey != profile.pubkey)
-          .take(r.nextInt(15))
-          .toSet();
-      final contactList = generateModel(
-        kind: 3,
-        pubkey: profile.pubkey,
-        pTags: follows.map((p) => p.pubkey).toSet(),
-      );
-      if (contactList != null) seededModels.add(contactList);
-    }
-
-    // Generate 200-500 notes with realistic timestamps (spread over last 7 days)
-    final noteCount = 200 + r.nextInt(300);
-    for (int i = 0; i < noteCount; i++) {
-      final author = profiles[r.nextInt(profiles.length)];
-      final createdAt = DateTime.now().subtract(
-        Duration(
-          minutes: r.nextInt(7 * 24 * 60), // Random time in last 7 days
-        ),
-      );
-      final note = generateModel(
-        kind: 1,
-        pubkey: author.pubkey,
-        createdAt: createdAt,
-      );
-      if (note != null) {
-        seededModels.add(note);
-
-        // Add some reactions to notes (10% chance)
-        if (r.nextDouble() < 0.1) {
-          final reactions = List.generate(r.nextInt(20), (j) {
-            final reactor = profiles[r.nextInt(profiles.length)];
-            return generateModel(
-              kind: 7,
-              parentId: note.event.id,
-              pubkey: reactor.pubkey,
-            );
-          }).whereType<Model>();
-          seededModels.addAll(reactions);
-        }
-
-        // Add some zaps to notes (5% chance)
-        if (r.nextDouble() < 0.05) {
-          final zaps = List.generate(r.nextInt(5), (j) {
-            final zapper = profiles[r.nextInt(profiles.length)];
-            return generateModel(
-              kind: 9735,
-              parentId: note.event.id,
-              pubkey: zapper.pubkey,
-            );
-          }).whereType<Model>();
-          seededModels.addAll(zaps);
-        }
-      }
-    }
-
-    // Store all seeded data
-    await _storeToRelay(seededModels);
-  }
-
-  /// Stores models in relay storage
-  Future<void> _storeToRelay(Iterable<Model<dynamic>> models) async {
-    for (final model in models) {
-      _relayStorage.storeEvent(model.event.toMap());
-    }
   }
 
   @override
   Future<bool> save(Set<Model<dynamic>> models) async {
-    // Store in relay storage
-    await _storeToRelay(models);
+    // Store using relay publish API
+    final eventMaps = models.map((model) => model.event.toMap()).toList();
+    final results = _relay.publish(eventMaps);
 
-    // Apply keepMaxModels limit if configured
-    if (config.keepMaxModels > 0) {
-      await _enforceMaxModelsLimit();
+    // Check if all succeeded
+    final allSucceeded = results.every((result) => result.startsWith('OK:'));
+
+    // Handle NWC requests by generating dummy responses (run in background)
+    for (final model in models) {
+      if (model.event.kind == 23194) {
+        _relay._handleNwcRequest(model.event.toMap());
+      }
     }
+
+    // Intentionally ignore config.keepMaxModels - dummy implementation don't care
 
     if (mounted && models.isNotEmpty) {
       final updatedIds = {for (final e in models) e.id};
       state = InternalStorageData(req: null, updatedIds: updatedIds);
     }
 
-    return true;
-  }
-
-  /// Enforces the keepMaxModels limit by removing the oldest events
-  Future<void> _enforceMaxModelsLimit() async {
-    final allEvents = _relayStorage.queryEvents([RequestFilter()]);
-    if (allEvents.length <= config.keepMaxModels) {
-      return; // No need to remove anything
-    }
-    // Sort events by created_at descending (newest first)
-    allEvents.sort((a, b) {
-      final aCreatedAt = DateTime.fromMillisecondsSinceEpoch(
-        (a['created_at'] as int) * 1000,
-      );
-      final bCreatedAt = DateTime.fromMillisecondsSinceEpoch(
-        (b['created_at'] as int) * 1000,
-      );
-      final timeComparison = bCreatedAt.compareTo(aCreatedAt);
-      if (timeComparison != 0) return timeComparison;
-      return (a['id'] as String).compareTo(b['id'] as String);
-    });
-    // Keep only the newest events up to the limit
-    final eventsToRemove = allEvents.skip(config.keepMaxModels).toList();
-    // Remove old events from storage
-    for (final event in eventsToRemove) {
-      final eventId = event['id'] as String;
-      _relayStorage.removeEvent(eventId);
-    }
+    return allSucceeded;
   }
 
   @override
@@ -156,13 +52,19 @@ class DummyStorageNotifier extends StorageNotifier {
     Set<Model<dynamic>> models, {
     RemoteSource source = const RemoteSource(),
   }) async {
+    // First save the models (this publishes to relay)
+    // TODO: This is fucking wrong
+    await save(models);
+
     final response = PublishResponse();
 
     if (models.isNotEmpty) {
       final relayUrls = config.getRelays(source: source);
       for (final relayUrl in relayUrls) {
-        final message = 'Fake publishing ${models.length} models to $relayUrl';
         for (final model in models) {
+          // Other events succeed as normal
+          final message =
+              'Fake publishing ${models.length} models to $relayUrl';
           response.addEvent(
             model.event.id,
             relayUrl: relayUrl,
@@ -182,7 +84,7 @@ class DummyStorageNotifier extends StorageNotifier {
   }) async {
     source ??= config.defaultQuerySource;
 
-    // Always start with local results
+    // Always start with local results from relay subscription
     final results = querySync(req);
 
     // For LocalSource, return only local results
@@ -196,6 +98,9 @@ class DummyStorageNotifier extends StorageNotifier {
       final requestId = req.toString();
       _streamingRequestIds.add(requestId);
 
+      // Set up reactive listening to relay subscription changes
+      _setupRelaySubscriptionListener(req);
+
       // Start streaming simulation for each filter
       for (final filter in req.filters) {
         _startStreamingForFilter(filter, source);
@@ -207,6 +112,38 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   List<E> querySync<E extends Model<dynamic>>(Request<E> req) {
+    // Create a subscription to get events from relay
+    final relayRequest = Request(
+      req.filters
+          .map(
+            (f) => RequestFilter(
+              ids: f.ids,
+              authors: f.authors,
+              kinds: f.kinds,
+              tags: f.tags,
+              since: f.since,
+              until: f.until,
+              limit: f.limit,
+              search: f.search,
+            ),
+          )
+          .toList(),
+    );
+
+    // Get subscription notifier (this creates the subscription)
+    final subscriptionNotifier = ref.read(
+      relaySubscriptionProvider(relayRequest),
+    );
+
+    // Get current events from the subscription
+    List<Map<String, dynamic>> relayEvents = subscriptionNotifier.events;
+
+    // If we have no events in subscription but relay has events,
+    // force a fresh query directly from relay storage
+    if (relayEvents.isEmpty && _relay.storage.eventCount > 0) {
+      relayEvents = _relay.storage.queryEvents(relayRequest.filters);
+    }
+
     final allResults = <E>[];
     final subId = req.subscriptionId;
     final isStreaming = _streamingRequestIds.contains(subId);
@@ -214,33 +151,25 @@ class DummyStorageNotifier extends StorageNotifier {
     for (final filter in req.filters) {
       // Handle replaceable IDs by converting them to regular filters
       final replaceableIds = filter.ids.where((id) => id.contains(':')).toSet();
-      final regularIds = filter.ids.difference(replaceableIds);
 
       List<E> results = [];
 
-      // Query for regular IDs
-      if (regularIds.isNotEmpty || filter.ids.isEmpty) {
-        final regularFilter = filter.copyWith(ids: regularIds);
-        // Remove limit from filter since we'll apply it manually
-        final filterNoLimit = regularFilter.copyWith(limit: null);
-        final relayEvents = _relayStorage.queryEvents([filterNoLimit]);
+      // Convert relay events to models
+      final models = relayEvents
+          .map((event) {
+            final constructor = Model.getConstructorForKind(event['kind']);
+            if (constructor == null) return null;
 
-        final models = relayEvents
-            .map((event) {
-              final constructor = Model.getConstructorForKind(event['kind']);
-              if (constructor == null) return null;
+            // Apply transformMap before constructing the model
+            final transformedEvent = _applyTransformMap(event, ref);
+            return constructor(transformedEvent, ref) as Model;
+          })
+          .whereType<E>()
+          .toList();
 
-              // Apply transformMap before constructing the model
-              final transformedEvent = _applyTransformMap(event, ref);
-              return constructor(transformedEvent, ref) as Model;
-            })
-            .whereType<E>()
-            .toList();
+      results.addAll(models);
 
-        results.addAll(models);
-      }
-
-      // Query for replaceable IDs (these are addressable IDs, not event IDs)
+      // Handle replaceable IDs (these are addressable IDs, not event IDs)
       if (replaceableIds.isNotEmpty) {
         for (final addressableId in replaceableIds) {
           // Parse addressable ID to get kind, pubkey, and d-tag
@@ -251,17 +180,23 @@ class DummyStorageNotifier extends StorageNotifier {
             final dTag = parts.length > 3 ? parts[3] : '';
 
             if (kind != null) {
-              final replaceableFilter = RequestFilter(
-                kinds: {kind},
-                authors: {pubkey},
-                tags: dTag.isNotEmpty
-                    ? {
-                        '#d': {dTag},
-                      }
-                    : null,
+              final replaceableRequest = Request([
+                RequestFilter(
+                  kinds: {kind},
+                  authors: {pubkey},
+                  tags: dTag.isNotEmpty
+                      ? {
+                          '#d': {dTag},
+                        }
+                      : null,
+                ),
+              ]);
+
+              // Query directly from relay storage for replaceable events
+              final events = _relay.storage.queryEvents(
+                replaceableRequest.filters,
               );
 
-              final events = _relayStorage.queryEvents([replaceableFilter]);
               final models = events
                   .map((event) {
                     final constructor = Model.getConstructorForKind(
@@ -308,12 +243,44 @@ class DummyStorageNotifier extends StorageNotifier {
     }
 
     // Remove duplicates while preserving order
+    // For replaceable events, deduplicate by addressable ID and keep the newest
     final seenIds = <String>{};
-    final finalResults = allResults.where((model) {
-      if (seenIds.contains(model.event.id)) return false;
-      seenIds.add(model.event.id);
-      return true;
-    }).toList();
+    final seenAddressableIds = <String, E>{};
+    final finalResults = <E>[];
+
+    for (final model in allResults) {
+      if (model is ReplaceableModel) {
+        final addressableId = model.id;
+        final existing = seenAddressableIds[addressableId];
+
+        if (existing == null) {
+          // First time seeing this addressable ID
+          seenAddressableIds[addressableId] = model;
+          finalResults.add(model);
+        } else {
+          // We've seen this addressable ID before, keep the newer one
+          if (model.event.createdAt.isAfter(existing.event.createdAt) ||
+              (model.event.createdAt == existing.event.createdAt &&
+                  model.event.id.compareTo(existing.event.id) > 0)) {
+            // Replace the existing model with the newer one
+            final index = finalResults.indexOf(existing);
+            if (index != -1) {
+              finalResults[index] = model;
+            }
+            seenAddressableIds[addressableId] = model;
+          }
+          // If existing is newer, keep it and don't add the current model
+        }
+      } else {
+        // For non-replaceable events, use the regular event ID deduplication
+        if (!seenIds.contains(model.event.id)) {
+          seenIds.add(model.event.id);
+          finalResults.add(model);
+        } else {
+          // Already seen this event ID, skip it
+        }
+      }
+    }
 
     return finalResults;
   }
@@ -327,11 +294,61 @@ class DummyStorageNotifier extends StorageNotifier {
     return event;
   }
 
+  /// Set up reactive listening to relay subscription for streaming queries
+  void _setupRelaySubscriptionListener<E extends Model<dynamic>>(
+    Request<E> req,
+  ) {
+    final requestKey = req.toString();
+
+    // Avoid duplicate subscriptions
+    if (_relaySubscriptions.containsKey(requestKey)) {
+      return;
+    }
+
+    // Create relay request
+    final relayRequest = Request(
+      req.filters
+          .map(
+            (f) => RequestFilter(
+              ids: f.ids,
+              authors: f.authors,
+              kinds: f.kinds,
+              tags: f.tags,
+              since: f.since,
+              until: f.until,
+              limit: f.limit,
+              search: f.search,
+            ),
+          )
+          .toList(),
+    );
+
+    // Listen to relay subscription changes
+    final subscription = ref.listen(relaySubscriptionProvider(relayRequest), (
+      previous,
+      current,
+    ) {
+      // Only notify if we have new events and are still mounted
+      if (mounted &&
+          current.events.isNotEmpty &&
+          (previous == null ||
+              current.events.length > previous.events.length)) {
+        // Trigger a state update to notify listeners
+        final updatedIds = <String>{};
+        for (final event in current.events) {
+          updatedIds.add(event['id'] as String);
+        }
+        state = InternalStorageData(req: null, updatedIds: updatedIds);
+      }
+    });
+
+    _relaySubscriptions[requestKey] = subscription;
+  }
+
   /// Starts streaming simulation for a specific filter
   void _startStreamingForFilter(RequestFilter filter, RemoteSource source) {
     // Cancel existing streaming for this filter
     _streamingTimers[filter]?.cancel();
-    _streamingSubscriptions[filter]?.cancel();
 
     // For tests (when streamingBufferWindow is Duration.zero),
     // simulate streaming with immediate single model additions
@@ -354,20 +371,8 @@ class DummyStorageNotifier extends StorageNotifier {
       final r = Random();
       // 30% chance to generate a new event each interval
       if (r.nextDouble() < 0.3) {
-        final newModels = <Model>{};
-
-        // Generate 1-3 new events that match the filter
-        final eventCount = 1 + r.nextInt(3);
-        for (int i = 0; i < eventCount; i++) {
-          final model = _generateModelMatchingFilter(filter);
-          if (model != null) {
-            newModels.add(model);
-          }
-        }
-
-        if (newModels.isNotEmpty) {
-          await save(newModels);
-        }
+        // Note: In real implementation, this would receive events from external sources
+        // For now, we don't generate fake streaming data - that should come from test utilities
       }
     });
   }
@@ -387,76 +392,78 @@ class DummyStorageNotifier extends StorageNotifier {
         return;
       }
       count++;
-      // Add one model per tick
-      final baseModel = _generateModelMatchingFilter(filter);
-      if (baseModel != null) {
-        // Create a new model with a newer timestamp by calling the generator directly
-        final newerTimestamp = DateTime.now();
-        // Find the right pubkey from the filter
-        final pubkey = filter.authors.isNotEmpty
-            ? filter.authors.first
-            : baseModel.event.pubkey;
-        final newerModel = generateModel(
-          kind: baseModel.event.kind,
-          pubkey: pubkey,
-          createdAt: newerTimestamp,
-        );
-        if (newerModel != null) {
-          await save({newerModel});
-        }
-      }
+      // Note: In real implementation, this would receive events from external sources
+      // For now, we don't generate fake streaming data - that should come from test utilities
     });
     _streamingTimers[filter] = timer;
-  }
-
-  /// Generates a new model that would match the given filter
-  Model? _generateModelMatchingFilter(RequestFilter filter) {
-    final r = Random();
-
-    // Pick a kind from the filter, or use a common kind
-    final kinds = filter.kinds.isNotEmpty ? filter.kinds : {1, 7, 9735};
-    final kind = kinds.elementAt(r.nextInt(kinds.length));
-
-    // Pick an author from the filter, or generate random
-    String? pubkey;
-    if (filter.authors.isNotEmpty) {
-      pubkey = filter.authors.elementAt(r.nextInt(filter.authors.length));
-    }
-
-    return generateModel(kind: kind, pubkey: pubkey, createdAt: DateTime.now());
   }
 
   @override
   Future<void> clear([Request? req]) async {
     if (req == null) {
-      _relayStorage.clear();
+      // Clear all events
+      _relay.deleteEvents();
+
+      // Cancel all streaming timers
+      for (final timer in _streamingTimers.values) {
+        timer.cancel();
+      }
+      _streamingTimers.clear();
+      _streamingRequestIds.clear();
+
+      // Dispose all relay subscriptions
+      for (final subscription in _relaySubscriptions.values) {
+        subscription.close();
+      }
+      _relaySubscriptions.clear();
+
+      // Notify of state change
+      if (mounted) {
+        state = InternalStorageData(req: null, updatedIds: <String>{});
+      }
       return;
     }
 
-    // Query matching events and remove them by clearing and re-adding others
-    final modelsToRemove = querySync(req).toSet();
-    final allEvents = _relayStorage.queryEvents([RequestFilter()]);
-    final eventsToKeep = allEvents.where((event) {
-      final constructor = Model.getConstructorForKind(event['kind']);
-      if (constructor == null) return true;
+    // Query matching events and remove them by ID
+    final matchingModels = querySync(req);
+    final eventIdsToDelete = matchingModels
+        .map((model) => model.event.id)
+        .toSet();
 
-      // Apply transformMap before constructing the model
-      final transformedEvent = _applyTransformMap(event, ref);
-      final model = constructor(transformedEvent, ref) as Model;
-      return !modelsToRemove.contains(model);
-    }).toList();
+    if (eventIdsToDelete.isNotEmpty) {
+      _relay.deleteEvents(eventIdsToDelete);
 
-    // Clear and re-add events we want to keep
-    _relayStorage.clear();
-    for (final event in eventsToKeep) {
-      _relayStorage.storeEvent(event);
+      // Force refresh of all subscription caches by disposing and recreating them
+      final subscriptionsToRecreate = <String, Request>{};
+      for (final entry in _relaySubscriptions.entries) {
+        final requestKey = entry.key;
+        final subscription = entry.value;
+
+        // Find the original request for this subscription
+        // We need to extract it from the subscription state
+        // For now, we'll just dispose the subscription and let it be recreated on next query
+        subscription.close();
+        subscriptionsToRecreate[requestKey] = Request([RequestFilter()]);
+      }
+      _relaySubscriptions.clear();
+
+      // Clear streaming state for deleted events
+      final updatedIds = <String>{};
+      for (final id in eventIdsToDelete) {
+        updatedIds.add(id);
+      }
+
+      // Force a state update to trigger re-queries
+      if (mounted) {
+        state = InternalStorageData(req: null, updatedIds: updatedIds);
+      }
     }
   }
 
   @override
   Future<void> obliterate() async {
-    // TODO: Implement - there should be an in-memory storage representation
-    // This is pulling from the in-memory relay, which is not the same, fix
+    // Same as clear with no request - delete all events
+    await clear();
   }
 
   @override
@@ -465,102 +472,13 @@ class DummyStorageNotifier extends StorageNotifier {
       for (final timer in _streamingTimers.values) {
         timer.cancel();
       }
-      for (final sub in _streamingSubscriptions.values) {
-        sub.cancel();
-      }
       _streamingTimers.clear();
-      _streamingSubscriptions.clear();
       return;
     }
 
     for (final filter in req.filters) {
       _streamingTimers[filter]?.cancel();
       _streamingTimers.remove(filter);
-      _streamingSubscriptions[filter]?.cancel();
-      _streamingSubscriptions.remove(filter);
     }
-  }
-
-  /// Generates a fake profile
-  Profile generateProfile([String? pubkey]) {
-    return PartialProfile(
-      name: faker.person.name(),
-      nip05: faker.internet.freeEmail(),
-      pictureUrl: faker.internet.httpsUrl(),
-    ).dummySign(pubkey);
-  }
-
-  /// Generates a fake model, supported kinds: 0, 1, 3, 7, 9735
-  Model? generateModel({
-    required int kind,
-    String? parentId,
-    String? pubkey,
-    DateTime? createdAt,
-    Set<String> pTags = const {},
-  }) {
-    pubkey ??= Utils.generateRandomHex64();
-    return switch (kind) {
-      0 => generateProfile(),
-      1 => PartialNote(
-        faker.lorem.sentence(),
-        createdAt: createdAt,
-      ).dummySign(pubkey),
-      3 => PartialContactList(followPubkeys: pTags).dummySign(pubkey),
-      7 =>
-        parentId == null
-            ? null
-            : (PartialReaction()..event.addTag('e', [parentId])).dummySign(),
-      9 => PartialChatMessage(faker.lorem.sentence()).dummySign(pubkey),
-      9735 =>
-        parentId != null
-            ? Zap.fromMap(
-                _sampleZap(zapperPubkey: pubkey, eventId: parentId),
-                ref,
-              )
-            : null,
-      _ => null,
-    };
-  }
-
-  /// Generate a feed with related models for [pubkey] (backwards compatibility)
-  Future<void> generateFeed([String? pubkey]) async {
-    await _seedStorage();
   }
 }
-
-_sampleZap({required String zapperPubkey, required String eventId}) =>
-    jsonDecode('''
-{
-        "content": "✨",
-        "created_at": ${DateTime.now().millisecondsSinceEpoch ~/ 1000},
-        "id": "${Utils.generateRandomHex64()}",
-        "kind": 9735,
-        "pubkey": "79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe8f04a9f5f67e4a3c1cc",
-        "tags": [
-            [
-                "p",
-                "20651ab8c2fb1febca56b80deba14630af452bdce64fe8f04a9f5f67e4a3c1cc"
-            ],
-            [
-                "e",
-                "$eventId"
-            ],
-            [
-                "P",
-                "$zapperPubkey"
-            ],
-            [
-                "bolt11",
-                "lnbc210n1pnl48jjxqrrsspqqsqqdpvta04q5jff4q5ch6ffe2y25jwg9x97j2w2e85js69ta0s29da748s3yt4frxt8t4z62h3l3g2dlu6tynlefsjffdhn45dr84h3my9h4t7ety4s7awnlkl89p26tkq4jkc3z54ufjmwg96ddjtk7spnl55zu"
-            ],
-            [
-                "preimage",
-                "986393670e035a9c131353a796fc2a0fb9f09e6112ca3c89a4f00f9dd2356afb"
-            ],
-            [
-                "description",
-                                 "{\\"id\\":\\"50dd637e30455a6dd6e1c9159c58b2cba31c75df29a5806162b813b3d93fe13d\\",\\"sig\\":\\"b86c1e09139e0367d9ed985beb14995efb3025eb68c8a56045ce2a2a35639d8f4187acae78c022532801fb068cf3560dcab12497f6d2a9376978c9bde35b15cd\\",\\"pubkey\\":\\"97f848adcc4c6276685fe48426de5614887c8a51ada0468cec71fba938272911\\",\\"created_at\\":1744474327,\\"kind\\":9734,\\"tags\\":[[\\"relays\\",\\"wss://relay.primal.net\\"],[\\"amount\\",\\"21000\\"],[\\"p\\",\\"20651ab8c2fb1febca56b80deba14630af452bdce64fe8f04a9f5f67e4a3c1cc\\"],[\\"e\\",\\"7abbce7aa0c5cd430efd627bbe5b5908de48db5cec5742f694befe38b34bce9f\\"]],\\"content\\":\\"✨\\"}"
-            ]
-        ]
-    }
-''');

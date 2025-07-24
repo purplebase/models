@@ -8,11 +8,15 @@ void main() {
   late ProviderContainer container;
   late Ref ref;
 
-  setUpAll(() async {
+  setUp(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
     ref = container.read(refProvider);
+  });
+
+  tearDown(() async {
+    container.dispose();
   });
 
   group('NwcInfo', () {

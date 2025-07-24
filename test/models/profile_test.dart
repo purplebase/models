@@ -11,7 +11,7 @@ void main() {
   late Ref ref;
   late DummyStorageNotifier storage;
 
-  setUpAll(() async {
+  setUp(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
@@ -19,6 +19,12 @@ void main() {
     storage =
         container.read(storageNotifierProvider.notifier)
             as DummyStorageNotifier;
+  });
+
+  tearDown(() async {
+    await storage.cancel();
+    await storage.clear();
+    container.dispose();
   });
 
   group('Profile & ContactList', () {

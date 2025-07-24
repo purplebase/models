@@ -8,12 +8,19 @@ void main() {
   late ProviderContainer container;
   late DummyStorageNotifier storage;
 
-  setUpAll(() async {
+  setUp(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
-    storage = container.read(storageNotifierProvider.notifier)
-        as DummyStorageNotifier;
+    storage =
+        container.read(storageNotifierProvider.notifier)
+            as DummyStorageNotifier;
+  });
+
+  tearDown(() async {
+    await storage.cancel();
+    await storage.clear();
+    container.dispose();
   });
 
   group('Comment', () {
@@ -78,8 +85,10 @@ void main() {
       // Test nested comment (reply to comment)
       expect(nestedComment.content, 'Reply to the article comment');
       expect(nestedComment.rootModel.value, article); // Same root as parent
-      expect(nestedComment.parentModel.value,
-          articleComment); // Parent is the first comment
+      expect(
+        nestedComment.parentModel.value,
+        articleComment,
+      ); // Parent is the first comment
       expect(nestedComment.rootKind, article.event.kind);
       expect(nestedComment.parentKind, 1111); // Parent kind is 1111 (Comment)
       expect(nestedComment.rootAuthor.value, article.author.value);
@@ -88,11 +97,14 @@ void main() {
       // Test relationship from article to comments
       final commentFromArticle = await container
           .read(storageNotifierProvider.notifier)
-          .query(RequestFilter(kinds: {
-            1111
-          }, tags: {
-            '#A': {article.id}
-          }).toRequest());
+          .query(
+            RequestFilter(
+              kinds: {1111},
+              tags: {
+                '#A': {article.id},
+              },
+            ).toRequest(),
+          );
 
       expect(commentFromArticle, contains(articleComment));
 
@@ -109,9 +121,13 @@ void main() {
       await storage.save({externalComment});
 
       expect(
-          externalComment.externalRootUri, 'https://example.com/article/123');
+        externalComment.externalRootUri,
+        'https://example.com/article/123',
+      );
       expect(
-          externalComment.externalParentUri, 'https://example.com/article/123');
+        externalComment.externalParentUri,
+        'https://example.com/article/123',
+      );
     });
   });
 }

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:args/args.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:models/models.dart';
 
 void main(List<String> arguments) async {
@@ -31,7 +32,13 @@ void main(List<String> arguments) async {
     final port = int.parse(results['port'] as String);
     final host = results['host'] as String;
 
-    final relay = NostrRelay(port: port, host: host);
+    final container = ProviderContainer();
+
+    final relay = NostrRelay(
+      port: port,
+      host: host,
+      ref: container.read(refProvider),
+    );
 
     // Handle shutdown gracefully
     ProcessSignal.sigint.watch().listen((signal) async {
@@ -45,6 +52,7 @@ void main(List<String> arguments) async {
 
     // Keep the process alive
     await ProcessSignal.sigint.watch().first;
+    container.dispose();
   } catch (e) {
     print('Error: $e');
     print('\nUsage: dart_relay [options]');
@@ -52,3 +60,5 @@ void main(List<String> arguments) async {
     exit(1);
   }
 }
+
+final refProvider = Provider((ref) => ref);

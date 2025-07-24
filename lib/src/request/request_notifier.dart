@@ -116,18 +116,20 @@ class RequestNotifier<E extends Model<dynamic>>
 
     if (!mounted) return;
 
-    // Handle replaceable events: remove old models with same addressable ID
+    // Handle duplicates: remove existing models that are being replaced by new models
     final existingModels = state.models.toList();
     final modelsToKeep = <E>[];
 
     for (final existingModel in existingModels) {
-      // Check if any new model has the same addressable ID as this existing model
-      final hasReplacement = newModels.any(
-        (newModel) =>
-            newModel is ReplaceableModel &&
-            existingModel is ReplaceableModel &&
-            newModel.id == existingModel.id,
-      );
+      // Check if any new model replaces this existing model
+      final hasReplacement = newModels.any((newModel) {
+        // For replaceable models, check addressable ID
+        if (newModel is ReplaceableModel && existingModel is ReplaceableModel) {
+          return newModel.id == existingModel.id;
+        }
+        // For regular models, check event ID to avoid duplicates
+        return newModel.event.id == existingModel.event.id;
+      });
 
       if (!hasReplacement) {
         modelsToKeep.add(existingModel);
@@ -137,6 +139,7 @@ class RequestNotifier<E extends Model<dynamic>>
     // Combine kept models with new models and sort
     // Put them in a Set to remove duplicates, new models take precedence
     final sortedModels = {...newModels, ...modelsToKeep}.sortByCreatedAt();
+
     if (mounted) {
       state = StorageData(sortedModels);
     }

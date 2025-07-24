@@ -6,10 +6,14 @@ import 'helpers.dart';
 void main() {
   late ProviderContainer container;
 
-  setUpAll(() async {
+  setUp(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
+  });
+
+  tearDown(() async {
+    container.dispose();
   });
 
   group('CustomData', () {

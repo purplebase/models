@@ -75,7 +75,11 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       constructor: ZapRequest.fromMap,
       partialConstructor: PartialZapRequest.fromMap,
     );
-    Model.register(kind: 9735, constructor: Zap.fromMap);
+    Model.register(
+      kind: 9735,
+      constructor: Zap.fromMap,
+      partialConstructor: PartialZap.fromMap,
+    );
     Model.register(
       kind: 9802,
       constructor: Highlight.fromMap,

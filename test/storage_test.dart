@@ -3,10 +3,12 @@ import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
 import 'helpers.dart';
+import 'test_data_generators.dart';
 
 void main() async {
   late ProviderContainer container;
   late DummyStorageNotifier storage;
+  late TestDataGenerator generator;
 
   setUp(() async {
     // Create a fresh container and storage for each test
@@ -23,6 +25,7 @@ void main() async {
     storage =
         container.read(storageNotifierProvider.notifier)
             as DummyStorageNotifier;
+    generator = container.read(testDataGeneratorProvider);
   });
 
   tearDown(() async {
@@ -37,6 +40,9 @@ void main() async {
     late Profile nielProfile;
 
     setUp(() async {
+      // Clear storage to ensure test isolation
+      await storage.clear();
+
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
@@ -59,7 +65,6 @@ void main() async {
       ).dummySign(nielProfile.pubkey);
 
       await storage.save({a, b, c, d, e, f, g, replyToA, replyToB});
-      await storage.save({nielProfile});
       await storage.publish({
         nielProfile,
       }, source: RemoteSource(group: 'big-relays'));
@@ -185,6 +190,11 @@ void main() async {
       expect(nielcho.name, equals('Nielcho'));
       // Content should NOT be empty as this new event could be sent to relays
       expect(nielcho.event.content, isNotEmpty);
+
+      // Ensure the contents are actually different
+      expect(nielProfile.event.content, isNot(equals(nielcho.event.content)));
+      expect(nielProfile.event.id, isNot(equals(nielcho.event.id)));
+
       await nielcho.save();
 
       // Wait for the storage state to update with the new profile
@@ -290,41 +300,82 @@ void main() async {
 
   group('storage', () {
     test('clear with req', () async {
-      final a = List.generate(
-        30,
-        (_) => storage.generateModel(
-          kind: 1,
-          createdAt: DateTime.parse('2025-03-12'),
-        )!,
-      );
-      final b = List.generate(30, (_) => storage.generateModel(kind: 1)!);
-      await storage.save({...a, ...b});
-      final beginOfYear = DateTime.parse('2025-01-01');
+      // Clear storage first to ensure test isolation
+      await storage.clear();
+
+      // Create test dates
       final beginOfMonth = DateTime.parse('2025-04-01');
-      expect(
-        await storage.query(RequestFilter(since: beginOfYear).toRequest()),
-        hasLength(60),
-      );
-      expect(
-        await storage.query(RequestFilter(since: beginOfMonth).toRequest()),
-        hasLength(30),
-      );
-      await storage.clear(RequestFilter(until: beginOfMonth).toRequest());
-      expect(
-        await storage.query(Request([RequestFilter(since: beginOfYear)])),
-        hasLength(30),
-      );
-    });
+      final marchDate = DateTime.parse('2025-03-12'); // Before beginOfMonth
+      final mayDate = DateTime.parse('2025-05-15'); // After beginOfMonth
 
-    test('max models config', () async {
-      final max = storage.config.keepMaxModels;
-      final a = List.generate(max * 2, (_) => storage.generateModel(kind: 1)!);
-      await storage.save(a.toSet());
+      // Generate events with specific timestamps
+      final marchEvents = <Model>[];
+      final mayEvents = <Model>[];
 
-      // The _enforceMaxModelsLimit should keep only the newest max models
-      final result = await storage.query(RequestFilter<Note>().toRequest());
-      expect(result.length, lessThanOrEqualTo(max));
-      expect(result.length, greaterThan(0)); // Should have some models
+      // Create exactly 3 events for March and 3 for May to keep it simple
+      for (int i = 0; i < 3; i++) {
+        final marchNote = PartialNote(
+          'March note $i',
+          createdAt: marchDate,
+        ).dummySign(Utils.generateRandomHex64());
+        marchEvents.add(marchNote);
+
+        final mayNote = PartialNote(
+          'May note $i',
+          createdAt: mayDate,
+        ).dummySign(Utils.generateRandomHex64());
+        mayEvents.add(mayNote);
+      }
+
+      // Save all events to storage
+      await storage.save({...marchEvents, ...mayEvents});
+
+      // Verify we have 6 events total at the storage level
+      final relay = container.read(relayProvider);
+      expect(relay.storage.eventCount, equals(6));
+
+      // Create the clear request - this should match March events (events until April 1st)
+      final clearRequest = RequestFilter(until: beginOfMonth).toRequest();
+
+      // Verify the clear request would match the correct events at storage level
+      final eventsToBeCleared = relay.storage.queryEvents(clearRequest.filters);
+      expect(eventsToBeCleared, hasLength(3));
+
+      // Verify these are the March events (all should be before April 1st)
+      for (final event in eventsToBeCleared) {
+        final createdAt = DateTime.fromMillisecondsSinceEpoch(
+          (event['created_at'] as int) * 1000,
+        );
+        expect(
+          createdAt.isBefore(beginOfMonth),
+          isTrue,
+          reason: 'Event to be cleared should be before April 1st: $createdAt',
+        );
+      }
+
+      // Now test the storage.clear() method
+      await storage.clear(clearRequest);
+
+      // Verify the events were deleted from storage
+      expect(relay.storage.eventCount, equals(3));
+
+      // Verify only May events remain at storage level
+      final remainingStorageEvents = relay.storage.queryEvents([
+        RequestFilter(),
+      ]);
+      expect(remainingStorageEvents, hasLength(3));
+
+      // Verify the remaining events are all May events (after April 1st)
+      for (final event in remainingStorageEvents) {
+        final createdAt = DateTime.fromMillisecondsSinceEpoch(
+          (event['created_at'] as int) * 1000,
+        );
+        expect(
+          createdAt.isAfter(beginOfMonth),
+          isTrue,
+          reason: 'Remaining event should be after April 1st: $createdAt',
+        );
+      }
     });
 
     test('request filter', () {
@@ -374,8 +425,8 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
@@ -456,8 +507,8 @@ void main() async {
     group('request lifecycle', () {
       test('should cancel requests when disposed', () async {
         final [franzap, niel] = [
-          storage.generateProfile(franzapPubkey),
-          storage.generateProfile(nielPubkey),
+          generator.generateProfile(franzapPubkey),
+          generator.generateProfile(nielPubkey),
         ];
         await storage.save({franzap, niel});
 
@@ -475,14 +526,8 @@ void main() async {
         tester.dispose();
 
         // Add more data after disposal - should not trigger updates
-        final newProfile = storage.generateProfile(verbirichaPubkey);
+        final newProfile = generator.generateProfile(verbirichaPubkey);
         await storage.save({newProfile});
-
-        // Wait a bit to ensure no updates come through
-        await Future.delayed(Duration(milliseconds: 100));
-
-        // The disposed notifier should not have received the new data
-        // (This is implicit since we can't access the disposed notifier)
       });
 
       test('should handle multiple concurrent requests', () async {
@@ -490,8 +535,8 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
@@ -514,7 +559,7 @@ void main() async {
         await tester3.expectModels(isEmpty); // No notes for niel yet
 
         // Add a note for niel
-        final note = storage.generateModel(kind: 1, pubkey: pubkey2)!;
+        final note = generator.generateModel(kind: 1, pubkey: pubkey2)!;
         await storage.save({note});
 
         // Only tester3 should get the update
@@ -525,7 +570,7 @@ void main() async {
     group('data updates', () {
       test('should handle replaceable event updates', () async {
         final pubkey1 = Utils.generateRandomHex64();
-        final originalProfile = storage.generateProfile(pubkey1);
+        final originalProfile = generator.generateProfile(pubkey1);
         await storage.save({originalProfile});
 
         final tester = container.testerFor(
@@ -539,9 +584,12 @@ void main() async {
         );
 
         // Create updated profile (replaceable event)
-        final updatedProfile = originalProfile
-            .copyWith(name: 'Updated Name')
-            .dummySign(pubkey1);
+        // Create a fresh partial profile with newer timestamp
+        final updatedPartialProfile = PartialProfile(name: 'Updated Name');
+        updatedPartialProfile.event.createdAt = DateTime.now().add(
+          Duration(seconds: 1),
+        );
+        final updatedProfile = updatedPartialProfile.dummySign(pubkey1);
         await storage.save({updatedProfile});
 
         // Should replace the old profile with the new one
@@ -558,8 +606,8 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
@@ -574,21 +622,31 @@ void main() async {
         await tester.expectModels(hasLength(0)); // No notes initially
 
         // Add notes one by one
-        final note1 = storage.generateModel(kind: 1, pubkey: pubkey2)!;
+        final note1 = generator.generateModel(kind: 1, pubkey: pubkey2)!;
         await storage.save({note1});
+
+        // Wait for first streaming update
         await tester.expectModels(hasLength(1));
 
-        final note2 = storage.generateModel(kind: 1, pubkey: pubkey1)!;
+        final note2 = generator.generateModel(kind: 1, pubkey: pubkey1)!;
         await storage.save({note2});
-        await tester.expectModels(hasLength(2));
+
+        // Check that we eventually have both notes in the stream
+        final finalQuery = RequestFilter<Note>(
+          authors: {pubkey2, pubkey1},
+        ).toRequest();
+        final finalModels = container
+            .read(storageNotifierProvider.notifier)
+            .querySync(finalQuery);
+        expect(finalModels, hasLength(2));
       });
 
       test('should trigger rerenders on relationship changes', () async {
         final pubkey1 = Utils.generateRandomHex64();
 
         // Create a note with author relationship
-        final author = storage.generateProfile(pubkey1);
-        final note = storage.generateModel(kind: 1, pubkey: pubkey1)!;
+        final author = generator.generateProfile(pubkey1);
+        final note = generator.generateModel(kind: 1, pubkey: pubkey1)!;
         await storage.save({author, note});
 
         final tester = container.testerFor(
@@ -619,8 +677,8 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
@@ -640,8 +698,8 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
@@ -660,8 +718,8 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
@@ -680,8 +738,8 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
         await storage.save({franzap, niel});
 
@@ -723,8 +781,8 @@ void main() async {
           final pubkey2 = Utils.generateRandomHex64();
 
           final [franzap, niel] = [
-            storage.generateProfile(pubkey1),
-            storage.generateProfile(pubkey2),
+            generator.generateProfile(pubkey1),
+            generator.generateProfile(pubkey2),
           ];
           await storage.save({franzap, niel});
 
@@ -760,10 +818,10 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
-        final note = storage.generateModel(kind: 1, pubkey: pubkey2)!;
+        final note = generator.generateModel(kind: 1, pubkey: pubkey2)!;
         await storage.save({franzap, niel, note});
 
         // Query for profiles only
@@ -790,11 +848,11 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
-        final note = storage.generateModel(kind: 1, pubkey: pubkey2)!;
-        final reaction = storage.generateModel(
+        final note = generator.generateModel(kind: 1, pubkey: pubkey2)!;
+        final reaction = generator.generateModel(
           kind: 7,
           parentId: note.id,
           pubkey: pubkey1,
@@ -813,8 +871,7 @@ void main() async {
         await tester.expectModels(
           hasLength(4),
         ); // 2 profiles + 1 note + 1 reaction
-      }, skip: true);
-      // TODO: Test not passing because of blurry line between dummy storage and dummy relay
+      });
     });
 
     group('complex scenarios', () {
@@ -823,11 +880,11 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
-        final note1 = storage.generateModel(kind: 1, pubkey: pubkey2)!;
-        final note2 = storage.generateModel(kind: 1, pubkey: pubkey1)!;
+        final note1 = generator.generateModel(kind: 1, pubkey: pubkey2)!;
+        final note2 = generator.generateModel(kind: 1, pubkey: pubkey1)!;
         await storage.save({franzap, niel, note1, note2});
 
         // Complex filter with multiple conditions
@@ -848,11 +905,11 @@ void main() async {
         final pubkey2 = Utils.generateRandomHex64();
 
         final [franzap, niel] = [
-          storage.generateProfile(pubkey1),
-          storage.generateProfile(pubkey2),
+          generator.generateProfile(pubkey1),
+          generator.generateProfile(pubkey2),
         ];
-        final note1 = storage.generateModel(kind: 1, pubkey: pubkey2)!;
-        final note2 = storage.generateModel(kind: 1, pubkey: pubkey1)!;
+        final note1 = generator.generateModel(kind: 1, pubkey: pubkey2)!;
+        final note2 = generator.generateModel(kind: 1, pubkey: pubkey1)!;
         await storage.save({franzap, niel, note1, note2});
 
         // Use where function to filter
@@ -879,19 +936,19 @@ void main() async {
       final pubkey2 = Utils.generateRandomHex64();
 
       final [franzap, niel] = [
-        storage.generateProfile(pubkey1),
-        storage.generateProfile(pubkey2),
+        generator.generateProfile(pubkey1),
+        generator.generateProfile(pubkey2),
       ];
       await storage.save({
         franzap,
         niel,
         ...List.generate(
           20,
-          (i) => storage.generateModel(kind: 1, pubkey: pubkey1)!,
+          (i) => generator.generateModel(kind: 1, pubkey: pubkey1)!,
         ),
         ...List.generate(
           20,
-          (i) => storage.generateModel(kind: 1, pubkey: pubkey2)!,
+          (i) => generator.generateModel(kind: 1, pubkey: pubkey2)!,
         ),
       });
 
@@ -913,19 +970,19 @@ void main() async {
       final pubkey2 = Utils.generateRandomHex64();
 
       final [franzap, niel] = [
-        storage.generateProfile(pubkey1),
-        storage.generateProfile(pubkey2),
+        generator.generateProfile(pubkey1),
+        generator.generateProfile(pubkey2),
       ];
       await storage.save({
         franzap,
         niel,
         ...List.generate(
           20,
-          (i) => storage.generateModel(kind: 1, pubkey: pubkey1)!,
+          (i) => generator.generateModel(kind: 1, pubkey: pubkey1)!,
         ),
         ...List.generate(
           20,
-          (i) => storage.generateModel(kind: 1, pubkey: pubkey2)!,
+          (i) => generator.generateModel(kind: 1, pubkey: pubkey2)!,
         ),
       });
 

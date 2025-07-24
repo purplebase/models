@@ -10,7 +10,6 @@ import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'dart:convert';
-import 'package:faker/faker.dart';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:bip340/bip340.dart' as bip340;

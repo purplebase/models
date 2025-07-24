@@ -8,10 +8,14 @@ import '../helpers.dart';
 void main() {
   late ProviderContainer container;
 
-  setUpAll(() async {
+  setUp(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
+  });
+
+  tearDown(() async {
+    container.dispose();
   });
 
   group('Repost Tests', () {
@@ -23,7 +27,8 @@ void main() {
       // Create a repost of the note
       final repost = PartialRepost(
         content: jsonEncode(
-            signedNote.toMap()), // NIP-18: content should be stringified JSON
+          signedNote.toMap(),
+        ), // NIP-18: content should be stringified JSON
         repostedNote: signedNote,
         relayUrl: 'wss://relay.example.com',
       );
@@ -54,8 +59,10 @@ void main() {
       final signedNoteToReactTo = noteToReactTo.dummySign(franzapPubkey);
 
       // Create a reaction to repost (any non-kind-1 event)
-      final originalReaction =
-          PartialReaction(content: '+', reactedOn: signedNoteToReactTo);
+      final originalReaction = PartialReaction(
+        content: '+',
+        reactedOn: signedNoteToReactTo,
+      );
       final signedReaction = originalReaction.dummySign(nielPubkey);
 
       // Create a generic repost of the reaction
@@ -71,8 +78,10 @@ void main() {
       expect(signedGenericRepost.event.kind, equals(16));
       expect(signedGenericRepost.content, isNotEmpty);
       expect(signedGenericRepost.repostedEventId, equals(signedReaction.id));
-      expect(signedGenericRepost.repostedEventPubkey,
-          equals(signedReaction.event.pubkey));
+      expect(
+        signedGenericRepost.repostedEventPubkey,
+        equals(signedReaction.event.pubkey),
+      );
       expect(signedGenericRepost.repostedEventKind, equals(7));
       expect(signedGenericRepost.relayUrl, equals('wss://relay.example.com'));
 
@@ -103,9 +112,10 @@ void main() {
       final signedRepost = repost.dummySign(verbirichaPubkey);
 
       // Save both to storage
-      await container
-          .read(storageNotifierProvider.notifier)
-          .save({signedNote, signedRepost});
+      await container.read(storageNotifierProvider.notifier).save({
+        signedNote,
+        signedRepost,
+      });
 
       // Verify the repost can find the original note
       expect(signedRepost.repostedNote.value, equals(signedNote));
@@ -120,8 +130,10 @@ void main() {
       final signedNoteToReactTo = noteToReactTo.dummySign(franzapPubkey);
 
       // Create a reaction
-      final originalReaction =
-          PartialReaction(content: '❤️', reactedOn: signedNoteToReactTo);
+      final originalReaction = PartialReaction(
+        content: '❤️',
+        reactedOn: signedNoteToReactTo,
+      );
       final signedReaction = originalReaction.dummySign(nielPubkey);
 
       // Create a generic repost
@@ -129,16 +141,19 @@ void main() {
       final signedGenericRepost = genericRepost.dummySign(verbirichaPubkey);
 
       // Save both to storage
-      await container
-          .read(storageNotifierProvider.notifier)
-          .save({signedReaction, signedGenericRepost});
+      await container.read(storageNotifierProvider.notifier).save({
+        signedReaction,
+        signedGenericRepost,
+      });
 
       // Verify the generic repost can find the original event
       expect(signedGenericRepost.repostedEvent.value, equals(signedReaction));
 
       // Verify the reaction can find its generic reposts
-      expect(signedReaction.genericReposts.toList(),
-          contains(signedGenericRepost));
+      expect(
+        signedReaction.genericReposts.toList(),
+        contains(signedGenericRepost),
+      );
     });
   });
 }

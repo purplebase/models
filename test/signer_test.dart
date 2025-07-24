@@ -8,11 +8,15 @@ void main() {
   late ProviderContainer container;
   late Ref ref;
 
-  setUpAll(() async {
+  setUp(() async {
     container = ProviderContainer();
     ref = container.read(refProvider);
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
+  });
+
+  tearDown(() async {
+    container.dispose();
   });
 
   group('Signer', () {
@@ -70,8 +74,10 @@ void main() {
 
       test('signing DirectMessage with encryption works correctly', () async {
         await signer.signIn();
-        final recipientNpub =
-            Utils.encodeShareableFromString(nielPubkey, type: 'npub');
+        final recipientNpub = Utils.encodeShareableFromString(
+          nielPubkey,
+          type: 'npub',
+        );
         const message = 'Hello, this is a secret message!';
 
         final partialDM = PartialDirectMessage(
@@ -84,8 +90,10 @@ void main() {
 
         // Should be encrypted with NIP-44
         expect(signedDM.encryptedContent, isNotEmpty);
-        expect(signedDM.encryptedContent,
-            isNot(message)); // Should be encrypted, not plain
+        expect(
+          signedDM.encryptedContent,
+          isNot(message),
+        ); // Should be encrypted, not plain
         expect(signedDM.isEncrypted, isTrue);
 
         // Should be able to decrypt back to original message
@@ -116,9 +124,9 @@ void main() {
         final encrypted = await signer.nip44Encrypt(message, recipientPubkey);
         expect(encrypted, isNotEmpty);
         expect(
-            encrypted,
-            startsWith(
-                'A')); // NIP-44 encrypted messages start with 'A' in base64
+          encrypted,
+          startsWith('A'),
+        ); // NIP-44 encrypted messages start with 'A' in base64
 
         final decrypted = await signer.nip44Decrypt(encrypted, recipientPubkey);
         expect(decrypted, message);
@@ -243,8 +251,10 @@ void main() {
     const privateKey =
         'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
     final recipientHex = nielPubkey;
-    final recipientNpub =
-        Utils.encodeShareableFromString(nielPubkey, type: 'npub');
+    final recipientNpub = Utils.encodeShareableFromString(
+      nielPubkey,
+      type: 'npub',
+    );
 
     setUp(() async {
       signer = Bip340PrivateKeySigner(privateKey, ref);
@@ -291,8 +301,10 @@ void main() {
 
       // Should be encrypted with NIP-44
       expect(signedDM.encryptedContent, isNotEmpty);
-      expect(signedDM.encryptedContent,
-          isNot(message)); // Should be encrypted, not plain
+      expect(
+        signedDM.encryptedContent,
+        isNot(message),
+      ); // Should be encrypted, not plain
       expect(signedDM.isEncrypted, isTrue);
 
       // Should be able to decrypt back to original message
@@ -356,8 +368,10 @@ void main() {
 
     test('signWith handles DirectMessage encryption correctly', () async {
       const message = 'Secret message';
-      final recipientNpub =
-          Utils.encodeShareableFromString(nielPubkey, type: 'npub');
+      final recipientNpub = Utils.encodeShareableFromString(
+        nielPubkey,
+        type: 'npub',
+      );
 
       final partialDM = PartialDirectMessage(
         content: message,
@@ -369,8 +383,10 @@ void main() {
 
       // Should be encrypted with NIP-44
       expect(signedDM.encryptedContent, isNotEmpty);
-      expect(signedDM.encryptedContent,
-          isNot(message)); // Should be encrypted, not plain
+      expect(
+        signedDM.encryptedContent,
+        isNot(message),
+      ); // Should be encrypted, not plain
       expect(signedDM.isEncrypted, isTrue);
 
       // Should be able to decrypt back to original message
@@ -380,8 +396,10 @@ void main() {
 
     test('dummySign handles DirectMessage encryption', () {
       const message = 'Secret message';
-      final recipientNpub =
-          Utils.encodeShareableFromString(nielPubkey, type: 'npub');
+      final recipientNpub = Utils.encodeShareableFromString(
+        nielPubkey,
+        type: 'npub',
+      );
 
       final partialDM = PartialDirectMessage(
         content: message,
@@ -409,81 +427,91 @@ void main() {
       await signer.signIn();
 
       // Get storage instance
-      storage = container.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      storage =
+          container.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
 
       // Create and save a test profile
-      testProfile = PartialProfile(name: 'Test User', about: 'Test bio')
-          .dummySign(signer.pubkey);
+      testProfile = PartialProfile(
+        name: 'Test User',
+        about: 'Test bio',
+      ).dummySign(signer.pubkey);
       await storage.save({testProfile});
     });
 
-    test('activeProfileProvider returns correct profile for active signer',
-        () async {
-      // Create a tester for the activeProfileProvider to listen to changes
-      final profileTester = container.testerForProvider(
-        Signer.activeProfileProvider(LocalSource()),
-      );
+    test(
+      'activeProfileProvider returns correct profile for active signer',
+      () async {
+        // Create a tester for the activeProfileProvider to listen to changes
+        final profileTester = container.testerForProvider(
+          Signer.activeProfileProvider(LocalSource()),
+        );
 
-      // Wait for the provider to return the profile
-      await profileTester.expect(equals(testProfile));
+        // Wait for the provider to return the profile
+        await profileTester.expect(equals(testProfile));
 
-      // Read the current value from the provider
-      final activeProfile =
-          container.read(Signer.activeProfileProvider(LocalSource()));
-      expect(activeProfile, isNotNull);
-      expect(activeProfile!.name, 'Test User');
-      expect(activeProfile.pubkey, signer.pubkey);
+        // Read the current value from the provider
+        final activeProfile = container.read(
+          Signer.activeProfileProvider(LocalSource()),
+        );
+        expect(activeProfile, isNotNull);
+        expect(activeProfile!.name, 'Test User');
+        expect(activeProfile.pubkey, signer.pubkey);
 
-      // Test that switching active signers changes the profile
-      const secondPrivateKey =
-          'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
-      final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, ref);
-      await secondSigner.signIn();
+        // Test that switching active signers changes the profile
+        const secondPrivateKey =
+            'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
+        final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, ref);
+        await secondSigner.signIn();
 
-      // Wait for the provider to update with the new profile
-      await profileTester.expect(isNull);
+        // Wait for the provider to update with the new profile
+        await profileTester.expect(isNull);
 
-      // Create and save a profile for the second signer
-      final secondProfile =
-          PartialProfile(name: 'Second User', about: 'Second bio')
-              .dummySign(secondSigner.pubkey);
-      await storage.save({secondProfile});
+        // Create and save a profile for the second signer
+        final secondProfile = PartialProfile(
+          name: 'Second User',
+          about: 'Second bio',
+        ).dummySign(secondSigner.pubkey);
+        await storage.save({secondProfile});
 
-      await profileTester.expect(equals(secondProfile));
+        await profileTester.expect(equals(secondProfile));
 
-      // Read the updated value from the provider
-      final newActiveProfile =
-          container.read(Signer.activeProfileProvider(LocalSource()));
-      expect(newActiveProfile, isNotNull);
-      expect(newActiveProfile!.name, 'Second User');
-      expect(newActiveProfile.pubkey, secondSigner.pubkey);
+        // Read the updated value from the provider
+        final newActiveProfile = container.read(
+          Signer.activeProfileProvider(LocalSource()),
+        );
+        expect(newActiveProfile, isNotNull);
+        expect(newActiveProfile!.name, 'Second User');
+        expect(newActiveProfile.pubkey, secondSigner.pubkey);
 
-      profileTester.dispose();
-    });
+        profileTester.dispose();
+      },
+    );
 
-    test('signer registration and retrieval through static providers',
-        () async {
-      // Test signerProvider family
-      final retrievedSigner =
-          container.read(Signer.signerProvider(signer.pubkey));
-      expect(retrievedSigner, equals(signer));
-      expect(retrievedSigner!.pubkey, equals(signer.pubkey));
+    test(
+      'signer registration and retrieval through static providers',
+      () async {
+        // Test signerProvider family
+        final retrievedSigner = container.read(
+          Signer.signerProvider(signer.pubkey),
+        );
+        expect(retrievedSigner, equals(signer));
+        expect(retrievedSigner!.pubkey, equals(signer.pubkey));
 
-      // Test signedInPubkeysProvider
-      final signedInPubkeys = container.read(Signer.signedInPubkeysProvider);
-      expect(signedInPubkeys, contains(signer.pubkey));
-      // Account for existing signers from previous test groups
-      expect(signedInPubkeys.length, greaterThanOrEqualTo(1));
+        // Test signedInPubkeysProvider
+        final signedInPubkeys = container.read(Signer.signedInPubkeysProvider);
+        expect(signedInPubkeys, contains(signer.pubkey));
+        expect(signedInPubkeys.length, equals(1));
 
-      // Test activePubkeyProvider
-      final activePubkey = container.read(Signer.activePubkeyProvider);
-      expect(activePubkey, equals(signer.pubkey));
+        // Test activePubkeyProvider
+        final activePubkey = container.read(Signer.activePubkeyProvider);
+        expect(activePubkey, equals(signer.pubkey));
 
-      // Test activeSignerProvider
-      final activeSigner = container.read(Signer.activeSignerProvider);
-      expect(activeSigner, equals(signer));
-    });
+        // Test activeSignerProvider
+        final activeSigner = container.read(Signer.activeSignerProvider);
+        expect(activeSigner, equals(signer));
+      },
+    );
 
     test('signer state management with multiple signers', () async {
       // Create a second signer
@@ -495,15 +523,18 @@ void main() {
       // Test signedInPubkeysProvider has both signers
       final signedInPubkeys = container.read(Signer.signedInPubkeysProvider);
       expect(
-          signedInPubkeys, containsAll([signer.pubkey, secondSigner.pubkey]));
-      // Account for existing signers from previous test groups
-      expect(signedInPubkeys.length, greaterThanOrEqualTo(2));
+        signedInPubkeys,
+        containsAll([signer.pubkey, secondSigner.pubkey]),
+      );
+      expect(signedInPubkeys.length, equals(2));
 
       // Test both signers can be retrieved
-      final firstRetrieved =
-          container.read(Signer.signerProvider(signer.pubkey));
-      final secondRetrieved =
-          container.read(Signer.signerProvider(secondSigner.pubkey));
+      final firstRetrieved = container.read(
+        Signer.signerProvider(signer.pubkey),
+      );
+      final secondRetrieved = container.read(
+        Signer.signerProvider(secondSigner.pubkey),
+      );
       expect(firstRetrieved, equals(signer));
       expect(secondRetrieved, equals(secondSigner));
 

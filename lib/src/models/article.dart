@@ -10,6 +10,15 @@ class Article extends ParameterizableReplaceableModel<Article> {
         },
       ).toRequest(),
     );
+
+    reposts = HasMany(
+      ref,
+      RequestFilter<GenericRepost>(
+        tags: {
+          '#a': {event.id},
+        },
+      ).toRequest(),
+    );
   }
 
   String? get title => event.getFirstTagValue('title');
@@ -21,6 +30,7 @@ class Article extends ParameterizableReplaceableModel<Article> {
       event.getFirstTagValue('published_at')?.toInt()?.toDate();
 
   late final HasMany<Highlight> highlights;
+  late final HasMany<GenericRepost> reposts;
 }
 
 // ignore_for_file: annotate_overrides

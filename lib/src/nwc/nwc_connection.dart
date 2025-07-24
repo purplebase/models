@@ -208,26 +208,18 @@ class NwcUriParser {
   }
 }
 
-/// Riverpod provider for NWC connection manager
-/// Provides a singleton instance of NwcConnectionManager for the app
-final nwcConnectionManagerProvider = Provider<NwcConnectionManager>((ref) {
+/// Riverpod provider for NWC manager
+final nwcManagerProvider = Provider<NwcManager>((ref) {
   final signer = ref.watch(Signer.activeSignerProvider);
   if (signer == null) {
-    throw Exception('No active signer available for NWC connection manager');
+    throw Exception('No active signer available for NWC manager');
   }
-  return NwcConnectionManager(ref, signer: signer);
+  return NwcManager(ref, signer: signer);
 });
 
-/// Riverpod provider for NWC connection manager with custom signer
-/// Use this when you need a specific signer instance
-final nwcConnectionManagerWithSignerProvider =
-    Provider.family<NwcConnectionManager, Signer>((ref, signer) {
-      return NwcConnectionManager(ref, signer: signer);
-    });
-
-/// Manager for NWC connections with secure storage
+/// Manager for NWC commands with secure storage
 /// Uses CustomData with NIP-44 encryption to securely store sensitive NWC data
-class NwcConnectionManager {
+class NwcManager {
   static const String _connectionPrefix = 'nwc_connection_';
   static const String _activeConnectionKey = 'nwc_active_connection';
   static const String _secretPrefix = 'nwc_secret_';
@@ -236,7 +228,7 @@ class NwcConnectionManager {
   final Signer _signer;
   late final StorageNotifier _storage;
 
-  NwcConnectionManager(Ref ref, {Signer? signer})
+  NwcManager(Ref ref, {Signer? signer})
     : _ref = ref,
       _signer = signer ?? ref.read(Signer.activeSignerProvider)! {
     _storage = _ref.read(storageNotifierProvider.notifier);
@@ -264,7 +256,7 @@ class NwcConnectionManager {
   }
 
   /// Retrieve a NWC connection by ID
-  Future<NwcConnection?> getConnection(String connectionId) async {
+  Future<NwcConnection?> _getConnection(String connectionId) async {
     final identifier = _connectionPrefix + connectionId;
 
     try {
@@ -329,7 +321,7 @@ class NwcConnectionManager {
     final connections = <String, NwcConnection>{};
 
     for (final id in connectionIds) {
-      final connection = await getConnection(id);
+      final connection = await _getConnection(id);
       if (connection != null) {
         connections[id] = connection;
       }
@@ -363,7 +355,7 @@ class NwcConnectionManager {
   }
 
   /// Get the active connection ID
-  Future<String?> getActiveConnectionId() async {
+  Future<String?> _getActiveConnectionId() async {
     try {
       final customDataList = await _storage.query(
         RequestFilter<CustomData>(
@@ -386,10 +378,10 @@ class NwcConnectionManager {
   }
 
   /// Get the active connection
-  Future<NwcConnection?> getActiveConnection() async {
-    final activeId = await getActiveConnectionId();
+  Future<NwcConnection?> _getActiveConnection() async {
+    final activeId = await _getActiveConnectionId();
     if (activeId == null) return null;
-    return await getConnection(activeId);
+    return await _getConnection(activeId);
   }
 
   /// Clear all NWC data (creates deletion markers)
@@ -434,6 +426,10 @@ class NwcConnectionManager {
       if (customDataList.isEmpty) return null;
 
       final customData = customDataList.first;
+
+      // If content is empty, treat as deleted
+      if (customData.content.isEmpty) return null;
+
       return await _signer.nip44Decrypt(customData.content, _signer.pubkey);
     } catch (e) {
       return null;
@@ -448,5 +444,80 @@ class NwcConnectionManager {
     final partialData = PartialCustomData(identifier: identifier, content: '');
     final signedData = (await _signer.sign([partialData])).first;
     await _storage.save({signedData});
+  }
+
+  /// Execute a NWC command using the active connection
+  /// Automatically handles relay routing, signing, and error handling
+  Future<T> executeCommand<T>(
+    NwcCommand<T> command, {
+    String? connectionId,
+    DateTime? expiration,
+    DateTime? createdAt,
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    final connection = connectionId != null
+        ? await _getConnection(connectionId)
+        : await _getActiveConnection();
+
+    if (connection == null) {
+      final error = connectionId != null
+          ? 'NWC connection "$connectionId" not found'
+          : 'No active NWC connection';
+      throw Exception(error);
+    }
+
+    return await command.executeRequest(
+      connection: connection,
+      ref: _ref,
+      storage: _storage,
+      expiration: expiration,
+      createdAt: createdAt,
+      timeout: timeout,
+    );
+  }
+
+  /// Send a zap to a recipient by pubkey using the active connection
+  /// This is a high-level method that handles zap request creation, profile lookup, and payment
+  Future<PayInvoiceResult> sendZap({
+    required String recipientPubkey,
+    required int amountSats,
+    String? comment,
+    List<String> zapRelays = const [],
+    Model? linkedModel,
+    String? connectionId,
+    DateTime? expiration,
+    DateTime? createdAt,
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    // Check for connection first, before doing expensive operations
+    final connection = connectionId != null
+        ? await _getConnection(connectionId)
+        : await _getActiveConnection();
+
+    if (connection == null) {
+      final error = connectionId != null
+          ? 'NWC connection "$connectionId" not found'
+          : 'No active NWC connection';
+      throw Exception(error);
+    }
+
+    // Create the PayInvoiceCommand using the factory constructor
+    final command = await PayInvoiceCommand.fromPubkey(
+      recipientPubkey: recipientPubkey,
+      amountSats: amountSats,
+      ref: _ref,
+      comment: comment,
+      zapRelays: zapRelays,
+      linkedModel: linkedModel,
+    );
+
+    // Execute the command using the existing executeCommand method
+    return await executeCommand(
+      command,
+      connectionId: connectionId,
+      expiration: expiration,
+      createdAt: createdAt,
+      timeout: timeout,
+    );
   }
 }

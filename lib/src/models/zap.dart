@@ -10,11 +10,17 @@ class Zap extends RegularModel<Zap> {
       authors: {event.getFirstTagValue('P') ?? event.metadata['author']},
     ).toRequest(),
   );
+
   late final BelongsTo<Model> zappedModel;
+  late final BelongsTo<Profile> wallet;
   late final BelongsTo<Profile> recipient;
   late final BelongsTo<ZapRequest> zapRequest;
 
   Zap.fromMap(super.map, super.ref) : super.fromMap() {
+    wallet = BelongsTo(
+      ref,
+      RequestFilter<Profile>(authors: {event.pubkey}).toRequest(),
+    );
     recipient = BelongsTo(
       ref,
       RequestFilter<Profile>(
@@ -66,14 +72,92 @@ class ZapRequest extends RegularModel<ZapRequest> {
   ZapRequest.fromMap(super.map, super.ref) : super.fromMap();
 }
 
-class PartialZapRequest extends RegularPartialModel<ZapRequest> {
+// ignore_for_file: annotate_overrides
+
+/// Generated partial model mixin for ZapRequest
+mixin PartialZapRequestMixin on RegularPartialModel<ZapRequest> {
+  String? get comment => event.content.isEmpty ? null : event.content;
+  set comment(String? value) => event.content = value ?? '';
+
+  int? get amount => int.tryParse(event.getFirstTagValue('amount') ?? '');
+  set amount(int? value) {
+    if (value != null) {
+      event.setTagValue('amount', value.toString());
+    } else {
+      event.removeTag('amount');
+    }
+  }
+
+  List<String> get relays {
+    final relaysTag = event.tags
+        .where((tag) => tag.isNotEmpty && tag[0] == 'relays')
+        .firstOrNull;
+    if (relaysTag == null || relaysTag.length <= 1) return [];
+    return relaysTag.skip(1).toList();
+  }
+
+  set relays(Iterable<String> value) {
+    if (value.isNotEmpty) {
+      event.setTag('relays', value.toList());
+    } else {
+      event.removeTag('relays');
+    }
+  }
+
+  String? get lnurl => event.getFirstTagValue('lnurl');
+  set lnurl(String? value) {
+    if (value != null && value.isNotEmpty) {
+      event.setTagValue('lnurl', value);
+    } else {
+      event.removeTag('lnurl');
+    }
+  }
+}
+
+class PartialZapRequest extends RegularPartialModel<ZapRequest>
+    with PartialZapRequestMixin {
   PartialZapRequest.fromMap(super.map) : super.fromMap();
   PartialZapRequest();
+}
 
-  set comment(String? value) => value != null ? event.content = value : null;
-  set amount(int value) => event.setTagValue('amount', value.toString());
-  set relays(Iterable<String> value) => event.addTag('relays', value.toList());
-  set lnurl(String value) => event.setTagValue('lnurl', value);
+/// Partial model for creating Zap receipts (kind 9735)
+class PartialZap extends RegularPartialModel<Zap> {
+  PartialZap.fromMap(super.map) : super.fromMap();
+
+  PartialZap({
+    required String recipientPubkey,
+    required String zapRequestId,
+    required int amountSats,
+    required String preimage,
+    required Model? zappedModel,
+    String? description,
+  }) {
+    // Create fake BOLT11 invoice for the amount
+    final bolt11 = 'lnbc${amountSats * 1000}n1pjqwdqcpp5${'a' * 52}fake';
+
+    // Add required tags for zap receipt
+    event.addTag('bolt11', [bolt11]);
+    event.addTag('description', [
+      description ??
+          jsonEncode({
+            'id': zapRequestId,
+            'kind': 9734,
+            'content': '',
+            'tags': [],
+            'pubkey': event.pubkey,
+            'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          }),
+    ]);
+    event.addTag('preimage', [preimage]);
+    event.addTag('p', [recipientPubkey]);
+
+    // Link to zapped model if provided
+    if (zappedModel != null) {
+      linkModel(zappedModel);
+    }
+
+    event.content = '';
+  }
 }
 
 final kBolt11Regexp = RegExp(r'lnbc(\d+)([munp])');

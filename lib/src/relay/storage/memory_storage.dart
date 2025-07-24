@@ -13,8 +13,9 @@ class MemoryStorage {
   List<List<String>> _safeTags(dynamic tags) {
     if (tags is List) {
       return tags
-          .map((e) =>
-              e is List ? e.map((v) => v.toString()).toList() : <String>[])
+          .map(
+            (e) => e is List ? e.map((v) => v.toString()).toList() : <String>[],
+          )
           .where((e) => e.isNotEmpty)
           .toList();
     }
@@ -27,7 +28,8 @@ class MemoryStorage {
     final id = event['id'] as String;
     final pubkey = event['pubkey'] as String;
     final createdAt = DateTime.fromMillisecondsSinceEpoch(
-        (event['created_at'] as int) * 1000);
+      (event['created_at'] as int) * 1000,
+    );
 
     // Don't store ephemeral events (kind 20000-29999)
     if (kind >= 20000 && kind < 30000) {
@@ -59,6 +61,7 @@ class MemoryStorage {
         // Only replace if newer (or same time but lower ID)
         if (existing == null) {
           // Store new event
+
           if (kind >= 30000 && kind < 40000) {
             _addressableEvents[key] = event;
           } else {
@@ -68,11 +71,17 @@ class MemoryStorage {
           return true;
         } else {
           final existingCreatedAt = DateTime.fromMillisecondsSinceEpoch(
-              (existing['created_at'] as int) * 1000);
+            (existing['created_at'] as int) * 1000,
+          );
           final existingId = existing['id'] as String;
 
           if (createdAt.isAfter(existingCreatedAt) ||
-              createdAt.isAtSameMomentAs(existingCreatedAt)) {
+              (createdAt.isAtSameMomentAs(existingCreatedAt) &&
+                  (event['content'] as String).isEmpty) ||
+              (createdAt.isAtSameMomentAs(existingCreatedAt) &&
+                  (existing['content'] as String).isNotEmpty &&
+                  (event['content'] as String).isNotEmpty &&
+                  id.compareTo(existingId) > 0)) {
             // Remove old event from main storage
             _events.remove(existingId);
 
@@ -149,15 +158,27 @@ class MemoryStorage {
           .where((event) => !seenIds.contains(event['id'] as String))
           .toList();
 
-      // Combine both sets
-      final allMatchingEvents = [...matchingEvents, ...replaceableEvents];
+      // Also get events from addressable storage (for addressable events like CustomData)
+      final addressableEvents = _addressableEvents.values
+          .where((event) => _matchesFilter(event, filter))
+          .where((event) => !seenIds.contains(event['id'] as String))
+          .toList();
+
+      // Combine all sets
+      final allMatchingEvents = [
+        ...matchingEvents,
+        ...replaceableEvents,
+        ...addressableEvents,
+      ];
 
       // Sort by created_at descending, then by id ascending for ties
       allMatchingEvents.sort((a, b) {
         final aCreatedAt = DateTime.fromMillisecondsSinceEpoch(
-            (a['created_at'] as int) * 1000);
+          (a['created_at'] as int) * 1000,
+        );
         final bCreatedAt = DateTime.fromMillisecondsSinceEpoch(
-            (b['created_at'] as int) * 1000);
+          (b['created_at'] as int) * 1000,
+        );
         final timeComparison = bCreatedAt.compareTo(aCreatedAt);
         if (timeComparison != 0) return timeComparison;
         return (a['id'] as String).compareTo(b['id'] as String);
@@ -186,7 +207,8 @@ class MemoryStorage {
     final pubkey = event['pubkey'] as String;
     final kind = event['kind'] as int;
     final createdAt = DateTime.fromMillisecondsSinceEpoch(
-        (event['created_at'] as int) * 1000);
+      (event['created_at'] as int) * 1000,
+    );
     final content = event['content'] as String;
     final tags = _safeTags(event['tags']);
 
@@ -217,8 +239,9 @@ class MemoryStorage {
     // Check tag filters
     if (filter.tags.isNotEmpty) {
       for (final entry in filter.tags.entries) {
-        final tagName =
-            entry.key.startsWith('#') ? entry.key.substring(1) : entry.key;
+        final tagName = entry.key.startsWith('#')
+            ? entry.key.substring(1)
+            : entry.key;
         final tagValues = entry.value;
         final eventTagValues = tags
             .where((tag) => tag.isNotEmpty && tag[0] == tagName)
@@ -316,7 +339,8 @@ class MemoryStorage {
     final tags = _safeTags(event['tags']);
 
     if (kind >= 30000 && kind < 40000) {
-      final dTag = tags
+      final dTag =
+          tags
               .where((tag) => tag.isNotEmpty && tag[0] == 'd')
               .map((tag) => tag[1])
               .firstOrNull ??

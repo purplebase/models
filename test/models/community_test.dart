@@ -11,13 +11,20 @@ void main() {
   late Ref ref;
   late DummyStorageNotifier storage;
 
-  setUpAll(() async {
+  setUp(() async {
     container = ProviderContainer();
     final config = StorageConfiguration(keepSignatures: false);
     await container.read(initializationProvider(config).future);
     ref = container.read(refProvider);
-    storage = container.read(storageNotifierProvider.notifier)
-        as DummyStorageNotifier;
+    storage =
+        container.read(storageNotifierProvider.notifier)
+            as DummyStorageNotifier;
+  });
+
+  tearDown(() async {
+    await storage.cancel();
+    await storage.clear();
+    container.dispose();
   });
 
   group('Community', () {
@@ -35,9 +42,15 @@ void main() {
         contentSections: {
           CommunityContentSection(content: 'Chat', kinds: {9}),
           CommunityContentSection(
-              content: 'Post', kinds: {1, 11}, feeInSats: 10),
+            content: 'Post',
+            kinds: {1, 11},
+            feeInSats: 10,
+          ),
           CommunityContentSection(
-              content: 'Article', kinds: {30023, 30040}, feeInSats: 21),
+            content: 'Article',
+            kinds: {30023, 30040},
+            feeInSats: 21,
+          ),
         },
         termsOfService: 'https://tos',
       ).dummySign(nielPubkey);
@@ -50,9 +63,10 @@ void main() {
       expect(jsonDecode(communityJson), community2.toMap());
 
       final note = PartialNote('test').dummySign();
-      final targetedPublication =
-          PartialTargetedPublication(note, communities: {community})
-              .dummySign();
+      final targetedPublication = PartialTargetedPublication(
+        note,
+        communities: {community},
+      ).dummySign();
       await storage.save({community, note, targetedPublication});
       expect(targetedPublication.communities.toList(), [community]);
       expect(targetedPublication.model.value, note);
@@ -84,13 +98,16 @@ void main() {
       // Test that the chatMessages relationship works
       final chatMessages = community.chatMessages.toList();
       expect(chatMessages, hasLength(2));
-      expect(chatMessages.map((m) => m.content),
-          containsAll(['Hello community!', 'Another message']));
+      expect(
+        chatMessages.map((m) => m.content),
+        containsAll(['Hello community!', 'Another message']),
+      );
     });
   });
 }
 
-final communityJson = '''
+final communityJson =
+    '''
 {
 	"id": "26ac7e5ae58dc195f03272a0e5b66ba1d80806d31dc70e4c0cffa50a7594411c",
 	"content": "",
