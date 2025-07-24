@@ -96,14 +96,12 @@ class MessageHandler {
 
   /// Handles NWC requests by generating fake responses for testing
   void _handleNwcRequest(Map<String, dynamic> nwcRequest) {
-    print('🎭 Dummy NWC: Handling NWC request ${nwcRequest['id']}');
-
     // Simulate realistic delay
     Timer(Duration(milliseconds: 200), () {
       try {
         _generateNwcResponse(nwcRequest);
       } catch (e) {
-        print('🎭 Dummy NWC: Error generating response: $e');
+        // Handle error silently
       }
     });
   }
@@ -114,13 +112,8 @@ class MessageHandler {
     final walletPubkey = _getWalletPubkey(nwcRequest);
 
     if (walletPubkey == null) {
-      print('🎭 Dummy NWC: No wallet pubkey found in request');
       return;
     }
-
-    print(
-      '🎭 Dummy NWC: Generating response from wallet $walletPubkey to client $clientPubkey',
-    );
 
     // For dummy purposes, we'll create a basic success response
     // In a real implementation, you'd decrypt the content and parse the method
@@ -147,8 +140,6 @@ class MessageHandler {
       'content': jsonEncode(responseContent),
       'sig': 'fake_signature_${Utils.generateRandomHex64()}',
     };
-
-    print('🎭 Dummy NWC: Storing response event ${responseEvent['id']}');
 
     // Store the response
     storage.storeEvent(responseEvent);
@@ -307,7 +298,7 @@ class MessageHandler {
       final response = jsonEncode(['ERROR', error]);
       webSocket.add(response);
     } catch (e) {
-      print('Failed to send error: $e');
+      // Handle error silently
     }
   }
 

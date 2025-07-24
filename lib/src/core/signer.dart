@@ -531,27 +531,16 @@ mixin Signable<E extends Model<E>> {
 
     // Handle encryption for NWC Request models before signing
     if (partialModel.runtimeType.toString().contains('PartialNwcRequest')) {
-      print('🔐 NWC: Encrypting NWC request before signing');
       // Get the wallet pubkey from the 'p' tag
       final walletPubkey = partialModel.event.getFirstTagValue('p');
 
       if (walletPubkey != null && partialModel.event.content.isNotEmpty) {
         // Encrypt the content using NIP-04 for the wallet (per NIP-47 spec)
-        print('🔐 NWC: Starting NIP-04 encryption...');
         final encryptedContent = await signer.nip04Encrypt(
           partialModel.event.content,
           walletPubkey,
         );
-        print('🔐 NWC: Encrypted content length: ${encryptedContent.length}');
-        print(
-          '🔐 NWC: Encrypted content: ${encryptedContent.substring(0, 50)}...',
-        );
         partialModel.event.content = encryptedContent;
-        print('🔐 NWC: ✅ NWC request encryption completed');
-      } else {
-        print(
-          '🔐 NWC: ❌ Skipping encryption - missing wallet pubkey or empty content',
-        );
       }
     }
 

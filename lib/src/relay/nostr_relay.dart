@@ -310,10 +310,6 @@ class NostrRelay {
       _subscriptions,
     );
 
-    print(
-      '🔄 Relay: Broadcasting event ${event['id']} to ${subscriptionsCopy.length} subscriptions',
-    );
-
     for (final entry in subscriptionsCopy.entries) {
       final subId = entry.key;
       final notifier = entry.value;
@@ -338,28 +334,19 @@ class NostrRelay {
       );
 
       if (matches) {
-        print(
-          '🎯 Relay: Event ${event['id']} matches subscription $subId - sending to notifier',
-        );
         notifier.onEvent(event);
-      } else {
-        print(
-          '❌ Relay: Event ${event['id']} does not match subscription $subId filters',
-        );
       }
     }
   }
 
   /// Handles NWC requests by generating fake responses for testing
   void _handleNwcRequest(Map<String, dynamic> nwcRequest) {
-    print('🎭 Dummy NWC: Handling NWC request ${nwcRequest['id']}');
-
     // Simulate realistic delay
     Timer(Duration(milliseconds: 200), () {
       try {
         _generateNwcResponse(nwcRequest);
       } catch (e) {
-        print('🎭 Dummy NWC: Error generating response: $e');
+        // Handle error silently
       }
     });
   }
@@ -370,13 +357,8 @@ class NostrRelay {
     final walletPubkey = _getWalletPubkey(nwcRequest);
 
     if (walletPubkey == null) {
-      print('🎭 Dummy NWC: No wallet pubkey found in request');
       return;
     }
-
-    print(
-      '🎭 Dummy NWC: Generating response from wallet $walletPubkey to client $clientPubkey',
-    );
 
     // For dummy purposes, we'll use a more reliable heuristic based on content patterns
     // In a real implementation, you'd decrypt the content to get the actual method
@@ -394,7 +376,6 @@ class NostrRelay {
           'balance': 50000, // 50000 millisats fake balance
         },
       };
-      print('🎭 Dummy NWC: Creating get_balance response');
     } else if (content.contains('invoice') && content.contains('amount')) {
       // Likely make_invoice (contains both "invoice" and "amount")
       responseContent = {
@@ -407,7 +388,6 @@ class NostrRelay {
           'amount': 5000, // 5000 millisats fake invoice amount
         },
       };
-      print('🎭 Dummy NWC: Creating make_invoice response');
     } else {
       // Default to pay_invoice (contains "invoice" but not "amount", or other patterns)
       responseContent = {
@@ -418,11 +398,7 @@ class NostrRelay {
           'fees_paid': 100, // 100 millisats
         },
       };
-      print('🎭 Dummy NWC: Creating pay_invoice response');
     }
-
-    print('🎭 Dummy NWC: Using expected wallet pubkey from request');
-    print('🎭 Dummy NWC: Wallet pubkey: $walletPubkey');
 
     // Convert response content to JSON string
     final plainContent = jsonEncode(responseContent);
@@ -431,8 +407,6 @@ class NostrRelay {
     // In a real implementation, you'd use proper NIP-04 encryption
     final fakeEncryptedContent =
         'dummy_encrypted_${plainContent.length}_$requestId';
-
-    print('🎭 Dummy NWC: Created fake encrypted content for testing');
 
     // Create NWC response event manually (kind 23195)
     // Use the expected wallet pubkey from the request
@@ -465,10 +439,6 @@ class NostrRelay {
 
     // For dummy testing, use a simple signature (real implementation would use proper Schnorr signature)
     responseEventMap['sig'] = Utils.generateRandomHex64();
-
-    print('🎭 Dummy NWC: Created event with proper ID: $eventId');
-
-    print('🎭 Dummy NWC: Storing response event ${responseEventMap['id']}');
 
     // Store the response
     storage.storeEvent(responseEventMap);
@@ -538,7 +508,7 @@ class NostrRelay {
         }
       },
       onError: (error) {
-        print('WebSocket error: $error');
+        // Handle WebSocket error silently
       },
       onDone: () {
         _connections.remove(webSocket);

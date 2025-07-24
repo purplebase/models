@@ -124,6 +124,7 @@ sealed class Model<E extends Model<E>>
 
   /// Publish this model to relays
   Future<void> publish({RemoteSource source = const RemoteSource()}) async {
+    await save(); // Save locally first
     await storage.publish({this}, source: source);
   }
 

@@ -64,7 +64,18 @@ void main() async {
         replyTo: b,
       ).dummySign(nielProfile.pubkey);
 
-      await storage.save({a, b, c, d, e, f, g, replyToA, replyToB});
+      await storage.save({
+        a,
+        b,
+        c,
+        d,
+        e,
+        f,
+        g,
+        replyToA,
+        replyToB,
+        nielProfile,
+      });
       await storage.publish({
         nielProfile,
       }, source: RemoteSource(group: 'big-relays'));
@@ -178,24 +189,34 @@ void main() async {
     });
 
     test('replaceable updates', () async {
-      tester = container.testerFor(
-        query<Profile>(authors: {nielPubkey}, source: LocalSource()),
-      );
-      await tester.expectModels(unorderedEquals({nielProfile}));
+      // Use a fresh pubkey to avoid test interference
+      final testPubkey = Utils.generateRandomHex64();
+      final originalProfile = PartialProfile(
+        name: 'original',
+      ).dummySign(testPubkey);
+      await storage.save({originalProfile});
 
-      final nielcho = nielProfile
-          .copyWith(name: 'Nielcho')
-          .dummySign(nielPubkey);
+      tester = container.testerFor(
+        query<Profile>(authors: {testPubkey}, source: LocalSource()),
+      );
+      await tester.expectModels(unorderedEquals({originalProfile}));
+
+      final updatedProfile = originalProfile
+          .copyWith(name: 'updated')
+          .dummySign(testPubkey);
       // Check processMetadata() was called when constructing
-      expect(nielcho.name, equals('Nielcho'));
+      expect(updatedProfile.name, equals('updated'));
       // Content should NOT be empty as this new event could be sent to relays
-      expect(nielcho.event.content, isNotEmpty);
+      expect(updatedProfile.event.content, isNotEmpty);
 
       // Ensure the contents are actually different
-      expect(nielProfile.event.content, isNot(equals(nielcho.event.content)));
-      expect(nielProfile.event.id, isNot(equals(nielcho.event.id)));
+      expect(
+        originalProfile.event.content,
+        isNot(equals(updatedProfile.event.content)),
+      );
+      expect(originalProfile.event.id, isNot(equals(updatedProfile.event.id)));
 
-      await nielcho.save();
+      await updatedProfile.save();
 
       // Wait for the storage state to update with the new profile
       // The replaceable update should replace the old profile with the new one
@@ -203,7 +224,7 @@ void main() async {
       await tester.expectModels(
         allOf(
           hasLength(1),
-          everyElement((p) => p is Profile && p.name == 'Nielcho'),
+          everyElement((p) => p is Profile && p.name == 'updated'),
         ),
       );
     });

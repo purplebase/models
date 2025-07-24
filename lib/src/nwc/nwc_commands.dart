@@ -17,11 +17,6 @@ abstract class NwcCommand<T> {
     DateTime? expiration,
     DateTime? createdAt,
   }) {
-    print('🏗️ NWC: Creating request for method: $method');
-    print('🏗️ NWC: Wallet pubkey: $walletPubkey');
-    print('🏗️ NWC: Parameters: $params');
-    print('🏗️ NWC: Expiration: $expiration');
-
     final request = PartialNwcRequest(
       walletPubkey: walletPubkey,
       method: method,
@@ -30,7 +25,6 @@ abstract class NwcCommand<T> {
       createdAt: createdAt,
     );
 
-    print('🏗️ NWC: Request created with tags: ${request.event.tags}');
     return request;
   }
 
@@ -41,19 +35,13 @@ abstract class NwcCommand<T> {
     NwcConnection connection,
     StorageNotifier storage,
   ) async {
-    print('📤 NWC: Publishing request to relay ${connection.relay}');
-    print('📤 NWC: Request event ID: ${signedRequest.event.id}');
-    print('📤 NWC: Request kind: ${signedRequest.event.kind}');
-    print('📤 NWC: Request tags: ${signedRequest.event.tags}');
-    print(
-      '📤 NWC: Request content length: ${signedRequest.event.content.length}',
-    );
+    // Save the request locally first for tracking
+    await storage.save({signedRequest});
 
     final result = await storage.publish({
       signedRequest,
     }, source: RemoteSource(relayUrls: {connection.relay}));
 
-    print('📤 NWC: Publish result: ${result.results}');
     return result;
   }
 
@@ -67,15 +55,9 @@ abstract class NwcCommand<T> {
     DateTime? createdAt,
     Duration timeout = const Duration(seconds: 10),
   }) async {
-    print('🔸 NWC: Starting executeAndWaitForResponse for method: $method');
-    print('🔸 NWC: Connection relay: ${connection.relay}');
-    print('🔸 NWC: Wallet pubkey: ${connection.walletPubkey}');
-    print('🔸 NWC: Timeout: ${timeout.inSeconds}s');
-
     // Create a signer from the connection's secret (NIP-47 requirement)
     final connectionSigner = Bip340PrivateKeySigner(connection.secret, ref);
     await connectionSigner.signIn(setAsActive: false);
-    print('🔸 NWC: Connection signer pubkey: ${connectionSigner.pubkey}');
 
     // Create the request
     final request = toRequest(
@@ -86,10 +68,8 @@ abstract class NwcCommand<T> {
 
     // Sign the request with the connection signer
     final signedRequest = await request.signWith(connectionSigner);
-    print('🔸 NWC: Request signed, event ID: ${signedRequest.event.id}');
 
     // Start listening for response
-    print('🔸NWC: Waiting for response from wallet service...');
     final completer = Completer<NwcResponse>();
 
     // Create direct relay subscription for NWC responses
@@ -121,20 +101,16 @@ abstract class NwcCommand<T> {
 
           // Check if this response is for our request
           if (nwcResponse.requestEventId == signedRequest.id) {
-            print(
-              '🔸 NWC: Found matching response for request ${signedRequest.id}',
-            );
             completer.complete(nwcResponse);
             return;
           }
         } catch (e) {
-          print('🔸 NWC: Error parsing response event: $e');
+          // Ignore parsing errors for unrelated events
         }
       }
     });
 
     // Publish to the connection's relay
-    print('🔸 NWC: Publishing request to relay...');
     final publishResponse = await publishRequest(
       signedRequest,
       connection,
@@ -146,9 +122,6 @@ abstract class NwcCommand<T> {
       (states) => states.any((state) => state.accepted),
     );
 
-    print('🔸 NWC: Publish successful: $publishSuccessful');
-    print('🔸 NWC: Publish results: ${publishResponse.results}');
-
     if (!publishSuccessful) {
       throw Exception('Failed to publish NWC request to relay');
     }
@@ -156,31 +129,22 @@ abstract class NwcCommand<T> {
     final response = await completer.future.timeout(timeout);
     sub.close();
 
-    print('🔸 NWC: Got response from wallet! Event ID: ${response.event.id}');
-
     // Decrypt and process the response
-    print('🔸 NWC: Decrypting response content...');
     final decryptedContent = await response.decryptContent(connectionSigner);
-    print('🔸 NWC: Decrypted content: $decryptedContent');
 
     // Check for errors first
     final errorData = decryptedContent['error'] as Map<String, dynamic>?;
     if (errorData != null) {
       final error = NwcError.fromMap(errorData);
-      print(
-        '🔸 NWC: ❌ Wallet returned error: ${error.code} - ${error.message}',
-      );
       throw NwcException(error);
     }
 
     // Extract and parse the result
     final resultData = decryptedContent['result'] as Map<String, dynamic>?;
     if (resultData == null) {
-      print('🔸 NWC: ❌ Response missing result data');
       throw Exception('NWC response missing result data');
     }
 
-    print('🔸 NWC: ✅ Success! Result data: $resultData');
     return parseResponse(resultData);
   }
 }

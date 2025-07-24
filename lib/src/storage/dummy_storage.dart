@@ -52,10 +52,6 @@ class DummyStorageNotifier extends StorageNotifier {
     Set<Model<dynamic>> models, {
     RemoteSource source = const RemoteSource(),
   }) async {
-    // First save the models (this publishes to relay)
-    // TODO: This is fucking wrong
-    await save(models);
-
     final response = PublishResponse();
 
     if (models.isNotEmpty) {
@@ -401,10 +397,7 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<void> clear([Request? req]) async {
     if (req == null) {
-      // Clear all events
-      _relay.deleteEvents();
-
-      // Cancel all streaming timers
+      // Cancel all streaming timers first
       for (final timer in _streamingTimers.values) {
         timer.cancel();
       }
@@ -416,6 +409,9 @@ class DummyStorageNotifier extends StorageNotifier {
         subscription.close();
       }
       _relaySubscriptions.clear();
+
+      // Clear all events (this also invalidates relay subscription caches)
+      _relay.deleteEvents();
 
       // Notify of state change
       if (mounted) {
