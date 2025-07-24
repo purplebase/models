@@ -1,14 +1,14 @@
 library models;
 
 import 'dart:io';
+import 'dart:async';
+import 'dart:math';
 
 import 'package:nip44/nip44.dart' as nip44;
 import 'package:riverpod/riverpod.dart';
 import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
-import 'dart:math';
-import 'dart:async';
 import 'dart:convert';
 import 'package:faker/faker.dart';
 import 'dart:typed_data';
@@ -16,6 +16,7 @@ import 'package:crypto/crypto.dart';
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
+import 'package:pointycastle/export.dart' as pc;
 
 // Relay classes are available as parts of this library
 
@@ -51,6 +52,16 @@ part 'src/models/custom_data.dart';
 part 'src/models/repost.dart';
 part 'src/models/generic_repost.dart';
 
+// NWC (Nostr Wallet Connect) models - only the actual models remain here
+part 'src/models/nwc_info.dart';
+part 'src/models/nwc_request.dart';
+part 'src/models/nwc_response.dart';
+part 'src/models/nwc_notification.dart';
+
+// NWC (Nostr Wallet Connect) non-model components
+part 'src/nwc/nwc_connection.dart';
+part 'src/nwc/nwc_commands.dart';
+
 part 'src/request/request_notifier.dart';
 part 'src/request/request.dart';
 
@@ -64,7 +75,7 @@ part 'src/utils/utils.dart';
 // Removed: models.g.dart - mixins are now inline in individual model files
 
 // Relay parts
-part 'src/relay/storage/memory_storage.dart';
-part 'src/relay/handlers/message_handler.dart';
-part 'src/relay/models/relay_info.dart';
 part 'src/relay/nostr_relay.dart';
+part 'src/relay/models/relay_info.dart';
+part 'src/relay/handlers/message_handler.dart';
+part 'src/relay/storage/memory_storage.dart';

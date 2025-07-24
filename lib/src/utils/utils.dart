@@ -19,7 +19,7 @@ class Utils {
 
   /// Get the public key corresponding to the supplied private key
   static String derivePublicKey(String privateKey) {
-    return bip340.getPublicKey(privateKey.decodeShareable()).toLowerCase();
+    return bip340.getPublicKey(privateKey).toLowerCase();
   }
 
   // Encoding
@@ -50,7 +50,7 @@ class Utils {
         :final identifier,
         :final relays,
         :final author,
-        :final kind
+        :final kind,
       ) =>
         _encodeShareableIdentifiers(
           prefix: 'naddr',
@@ -58,7 +58,7 @@ class Utils {
           relays: relays,
           author: author,
           kind: kind,
-        )
+        ),
     };
   }
 
@@ -76,31 +76,33 @@ class Utils {
     return switch (prefix) {
       'npub' => ProfileData(pubkey: _bech32Decode(identifier)),
       'nprofile' => ProfileData(
-          pubkey: raw['special'] as String,
-          relays: raw['relays'] as List<String>?,
-          author: raw['author'] as String?,
-          kind: raw['kind'] as int?,
-        ),
+        pubkey: raw['special'] as String,
+        relays: raw['relays'] as List<String>?,
+        author: raw['author'] as String?,
+        kind: raw['kind'] as int?,
+      ),
       'note' => EventData(eventId: _bech32Decode(identifier)),
       'nevent' => EventData(
-          eventId: raw['special'] as String,
-          relays: raw['relays'] as List<String>?,
-          author: raw['author'] as String?,
-          kind: raw['kind'] as int?,
-        ),
+        eventId: raw['special'] as String,
+        relays: raw['relays'] as List<String>?,
+        author: raw['author'] as String?,
+        kind: raw['kind'] as int?,
+      ),
       'naddr' => AddressData(
-          identifier: raw['special'] as String,
-          relays: raw['relays'] as List<String>?,
-          author: raw['author'] as String?,
-          kind: raw['kind'] as int?,
-        ),
+        identifier: raw['special'] as String,
+        relays: raw['relays'] as List<String>?,
+        author: raw['author'] as String?,
+        kind: raw['kind'] as int?,
+      ),
       _ => throw Exception('Unknown shareable identifier prefix: $prefix'),
     };
   }
 
   /// Encode a simple string to NIP-19 format
-  static String encodeShareableFromString(String value,
-      {required String type}) {
+  static String encodeShareableFromString(
+    String value, {
+    required String type,
+  }) {
     // Check if already encoded before calling _bech32Encode
     if (value.startsWith('npub') ||
         value.startsWith('nsec') ||
@@ -160,14 +162,15 @@ class Utils {
       return data.identifier;
     } else {
       throw Exception(
-          'Unknown decoded shareable identifier type: \\${data.runtimeType}');
+        'Unknown decoded shareable identifier type: \\${data.runtimeType}',
+      );
     }
   }
 
   /// Decode NIP-05 identifier to public key
-  static Future<String> decodeNip05(String nip05) async {
+  static Future<String> decodeNip05(String address) async {
     try {
-      final [username, domain] = nip05.split('@');
+      final [username, domain] = address.split('@');
 
       // Make HTTP request to .well-known/nostr.json
       final client = HttpClient();
@@ -179,7 +182,8 @@ class Utils {
 
         if (response.statusCode != 200) {
           throw Exception(
-              'HTTP ${response.statusCode}: Failed to fetch NIP-05 data');
+            'HTTP ${response.statusCode}: Failed to fetch NIP-05 data',
+          );
         }
 
         final responseBody = await response.transform(utf8.decoder).join();
@@ -213,10 +217,11 @@ class Utils {
       event.createdAt.toSeconds(),
       event.kind,
       event.tags,
-      event.content
+      event.content,
     ];
-    final digest =
-        sha256.convert(Uint8List.fromList(utf8.encode(json.encode(data))));
+    final digest = sha256.convert(
+      Uint8List.fromList(utf8.encode(json.encode(data))),
+    );
     return digest.toString();
   }
 

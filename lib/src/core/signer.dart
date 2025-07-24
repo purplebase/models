@@ -25,12 +25,14 @@ abstract class Signer {
   Future<void> signIn({bool setAsActive = true}) async {
     if (_pubkey == null) {
       throw UnsupportedError(
-          'Pubkey must be set, bug in $runtimeType implementation');
+        'Pubkey must be set, bug in $runtimeType implementation',
+      );
     }
 
     ref.read(Signer._signerProvider(_pubkey!).notifier).state = this;
-    ref.read(Signer._signedInPubkeysProvider.notifier).state =
-        ref.read(Signer._signedInPubkeysProvider)..add(_pubkey!);
+    ref.read(Signer._signedInPubkeysProvider.notifier).state = ref.read(
+      Signer._signedInPubkeysProvider,
+    )..add(_pubkey!);
 
     if (setAsActive) {
       setAsActivePubkey();
@@ -43,8 +45,9 @@ abstract class Signer {
   /// If this signer is currently active, it will be removed from active status.
   Future<void> signOut() async {
     // Remove from signed in set
-    ref.read(_signedInPubkeysProvider.notifier).state =
-        ref.read(_signedInPubkeysProvider)..remove(_pubkey);
+    ref.read(_signedInPubkeysProvider.notifier).state = ref.read(
+      _signedInPubkeysProvider,
+    )..remove(_pubkey);
 
     // If pubkey is managed by this signer, remove from active
     removeAsActivePubkey();
@@ -73,7 +76,8 @@ abstract class Signer {
 
   /// Sign the partial models, supply `withPubkey` to disambiguate when signer holds multiple keys
   Future<List<E>> sign<E extends Model<dynamic>>(
-      List<PartialModel<Model<dynamic>>> partialModels);
+    List<PartialModel<Model<dynamic>>> partialModels,
+  );
 
   /// NIP-04: Encrypt a message using AES-256-CBC with ECDH shared secret
   Future<String> nip04Encrypt(String message, String recipientPubkey);
@@ -91,18 +95,22 @@ abstract class Signer {
 
   /// Returns a Signer given a pubkey
   static final signerProvider = Provider.family<Signer?, String>(
-      (ref, pubkey) => ref.watch(_signerProvider(pubkey)));
+    (ref, pubkey) => ref.watch(_signerProvider(pubkey)),
+  );
 
   /// Returns all currently signed in pubkeys. There is a signer for each one of these
-  static final signedInPubkeysProvider =
-      Provider((ref) => ref.watch(_signedInPubkeysProvider));
+  static final signedInPubkeysProvider = Provider(
+    (ref) => ref.watch(_signedInPubkeysProvider),
+  );
 
   /// Returns the active pubkey
-  static final activePubkeyProvider =
-      Provider((ref) => ref.watch(_activePubkeyProvider));
+  static final activePubkeyProvider = Provider(
+    (ref) => ref.watch(_activePubkeyProvider),
+  );
 
-  static final _signerProvider =
-      StateProvider.family<Signer?, String>((_, pubkey) => null);
+  static final _signerProvider = StateProvider.family<Signer?, String>(
+    (_, pubkey) => null,
+  );
   static final _signedInPubkeysProvider = StateProvider<Set<String>>((_) => {});
   static final _activePubkeyProvider = StateProvider<String?>((_) => null);
 
@@ -112,12 +120,15 @@ abstract class Signer {
     return ref.read(_signerProvider(activePubkey));
   });
 
-  static final activeProfileProvider =
-      Provider.family<Profile?, Source>((ref, source) {
+  static final activeProfileProvider = Provider.family<Profile?, Source>((
+    ref,
+    source,
+  ) {
     final activePubkey = ref.watch(_activePubkeyProvider);
     if (activePubkey == null) return null;
     final state = ref.watch(
-        query<Profile>(authors: {activePubkey}, source: source, limit: 1));
+      query<Profile>(authors: {activePubkey}, source: source, limit: 1),
+    );
     return state.models.firstOrNull;
   });
 }
@@ -127,8 +138,8 @@ class Bip340PrivateKeySigner extends Signer {
   final String _privateKey;
 
   Bip340PrivateKeySigner(String privateKey, super.ref)
-      // Ensure private key is stored in hex format
-      : _privateKey = privateKey.decodeShareable();
+    // Ensure private key is stored in hex format
+    : _privateKey = privateKey.decodeShareable();
 
   @override
   Future<void> signIn({bool setAsActive = true}) async {
@@ -138,7 +149,11 @@ class Bip340PrivateKeySigner extends Signer {
   }
 
   Map<String, dynamic> _prepare(
-      Map<String, dynamic> map, String id, String pubkey, String signature) {
+    Map<String, dynamic> map,
+    String id,
+    String pubkey,
+    String signature,
+  ) {
     return map
       ..['id'] = id
       ..['pubkey'] = pubkey
@@ -147,7 +162,8 @@ class Bip340PrivateKeySigner extends Signer {
 
   @override
   Future<List<E>> sign<E extends Model<dynamic>>(
-      List<PartialModel<Model<dynamic>>> partialModels) async {
+    List<PartialModel<Model<dynamic>>> partialModels,
+  ) async {
     if (!isSignedIn) {
       throw StateError('Signer has not been signed in');
     }
@@ -157,8 +173,9 @@ class Bip340PrivateKeySigner extends Signer {
           final aux = hex.encode(List<int>.generate(32, (i) => 1));
           final signature = bip340.sign(_privateKey, id.toString(), aux);
           final map = _prepare(partialModel.toMap(), id, pubkey, signature);
-          return Model.getConstructorForKind(partialModel.event.kind)!
-              .call(map, ref);
+          return Model.getConstructorForKind(
+            partialModel.event.kind,
+          )!.call(map, ref);
         })
         .cast<E>()
         .toList();
@@ -174,7 +191,9 @@ class Bip340PrivateKeySigner extends Signer {
 
   @override
   Future<String> nip04Decrypt(
-      String encryptedMessage, String senderPubkey) async {
+    String encryptedMessage,
+    String senderPubkey,
+  ) async {
     if (!isSignedIn) {
       throw StateError('Signer has not been signed in');
     }
@@ -188,7 +207,10 @@ class Bip340PrivateKeySigner extends Signer {
     }
     try {
       return await nip44.Nip44.encryptMessage(
-          message, _privateKey, recipientPubkey);
+        message,
+        _privateKey,
+        recipientPubkey,
+      );
     } catch (e) {
       throw Exception('NIP-44 encryption failed: $e');
     }
@@ -196,13 +218,18 @@ class Bip340PrivateKeySigner extends Signer {
 
   @override
   Future<String> nip44Decrypt(
-      String encryptedMessage, String senderPubkey) async {
+    String encryptedMessage,
+    String senderPubkey,
+  ) async {
     if (!isSignedIn) {
       throw StateError('Signer has not been signed in');
     }
     try {
       return await nip44.Nip44.decryptMessage(
-          encryptedMessage, _privateKey, senderPubkey);
+        encryptedMessage,
+        _privateKey,
+        senderPubkey,
+      );
     } catch (e) {
       throw Exception('NIP-44 decryption failed: $e');
     }
@@ -211,7 +238,7 @@ class Bip340PrivateKeySigner extends Signer {
   /// NIP-04 encryption implementation
   String _nip04Encrypt(String message, String recipientPubkey) {
     try {
-      // Get shared secret using ECDH
+      // Get shared secret using proper ECDH
       final sharedSecret = _getSharedSecret(recipientPubkey);
 
       // Generate random IV (16 bytes for AES-CBC)
@@ -234,14 +261,45 @@ class Bip340PrivateKeySigner extends Signer {
   /// NIP-04 decryption implementation
   String _nip04Decrypt(String encryptedMessage, String senderPubkey) {
     try {
-      // Parse format: base64(encrypted)?iv=base64(iv)
-      final parts = encryptedMessage.split('?iv=');
-      if (parts.length != 2) {
-        throw FormatException('Invalid NIP-04 encrypted message format');
-      }
+      // Handle multiple NIP-04 formats
+      Uint8List encryptedBytes;
+      Uint8List iv;
 
-      final encryptedBytes = base64.decode(parts[0]);
-      final iv = base64.decode(parts[1]);
+      if (encryptedMessage.contains('?iv=')) {
+        // Standard format: base64(encrypted)?iv=base64(iv)
+        final parts = encryptedMessage.split('?iv=');
+        if (parts.length != 2) {
+          throw FormatException(
+            'Invalid NIP-04 encrypted message format with ?iv=',
+          );
+        }
+        encryptedBytes = Uint8List.fromList(base64.decode(parts[0]));
+        iv = Uint8List.fromList(base64.decode(parts[1]));
+      } else {
+        // Alternative format: try direct base64 decode and extract IV from end
+        try {
+          final allBytes = base64.decode(encryptedMessage);
+          if (allBytes.length < 16) {
+            throw FormatException('Encrypted message too short');
+          }
+          // Assume IV is the last 16 bytes
+          encryptedBytes = Uint8List.fromList(
+            allBytes.sublist(0, allBytes.length - 16),
+          );
+          iv = Uint8List.fromList(allBytes.sublist(allBytes.length - 16));
+        } catch (e) {
+          // Try extracting IV from beginning
+          final allBytes = base64.decode(encryptedMessage);
+          if (allBytes.length < 16) {
+            throw FormatException(
+              'Encrypted message too short for IV extraction',
+            );
+          }
+          // Assume IV is the first 16 bytes
+          iv = Uint8List.fromList(allBytes.sublist(0, 16));
+          encryptedBytes = Uint8List.fromList(allBytes.sublist(16));
+        }
+      }
 
       // Get shared secret using ECDH
       final sharedSecret = _getSharedSecret(senderPubkey);
@@ -255,41 +313,105 @@ class Bip340PrivateKeySigner extends Signer {
     }
   }
 
-  /// Get shared secret using ECDH with secp256k1
+  /// Get shared secret using ECDH with secp256k1 (NIP-04 compliant)
   Uint8List _getSharedSecret(String otherPubkey) {
     try {
-      // For now, use a simplified approach that generates a deterministic shared secret
-      // This is NOT cryptographically secure but provides a working implementation
-      // In production, you would use proper ECDH with secp256k1
+      // NIP-04 requires proper ECDH using secp256k1
+      // The shared secret is the X coordinate of the ECDH point (not hashed)
 
-      // Combine our private key with their public key and hash
-      final combined = _privateKey + otherPubkey;
-      final digest = sha256.convert(utf8.encode(combined));
-      return Uint8List.fromList(digest.bytes);
+      // Convert hex private key to BigInt
+      final privateKeyInt = BigInt.parse(_privateKey, radix: 16);
+
+      // Ensure pubkey has 02/03 prefix (compressed format)
+      String compressedPubkey = otherPubkey;
+      if (otherPubkey.length == 64) {
+        // Assume even Y coordinate if no prefix (add 02)
+        compressedPubkey = '02$otherPubkey';
+      }
+
+      // Create secp256k1 domain parameters
+      final domainParams = pc.ECDomainParameters('secp256k1');
+
+      // Parse the compressed public key
+      final pubkeyBytes = hex.decode(compressedPubkey);
+      final pubkeyPoint = domainParams.curve.decodePoint(pubkeyBytes)!;
+
+      // Perform ECDH: multiply public key by private key
+      final sharedPoint = pubkeyPoint * privateKeyInt;
+
+      // Get X coordinate as bytes (32 bytes, big-endian)
+      final xCoord = sharedPoint!.x!.toBigInteger()!;
+      final xBytes = _bigIntToBytes(xCoord, 32);
+
+      return xBytes;
     } catch (e) {
       throw Exception('ECDH key exchange failed: $e');
     }
+  }
+
+  /// Convert BigInt to bytes with specified length
+  Uint8List _bigIntToBytes(BigInt value, int length) {
+    final bytes = Uint8List(length);
+    for (int i = 0; i < length; i++) {
+      bytes[length - 1 - i] = (value >> (8 * i)).toUnsigned(8).toInt();
+    }
+    return bytes;
   }
 
   /// Generate cryptographically secure random bytes
   Uint8List _generateRandomBytes(int length) {
     final random = Random.secure();
     return Uint8List.fromList(
-        List.generate(length, (_) => random.nextInt(256)));
+      List.generate(length, (_) => random.nextInt(256)),
+    );
   }
 
-  /// Synchronous AES-256-CBC encryption (simplified implementation)
+  /// AES-256-CBC encryption using pointycastle
   Uint8List _aesEncrypt(Uint8List data, Uint8List key, Uint8List iv) {
-    // For now, use a simple XOR-based approach as a placeholder
-    // In production, this should use proper AES-CBC implementation
-    final paddedData = _pkcs7Pad(data, 16);
-    return _xorCrypt(paddedData, key, iv);
+    try {
+      // Create AES-256-CBC cipher
+      final cipher = pc.CBCBlockCipher(pc.AESEngine());
+
+      // Initialize with key and IV
+      final params = pc.ParametersWithIV(pc.KeyParameter(key), iv);
+      cipher.init(true, params); // true for encryption
+
+      // Pad data to 16-byte blocks using PKCS7
+      final paddedData = _pkcs7Pad(data, 16);
+
+      // Encrypt the data
+      final encrypted = Uint8List(paddedData.length);
+      for (int offset = 0; offset < paddedData.length; offset += 16) {
+        cipher.processBlock(paddedData, offset, encrypted, offset);
+      }
+
+      return encrypted;
+    } catch (e) {
+      throw Exception('AES encryption failed: $e');
+    }
   }
 
-  /// Synchronous AES-256-CBC decryption (simplified implementation)
+  /// AES-256-CBC decryption using pointycastle
   Uint8List _aesDecrypt(Uint8List encryptedData, Uint8List key, Uint8List iv) {
-    final decrypted = _xorCrypt(encryptedData, key, iv);
-    return _pkcs7Unpad(decrypted);
+    try {
+      // Create AES-256-CBC cipher
+      final cipher = pc.CBCBlockCipher(pc.AESEngine());
+
+      // Initialize with key and IV
+      final params = pc.ParametersWithIV(pc.KeyParameter(key), iv);
+      cipher.init(false, params); // false for decryption
+
+      // Decrypt the data
+      final decrypted = Uint8List(encryptedData.length);
+      for (int offset = 0; offset < encryptedData.length; offset += 16) {
+        cipher.processBlock(encryptedData, offset, decrypted, offset);
+      }
+
+      // Remove PKCS7 padding
+      return _pkcs7Unpad(decrypted);
+    } catch (e) {
+      throw Exception('AES decryption failed: $e');
+    }
   }
 
   /// PKCS7 padding
@@ -307,17 +429,14 @@ class Bip340PrivateKeySigner extends Signer {
   Uint8List _pkcs7Unpad(Uint8List paddedData) {
     if (paddedData.isEmpty) return paddedData;
     final padding = paddedData.last;
-    if (padding > paddedData.length) return paddedData;
-    return paddedData.sublist(0, paddedData.length - padding);
-  }
+    if (padding > paddedData.length || padding == 0) return paddedData;
 
-  /// Simple XOR-based encryption/decryption (temporary implementation)
-  Uint8List _xorCrypt(Uint8List data, Uint8List key, Uint8List iv) {
-    final result = Uint8List(data.length);
-    for (int i = 0; i < data.length; i++) {
-      result[i] = data[i] ^ key[i % key.length] ^ iv[i % iv.length];
+    // Verify padding is valid
+    for (int i = paddedData.length - padding; i < paddedData.length; i++) {
+      if (paddedData[i] != padding) return paddedData;
     }
-    return result;
+
+    return paddedData.sublist(0, paddedData.length - padding);
   }
 }
 
@@ -327,7 +446,7 @@ class DummySigner extends Signer {
   // ignore: overridden_fields
   final String __pubkey;
   DummySigner(super.ref, {String? pubkey})
-      : __pubkey = pubkey ?? Utils.generateRandomHex64();
+    : __pubkey = pubkey ?? Utils.generateRandomHex64();
 
   @override
   Future<void> signIn({bool setAsActive = true}) async {
@@ -336,10 +455,12 @@ class DummySigner extends Signer {
   }
 
   E signSync<E extends Model<dynamic>>(
-      PartialModel<Model<dynamic>> partialModel,
-      {required String pubkey}) {
-    final constructor = Model.getConstructorForKind(partialModel.event.kind)!
-        as ModelConstructor<E>;
+    PartialModel<Model<dynamic>> partialModel, {
+    required String pubkey,
+  }) {
+    final constructor =
+        Model.getConstructorForKind(partialModel.event.kind)!
+            as ModelConstructor<E>;
     return constructor.call({
       'id': Utils.getEventId(partialModel.event, pubkey),
       'pubkey': pubkey,
@@ -351,7 +472,8 @@ class DummySigner extends Signer {
   /// Simulate signing with the passed pubkey or an auto-generated one
   @override
   Future<List<E>> sign<E extends Model<dynamic>>(
-      List<PartialModel<Model<dynamic>>> partialModels) async {
+    List<PartialModel<Model<dynamic>>> partialModels,
+  ) async {
     return partialModels
         .map((partialModel) => signSync<E>(partialModel, pubkey: _pubkey!))
         .cast<E>()
@@ -366,7 +488,9 @@ class DummySigner extends Signer {
 
   @override
   Future<String> nip04Decrypt(
-      String encryptedMessage, String senderPubkey) async {
+    String encryptedMessage,
+    String senderPubkey,
+  ) async {
     // Dummy implementation - returns a placeholder decrypted message
     return 'dummy_nip04_decrypted_${encryptedMessage.hashCode}_$senderPubkey';
   }
@@ -379,7 +503,9 @@ class DummySigner extends Signer {
 
   @override
   Future<String> nip44Decrypt(
-      String encryptedMessage, String senderPubkey) async {
+    String encryptedMessage,
+    String senderPubkey,
+  ) async {
     // Dummy implementation - returns a placeholder decrypted message
     return 'dummy_nip44_decrypted_${encryptedMessage.hashCode}_$senderPubkey';
   }
@@ -400,6 +526,20 @@ mixin Signable<E extends Model<E>> {
         if (recipientHex != null) {
           await dm.encryptContent(signer, recipientHex);
         }
+      }
+    }
+
+    // Handle encryption for NWC Request models before signing
+    if (partialModel.runtimeType.toString().contains('PartialNwcRequest')) {
+      // Get the wallet pubkey from the 'p' tag
+      final walletPubkey = partialModel.event.getFirstTagValue('p');
+      if (walletPubkey != null && partialModel.event.content.isNotEmpty) {
+        // Encrypt the content using NIP-04 for the wallet (per NIP-47 spec)
+        final encryptedContent = await signer.nip04Encrypt(
+          partialModel.event.content,
+          walletPubkey,
+        );
+        partialModel.event.content = encryptedContent;
       }
     }
 

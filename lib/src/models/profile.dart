@@ -5,10 +5,14 @@ class Profile extends ReplaceableModel<Profile> {
   late final BelongsTo<ContactList> contactList;
 
   Profile.fromMap(super.map, super.ref) : super.fromMap() {
-    notes =
-        HasMany(ref, RequestFilter<Note>(authors: {event.pubkey}).toRequest());
+    notes = HasMany(
+      ref,
+      RequestFilter<Note>(authors: {event.pubkey}).toRequest(),
+    );
     contactList = BelongsTo(
-        ref, RequestFilter<ContactList>(authors: {event.pubkey}).toRequest());
+      ref,
+      RequestFilter<ContactList>(authors: {event.pubkey}).toRequest(),
+    );
   }
 
   @override
@@ -107,6 +111,107 @@ class Profile extends ReplaceableModel<Profile> {
       birthday: birthday ?? this.birthday,
       externalIdentities: externalIdentities ?? this.externalIdentities,
     );
+  }
+
+  /// Load a Profile from a NIP-05 address (user@domain.com)
+  static Future<Profile?> fromNip05(String address, Ref ref) async {
+    try {
+      // Decode NIP-05 to get the pubkey
+      final pubkey = await Utils.decodeNip05(address);
+
+      // Query storage for the profile with this pubkey
+      final storage = ref.read(storageNotifierProvider.notifier);
+      final profiles = await storage.query(
+        RequestFilter<Profile>(authors: {pubkey}, limit: 1).toRequest(),
+      );
+
+      return profiles.isNotEmpty ? profiles.first : null;
+    } catch (e) {
+      // Return null if NIP-05 resolution fails
+      return null;
+    }
+  }
+
+  /// Get a Lightning invoice via lud16 (Lightning address)
+  /// Returns the BOLT11 invoice string or null if unable to generate
+  Future<String?> getLightningInvoice({
+    required int amountSats,
+    String? comment,
+  }) async {
+    if (lud16 == null) return null;
+
+    try {
+      // Parse Lightning address (user@domain.com)
+      final parts = lud16!.split('@');
+      if (parts.length != 2) return null;
+
+      final username = parts[0];
+      final domain = parts[1];
+
+      // Step 1: Get LNURL-pay endpoint from .well-known/lnurlp/
+      final client = HttpClient();
+      try {
+        // Request LNURL-pay info
+        final lnurlRequest = await client.getUrl(
+          Uri.parse('https://$domain/.well-known/lnurlp/$username'),
+        );
+        final lnurlResponse = await lnurlRequest.close();
+
+        if (lnurlResponse.statusCode != 200) return null;
+
+        final lnurlBody = await lnurlResponse.transform(utf8.decoder).join();
+        final lnurlData = jsonDecode(lnurlBody) as Map<String, dynamic>;
+
+        // Validate LNURL-pay response
+        if (lnurlData['tag'] != 'payRequest') return null;
+
+        final callback = lnurlData['callback'] as String?;
+        final minSendable = lnurlData['minSendable'] as int?;
+        final maxSendable = lnurlData['maxSendable'] as int?;
+
+        if (callback == null || minSendable == null || maxSendable == null) {
+          return null;
+        }
+
+        // Convert sats to millisats for LNURL-pay
+        final amountMsat = amountSats * 1000;
+
+        // Check amount limits
+        if (amountMsat < minSendable || amountMsat > maxSendable) {
+          return null;
+        }
+
+        // Step 2: Request invoice from callback URL
+        final callbackUri = Uri.parse(callback).replace(
+          queryParameters: {
+            ...Uri.parse(callback).queryParameters,
+            'amount': amountMsat.toString(),
+            if (comment != null && comment.isNotEmpty) 'comment': comment,
+          },
+        );
+
+        final invoiceRequest = await client.getUrl(callbackUri);
+        final invoiceResponse = await invoiceRequest.close();
+
+        if (invoiceResponse.statusCode != 200) return null;
+
+        final invoiceBody = await invoiceResponse
+            .transform(utf8.decoder)
+            .join();
+        final invoiceData = jsonDecode(invoiceBody) as Map<String, dynamic>;
+
+        // Check for errors
+        if (invoiceData['status'] == 'ERROR') return null;
+
+        // Return the BOLT11 invoice
+        return invoiceData['pr'] as String?;
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      // Return null if any step fails
+      return null;
+    }
   }
 
   @override

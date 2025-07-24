@@ -142,6 +142,28 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       partialConstructor: PartialApp.fromMap,
     );
 
+    // NWC (Nostr Wallet Connect) models
+    Model.register(
+      kind: 13194,
+      constructor: NwcInfo.fromMap,
+      partialConstructor: PartialNwcInfo.fromMap,
+    );
+    Model.register(
+      kind: 23194,
+      constructor: NwcRequest.fromMap,
+      partialConstructor: PartialNwcRequest.fromMap,
+    );
+    Model.register(
+      kind: 23195,
+      constructor: NwcResponse.fromMap,
+      partialConstructor: PartialNwcResponse.fromMap,
+    );
+    Model.register(
+      kind: 23196,
+      constructor: NwcNotification.fromMap,
+      partialConstructor: PartialNwcNotification.fromMap,
+    );
+
     this.config = config;
   }
 

@@ -248,6 +248,7 @@ extension WidgetRefStorage on WidgetRef {
 - [x] **NIP-82: Application metadata, releases, assets** _(draft)_
 - [x] **NIP-90: Data Vending Machine**
 - [x] **NIP-94: File Metadata**
+- [x] **NIP-47: Nostr Wallet Connect** - Complete implementation with connection management, commands, and secure storage
 
 ## Core Concepts 🧠
 
@@ -877,6 +878,495 @@ final signedDm = await preEncryptedDm.signWith(signer);
 
 Interact with Decentralized Virtual Machines for reputation verification and other services.
 
+### Nostr Wallet Connect (NIP-47)
+
+Integrate Lightning wallet functionality into your nostr applications using the Nostr Wallet Connect protocol.
+
+**Riverpod Provider:**
+
+The library provides a Riverpod provider for the NWC connection manager:
+
+```dart
+// Get the NWC connection manager from the provider
+final nwcManager = ref.read(nwcConnectionManagerProvider);
+
+// The provider automatically uses the active signer
+// If no active signer is available, it will throw an exception
+```
+
+**Provider Details:**
+- **`nwcConnectionManagerProvider`**: Provides a singleton `NwcConnectionManager` instance
+- **Automatic Signer**: Uses the active signer from `Signer.activeSignerProvider`
+- **Error Handling**: Throws an exception if no active signer is available
+- **Lifecycle**: Automatically manages the connection manager lifecycle
+
+**Basic NWC Setup:**
+
+```dart
+// Get the NWC connection manager from Riverpod provider
+final nwcManager = ref.read(nwcConnectionManagerProvider);
+
+// Parse a NWC URI from a wallet
+final nwcUri = 'nostr+walletconnect://b889ff5b1513b641e2a139f661a661364979c5beee91842f8f0ef42ab558e9d4?relay=wss%3A%2F%2Frelay.damus.io&secret=71a8c14c1407c113601079c4302dab36460f0ccd0ad506f1f2dc73b5100e4f3c&lud16=alice%40walletofsatoshi.com';
+
+final connection = NwcConnection.fromUri(nwcUri);
+
+// Store the connection securely (encrypted with NIP-44)
+await nwcManager.storeConnection('my_wallet', connection);
+
+// Set as active connection
+await nwcManager.setActiveConnection('my_wallet');
+```
+
+**Making Wallet Requests:**
+
+```dart
+// Get the NWC connection manager
+final nwcManager = ref.read(nwcConnectionManagerProvider);
+
+// Get the active connection
+final activeConnection = await nwcManager.getActiveConnection();
+if (activeConnection == null) {
+  print('No active NWC connection');
+  return;
+}
+
+// Create a command to pay an invoice
+final payCommand = PayInvoiceCommand(
+  invoice: 'lnbc1000n1...',
+  amount: 1000, // Optional: override amount
+);
+
+// Create and sign the request
+final request = payCommand.toRequest(
+  walletPubkey: activeConnection.walletPubkey,
+  expiration: DateTime.now().add(Duration(minutes: 5)),
+);
+
+final signedRequest = await request.signWith(signer);
+
+// Send the request to the wallet service
+await ref.storage.publish(
+  {signedRequest},
+  source: RemoteSource(group: 'nwc'),
+);
+
+// Listen for responses
+final responsesState = ref.watch(
+  query<NwcResponse>(
+    authors: {activeConnection.walletPubkey},
+    kinds: {23195}, // NWC Response kind
+    tags: {'#e': {signedRequest.event.id}},
+  ),
+);
+
+// Handle the response
+switch (responsesState) {
+  case StorageData():
+    if (responsesState.models.isNotEmpty) {
+      final response = responsesState.models.first;
+      
+      // Check for errors
+      final hasError = await response.hasError(signer);
+      if (hasError) {
+        final error = await response.getError(signer);
+        print('NWC Error: ${error?.code} - ${error?.message}');
+      } else {
+        // Parse successful response
+        final result = payCommand.parseResponse(
+          await response.getResult(signer) ?? {},
+        );
+        print('Payment successful! Preimage: ${result.preimage}');
+      }
+    }
+  case StorageLoading():
+    print('Waiting for wallet response...');
+  case StorageError():
+    print('Error: ${responsesState.exception}');
+}
+```
+
+**Creating Invoices:**
+
+```dart
+// Get the NWC connection manager
+final nwcManager = ref.read(nwcConnectionManagerProvider);
+
+// Create an invoice request
+final makeInvoiceCommand = MakeInvoiceCommand(
+  amount: 5000,
+  description: 'Payment for services',
+  expiry: 3600, // 1 hour
+);
+
+final request = makeInvoiceCommand.toRequest(
+  walletPubkey: activeConnection.walletPubkey,
+);
+
+final signedRequest = await request.signWith(signer);
+await ref.storage.publish({signedRequest}, source: RemoteSource(group: 'nwc'));
+
+// Listen for the response
+final responsesState = ref.watch(
+  query<NwcResponse>(
+    authors: {activeConnection.walletPubkey},
+    kinds: {23195},
+    tags: {'#e': {signedRequest.event.id}},
+  ),
+);
+
+// Parse the invoice result
+switch (responsesState) {
+  case StorageData():
+    if (responsesState.models.isNotEmpty) {
+      final response = responsesState.models.first;
+      final result = makeInvoiceCommand.parseResponse(
+        await response.getResult(signer) ?? {},
+      );
+      print('Invoice created: ${result.invoice}');
+      print('Payment hash: ${result.paymentHash}');
+    }
+  // ... handle other states
+}
+```
+
+**Getting Wallet Balance:**
+
+```dart
+// Get the NWC connection manager
+final nwcManager = ref.read(nwcConnectionManagerProvider);
+
+final balanceCommand = GetBalanceCommand();
+final request = balanceCommand.toRequest(
+  walletPubkey: activeConnection.walletPubkey,
+);
+
+final signedRequest = await request.signWith(signer);
+await ref.storage.publish({signedRequest}, source: RemoteSource(group: 'nwc'));
+
+// Listen for balance response
+final responsesState = ref.watch(
+  query<NwcResponse>(
+    authors: {activeConnection.walletPubkey},
+    kinds: {23195},
+    tags: {'#e': {signedRequest.event.id}},
+  ),
+);
+
+switch (responsesState) {
+  case StorageData():
+    if (responsesState.models.isNotEmpty) {
+      final response = responsesState.models.first;
+      final result = balanceCommand.parseResponse(
+        await response.getResult(signer) ?? {},
+      );
+      print('Wallet balance: ${result.balance} sats');
+    }
+  // ... handle other states
+}
+```
+
+**Listening for Wallet Notifications:**
+
+```dart
+// Watch for wallet notifications
+final notificationsState = ref.watch(
+  query<NwcNotification>(
+    authors: {activeConnection.walletPubkey},
+    kinds: {23196}, // NWC Notification kind
+  ),
+);
+
+switch (notificationsState) {
+  case StorageData():
+    for (final notification in notificationsState.models) {
+      final type = await notification.getNotificationType(signer);
+      
+      switch (type) {
+        case 'payment_received':
+          final data = await notification.getNotification(signer);
+          print('Payment received: ${data?['amount']} sats');
+          break;
+        case 'payment_sent':
+          final data = await notification.getNotification(signer);
+          print('Payment sent: ${data?['amount']} sats');
+          break;
+      }
+    }
+  // ... handle other states
+}
+```
+
+**Managing Multiple Connections:**
+
+```dart
+// Get the NWC connection manager
+final nwcManager = ref.read(nwcConnectionManagerProvider);
+
+// Store multiple wallet connections
+await nwcManager.storeConnection('wallet1', connection1);
+await nwcManager.storeConnection('wallet2', connection2);
+
+// Get all stored connections
+final allConnections = await nwcManager.getAllConnections();
+print('Stored connections: ${allConnections.keys}');
+
+// Switch between connections
+await nwcManager.setActiveConnection('wallet2');
+
+// Remove a connection
+await nwcManager.removeConnection('wallet1');
+```
+
+**Wallet Service Discovery:**
+
+```dart
+// Query for wallet service info
+final walletInfoState = ref.watch(
+  query<NwcInfo>(
+    authors: {walletPubkey},
+    kinds: {13194}, // NWC Info kind
+  ),
+);
+
+switch (walletInfoState) {
+  case StorageData():
+    if (walletInfoState.models.isNotEmpty) {
+      final info = walletInfoState.models.first;
+      
+      // Check supported methods
+      if (info.supportsMethod('pay_invoice')) {
+        print('Wallet supports invoice payments');
+      }
+      
+      if (info.supportsMethod('make_invoice')) {
+        print('Wallet can create invoices');
+      }
+      
+      // Check supported notifications
+      if (info.supportsNotification('payment_received')) {
+        print('Wallet sends payment received notifications');
+      }
+    }
+  // ... handle other states
+}
+```
+
+**Error Handling:**
+
+```dart
+// Handle common NWC errors
+try {
+  final result = await sendNwcRequest(command);
+  // Handle success
+} catch (e) {
+  if (e is NwcError) {
+    switch (e.code) {
+      case NwcError.insufficientBalance:
+        print('Insufficient balance in wallet');
+        break;
+      case NwcError.rateLimited:
+        print('Rate limited - try again later');
+        break;
+      case NwcError.unauthorized:
+        print('Unauthorized - check connection permissions');
+        break;
+      default:
+        print('NWC error: ${e.message}');
+    }
+  }
+}
+```
+
+**Connection Limits and Permissions:**
+
+```dart
+// Create connection with limits
+final limitedConnection = NwcConnection(
+  walletPubkey: walletPubkey,
+  secret: secret,
+  relay: relay,
+  limits: NwcConnectionLimits(
+    maxAmount: 10000, // 10k sats max per period
+    budgetRenewal: NwcBudgetRenewal.daily,
+    allowedMethods: {'pay_invoice', 'get_balance'},
+  ),
+  createdAt: DateTime.now(),
+  expiresAt: DateTime.now().add(Duration(days: 30)),
+);
+
+// Check if connection has expired
+if (limitedConnection.isExpired) {
+  print('Connection has expired');
+}
+
+// Check budget limits
+if (limitedConnection.limits?.maxAmount != null) {
+  print('Max amount per ${limitedConnection.limits!.budgetRenewal}: ${limitedConnection.limits!.maxAmount} sats');
+}
+```
+
+**Secure Storage:**
+
+The NWC connection manager uses NIP-44 encryption to securely store sensitive connection data:
+
+```dart
+// Get the NWC connection manager
+final nwcManager = ref.read(nwcConnectionManagerProvider);
+
+// Store a standalone secret
+await nwcManager.storeSecret('api_key', 'secret_api_key_value');
+
+// Retrieve the secret
+final apiKey = await nwcManager.getSecret('api_key');
+
+// Remove the secret
+await nwcManager.removeSecret('api_key');
+```
+
+**Complete NWC Integration Example:**
+
+```dart
+class NwcWalletService {
+  final NwcConnectionManager _manager;
+  final StorageNotifier _storage;
+  final Signer _signer;
+
+  NwcWalletService(Ref ref, {Signer? signer})
+    : _manager = signer != null 
+        ? NwcConnectionManager(ref, signer: signer)
+        : ref.read(nwcConnectionManagerProvider),
+      _storage = ref.read(storageNotifierProvider.notifier),
+      _signer = signer ?? ref.read(Signer.activeSignerProvider)!;
+
+  /// Connect to a wallet using NWC URI
+  Future<void> connectWallet(String nwcUri, String connectionId) async {
+    final connection = NwcConnection.fromUri(nwcUri);
+    await _manager.storeConnection(connectionId, connection);
+    await _manager.setActiveConnection(connectionId);
+  }
+
+  /// Pay an invoice
+  Future<PayInvoiceResult?> payInvoice(String invoice, {int? amount}) async {
+    final connection = await _manager.getActiveConnection();
+    if (connection == null) throw Exception('No active NWC connection');
+
+    final command = PayInvoiceCommand(invoice: invoice, amount: amount);
+    final request = command.toRequest(walletPubkey: connection.walletPubkey);
+    final signedRequest = await request.signWith(_signer);
+
+    await _storage.publish({signedRequest}, source: RemoteSource(group: 'nwc'));
+
+    // Wait for response (in real app, use proper async handling)
+    await Future.delayed(Duration(seconds: 2));
+
+    final responses = await _storage.query(
+      RequestFilter<NwcResponse>(
+        authors: {connection.walletPubkey},
+        kinds: {23195},
+        tags: {'#e': {signedRequest.event.id}},
+      ).toRequest(),
+    );
+
+    if (responses.isNotEmpty) {
+      final response = responses.first;
+      if (await response.hasError(_signer)) {
+        final error = await response.getError(_signer);
+        throw Exception('NWC Error: ${error?.code} - ${error?.message}');
+      }
+      
+      final result = await response.getResult(_signer);
+      return result != null ? command.parseResponse(result) : null;
+    }
+
+    return null;
+  }
+
+  /// Get wallet balance
+  Future<int?> getBalance() async {
+    final connection = await _manager.getActiveConnection();
+    if (connection == null) throw Exception('No active NWC connection');
+
+    final command = GetBalanceCommand();
+    final request = command.toRequest(walletPubkey: connection.walletPubkey);
+    final signedRequest = await request.signWith(_signer);
+
+    await _storage.publish({signedRequest}, source: RemoteSource(group: 'nwc'));
+
+    // Wait for response
+    await Future.delayed(Duration(seconds: 2));
+
+    final responses = await _storage.query(
+      RequestFilter<NwcResponse>(
+        authors: {connection.walletPubkey},
+        kinds: {23195},
+        tags: {'#e': {signedRequest.event.id}},
+      ).toRequest(),
+    );
+
+    if (responses.isNotEmpty) {
+      final response = responses.first;
+      final result = await response.getResult(_signer);
+      return result != null ? command.parseResponse(result).balance : null;
+    }
+
+    return null;
+  }
+
+  /// Create an invoice
+  Future<MakeInvoiceResult?> createInvoice({
+    required int amount,
+    String? description,
+    int? expiry,
+  }) async {
+    final connection = await _manager.getActiveConnection();
+    if (connection == null) throw Exception('No active NWC connection');
+
+    final command = MakeInvoiceCommand(
+      amount: amount,
+      description: description,
+      expiry: expiry,
+    );
+    final request = command.toRequest(walletPubkey: connection.walletPubkey);
+    final signedRequest = await request.signWith(_signer);
+
+    await _storage.publish({signedRequest}, source: RemoteSource(group: 'nwc'));
+
+    // Wait for response
+    await Future.delayed(Duration(seconds: 2));
+
+    final responses = await _storage.query(
+      RequestFilter<NwcResponse>(
+        authors: {connection.walletPubkey},
+        kinds: {23195},
+        tags: {'#e': {signedRequest.event.id}},
+      ).toRequest(),
+    );
+
+    if (responses.isNotEmpty) {
+      final response = responses.first;
+      final result = await response.getResult(_signer);
+      return result != null ? command.parseResponse(result) : null;
+    }
+
+    return null;
+  }
+
+  /// Listen for payment notifications
+  Stream<NwcNotification> get paymentNotifications {
+    final connection = _manager.getActiveConnection();
+    if (connection == null) return Stream.empty();
+
+    return _storage.query(
+      RequestFilter<NwcNotification>(
+        authors: {connection.walletPubkey},
+        kinds: {23196},
+      ).toRequest(),
+    ).asStream().expand((notifications) => notifications);
+  }
+}
+```
+
 **Creating DVM Requests:**
 
 ```dart
@@ -1121,6 +1611,15 @@ Available built-in models and their relationships.
 - `VerifyReputationRequest` (kind 5312) - Reputation verification
 - `VerifyReputationResponse` (kind 6312) - Reputation results
 - `DVMError` (kind 7000) - DVM error responses
+
+**NWC (Nostr Wallet Connect) Models:**
+- `NwcInfo` (kind 13194) - Wallet service capabilities and supported methods
+- `NwcRequest` (kind 23194) - Encrypted requests from client to wallet service
+- `NwcResponse` (kind 23195) - Encrypted responses from wallet service to client
+- `NwcNotification` (kind 23196) - Encrypted notifications from wallet service to client
+- `NwcConnection` - Connection management with secure storage
+- `NwcConnectionManager` - Secure connection management with NIP-44 encryption
+- `NwcCommand<T>` - Type-safe command classes for wallet operations
 
 ### Utilities
 
