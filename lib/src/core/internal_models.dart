@@ -80,7 +80,7 @@ final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
   StorageError(super.models, {required dynamic exception, this.stackTrace}) {
     this.exception = exception is Exception
         ? exception
-        : Exception(e.toString());
+        : Exception(exception.toString());
   }
 }
 
