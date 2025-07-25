@@ -28,23 +28,6 @@ abstract class NwcCommand<T> {
     return request;
   }
 
-  /// Publish a signed NWC request to the appropriate relay
-  /// Automatically uses the relay URL from the NWC connection
-  Future<PublishResponse> publishRequest(
-    NwcRequest signedRequest,
-    NwcConnection connection,
-    StorageNotifier storage,
-  ) async {
-    // Save the request locally first for tracking
-    await storage.save({signedRequest});
-
-    final result = await storage.publish({
-      signedRequest,
-    }, source: RemoteSource(relayUrls: {connection.relay}));
-
-    return result;
-  }
-
   /// Execute command with full error handling (recommended)
   /// Creates a signer from the connection's secret as per NIP-47 specification
   Future<T> executeRequest({
@@ -57,7 +40,7 @@ abstract class NwcCommand<T> {
   }) async {
     // Create a signer from the connection's secret (NIP-47 requirement)
     final connectionSigner = Bip340PrivateKeySigner(connection.secret, ref);
-    await connectionSigner.signIn(setAsActive: false);
+    await connectionSigner.signIn(registerSigner: false);
 
     // Create the request
     final request = toRequest(
@@ -72,50 +55,29 @@ abstract class NwcCommand<T> {
     // Start listening for response
     final completer = Completer<NwcResponse>();
 
-    // Create direct relay subscription for NWC responses
-    final relayRequest = Request([
-      RequestFilter<NwcResponse>(
+    final sub = ref.listen(
+      query<NwcResponse>(
         authors: {connection.walletPubkey},
         tags: {
           '#p': {connectionSigner.pubkey}, // Response directed to us
           '#e': {signedRequest.id}, // Response to our specific request
         },
+        source: RemoteSource(relayUrls: {connection.relay}),
       ),
-    ]);
-
-    final sub = ref.listen(relaySubscriptionProvider(relayRequest), (
-      previous,
-      current,
-    ) {
-      if (completer.isCompleted) return;
-
-      // Look for new events that weren't in previous state
-      final newEvents = previous == null
-          ? current.events
-          : current.events.skip(previous.events.length).toList();
-
-      for (final eventMap in newEvents) {
-        try {
-          // Convert event map to NwcResponse model
-          final nwcResponse = NwcResponse.fromMap(eventMap, ref);
-
-          // Check if this response is for our request
-          if (nwcResponse.requestEventId == signedRequest.id) {
-            completer.complete(nwcResponse);
-            return;
-          }
-        } catch (e) {
-          // Ignore parsing errors for unrelated events
+      (_, state) {
+        if (state case StorageData(:final models)
+            when models.isNotEmpty &&
+                models.first.requestEventId == signedRequest.id &&
+                !completer.isCompleted) {
+          completer.complete(models.first);
         }
-      }
-    });
+      },
+    );
 
     // Publish to the connection's relay
-    final publishResponse = await publishRequest(
+    final publishResponse = await storage.publish({
       signedRequest,
-      connection,
-      storage,
-    );
+    }, source: RemoteSource(relayUrls: {connection.relay}));
 
     // Check if publish was successful
     final publishSuccessful = publishResponse.results.values.any(

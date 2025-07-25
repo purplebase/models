@@ -267,6 +267,7 @@ class NwcManager {
             '#d': {identifier},
           },
         ).toRequest(),
+        source: LocalSource(),
       );
 
       if (customDataList.isEmpty) return null;
@@ -304,6 +305,7 @@ class NwcManager {
   Future<Set<String>> getAllConnectionIds() async {
     final allCustomData = await _storage.query(
       RequestFilter<CustomData>(authors: {_signer.pubkey}).toRequest(),
+      source: LocalSource(),
     );
 
     return allCustomData
@@ -364,6 +366,7 @@ class NwcManager {
             '#d': {_activeConnectionKey},
           },
         ).toRequest(),
+        source: LocalSource(),
       );
 
       if (customDataList.isEmpty) return null;
@@ -421,6 +424,7 @@ class NwcManager {
             '#d': {identifier},
           },
         ).toRequest(),
+        source: LocalSource(),
       );
 
       if (customDataList.isEmpty) return null;

@@ -311,7 +311,6 @@ class NostrRelay {
     );
 
     for (final entry in subscriptionsCopy.entries) {
-      final subId = entry.key;
       final notifier = entry.value;
 
       if (notifier.state.isClosed) continue;

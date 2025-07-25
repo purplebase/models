@@ -22,11 +22,18 @@ abstract class Signer {
   /// This is the preferred method for signing in signers.
   /// [setAsActive] determines whether this signer becomes the active signer after sign in.
   @mustCallSuper
-  Future<void> signIn({bool setAsActive = true}) async {
+  Future<void> signIn({
+    bool setAsActive = true,
+    bool registerSigner = true,
+  }) async {
     if (_pubkey == null) {
       throw UnsupportedError(
         'Pubkey must be set, bug in $runtimeType implementation',
       );
+    }
+
+    if (registerSigner == false) {
+      return;
     }
 
     ref.read(Signer._signerProvider(_pubkey!).notifier).state = this;
@@ -51,6 +58,8 @@ abstract class Signer {
 
     // If pubkey is managed by this signer, remove from active
     removeAsActivePubkey();
+
+    _pubkey = null;
   }
 
   /// Set this signer as the active pubkey
@@ -142,10 +151,16 @@ class Bip340PrivateKeySigner extends Signer {
     : _privateKey = privateKey.decodeShareable();
 
   @override
-  Future<void> signIn({bool setAsActive = true}) async {
+  Future<void> signIn({
+    bool setAsActive = true,
+    bool registerSigner = true,
+  }) async {
     internalSetPubkey(Utils.derivePublicKey(_privateKey));
 
-    return super.signIn(setAsActive: setAsActive);
+    return super.signIn(
+      setAsActive: setAsActive,
+      registerSigner: registerSigner,
+    );
   }
 
   Map<String, dynamic> _prepare(
@@ -449,9 +464,15 @@ class DummySigner extends Signer {
     : __pubkey = pubkey ?? Utils.generateRandomHex64();
 
   @override
-  Future<void> signIn({bool setAsActive = true}) async {
+  Future<void> signIn({
+    bool setAsActive = true,
+    bool registerSigner = true,
+  }) async {
     internalSetPubkey(__pubkey);
-    return super.signIn(setAsActive: setAsActive);
+    return super.signIn(
+      setAsActive: setAsActive,
+      registerSigner: registerSigner,
+    );
   }
 
   E signSync<E extends Model<dynamic>>(
