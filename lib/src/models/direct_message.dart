@@ -1,8 +1,13 @@
 part of models;
 
+/// A direct message event (kind 4) for private communication between users.
+///
+/// Direct messages are encrypted using NIP-04 and can only be decrypted by
+/// the sender and recipient. They provide private, peer-to-peer communication.
 class DirectMessage extends RegularModel<DirectMessage> {
   DirectMessage.fromMap(super.map, super.ref) : super.fromMap();
 
+  /// The recipient's npub (Bech32-encoded public key)
   String get receiver => Utils.encodeShareableFromString(
     event.getFirstTagValue('p')!,
     type: 'npub',
@@ -54,23 +59,42 @@ class DirectMessage extends RegularModel<DirectMessage> {
       encryptedContent.contains('?') || encryptedContent.startsWith('A');
 }
 
-// ignore_for_file: annotate_overrides
-
 /// Generated partial model mixin for DirectMessage
 mixin PartialDirectMessageMixin on RegularPartialModel<DirectMessage> {
+  /// The recipient's public key
   String? get receiver => event.getFirstTagValue('p');
+
+  /// Sets the recipient's public key
   set receiver(String? value) => event.setTagValue('p', value);
+
+  /// The message content (may be encrypted)
   String? get content => event.content.isEmpty ? null : event.content;
+
+  /// Sets the message content
   set content(String? value) => event.content = value ?? '';
+
+  /// Raw encrypted content (alias for content)
   String? get encryptedContent => event.content.isEmpty ? null : event.content;
+
+  /// Sets the encrypted content
   set encryptedContent(String? value) => event.content = value ?? '';
 }
 
+/// Create and sign new direct message events.
+///
+/// Example usage:
+/// ```dart
+/// final dm = await PartialDirectMessage(content: 'Hello!', receiver: receiverPubkey).signWith(signer);
+/// ```
 class PartialDirectMessage extends RegularPartialModel<DirectMessage>
     with PartialDirectMessageMixin {
   PartialDirectMessage.fromMap(super.map) : super.fromMap();
 
   /// Create a new direct message with automatic encryption
+  ///
+  /// [content] - The plain text message content
+  /// [receiver] - The recipient's public key or npub
+  /// [useNip44] - Whether to use NIP-44 encryption (more secure, default)
   PartialDirectMessage({
     required String content,
     required String receiver,
@@ -87,6 +111,9 @@ class PartialDirectMessage extends RegularPartialModel<DirectMessage>
   }
 
   /// Create a direct message with pre-encrypted content
+  ///
+  /// [encryptedContent] - Already encrypted message content
+  /// [receiver] - The recipient's public key or npub
   PartialDirectMessage.encrypted({
     required String encryptedContent,
     required String receiver,
@@ -99,6 +126,9 @@ class PartialDirectMessage extends RegularPartialModel<DirectMessage>
   bool _useNip44 = true;
 
   /// Encrypt the content using the provided signer
+  ///
+  /// [signer] - The signer to use for encryption
+  /// [recipientPubkey] - The recipient's public key
   Future<void> encryptContent(Signer signer, String recipientPubkey) async {
     if (_plainContent != null) {
       if (_useNip44) {

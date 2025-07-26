@@ -2,7 +2,9 @@
 
 part of models;
 
-/// State for a single relay subscription
+/// State container for relay subscriptions.
+///
+/// Tracks active subscriptions and their associated filters.
 class RelaySubscriptionState with EquatableMixin {
   final String subscriptionId;
   final List<Map<String, dynamic>> events;
@@ -43,7 +45,7 @@ class RelaySubscriptionState with EquatableMixin {
   ];
 }
 
-/// StateNotifier for managing a single relay subscription
+/// Notifier for managing relay subscription state changes.
 class RelaySubscriptionNotifier extends StateNotifier<RelaySubscriptionState> {
   final Request request;
   final NostrRelay relay;
@@ -149,7 +151,23 @@ class RelaySubscriptionNotifier extends StateNotifier<RelaySubscriptionState> {
   }
 }
 
-/// A simple Nostr relay implementation following NIP-01 protocol
+/// A complete Nostr relay implementation that can store and serve events.
+///
+/// This relay provides a full implementation of the Nostr protocol including
+/// event storage, subscription management, and WebSocket communication.
+/// It can be used as a standalone relay server or embedded in applications.
+///
+/// Example usage:
+/// ```dart
+/// final relay = NostrRelay(
+///   port: 8080,
+///   host: '0.0.0.0',
+///   ref: container.read(refProvider),
+/// );
+///
+/// await relay.start();
+/// print('Relay running on ws://localhost:8080');
+/// ```
 class NostrRelay {
   final int port;
   final String host;

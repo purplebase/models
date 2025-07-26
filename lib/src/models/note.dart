@@ -1,13 +1,29 @@
 part of models;
 
+/// A text note event (kind 1) in the Nostr protocol.
+///
+/// Notes are the most common type of content on Nostr, similar to tweets
+/// or social media posts. They can be standalone posts or replies to other notes.
 class Note extends RegularModel<Note> {
+  /// The text content of this note.
   String get content => event.content;
 
+  /// The root note in this conversation thread (if this is a reply).
   late final BelongsTo<Note> root;
+
+  /// The note this is directly replying to (if this is a reply).
   late final BelongsTo<Note> replyTo;
+
+  /// Whether this note is a root post (not a reply to anything).
   late final bool isRoot;
+
+  /// All direct replies to this note.
   late final HasMany<Note> replies;
+
+  /// All replies in the entire thread below this note.
   late final HasMany<Note> allReplies;
+
+  /// All reposts of this note.
   late final HasMany<Repost> reposts;
 
   Note.fromMap(super.map, super.ref) : super.fromMap() {
@@ -100,17 +116,25 @@ class Note extends RegularModel<Note> {
   }
 }
 
-// ignore_for_file: annotate_overrides
-
 /// Generated partial model mixin for Note
 mixin PartialNoteMixin on RegularPartialModel<Note> {
+  /// The text content of the note
   String? get content => event.content.isEmpty ? null : event.content;
+
+  /// Sets the text content of the note
   set content(String? value) => event.content = value ?? '';
 }
 
 class PartialNote extends RegularPartialModel<Note> with PartialNoteMixin {
   PartialNote.fromMap(super.map) : super.fromMap();
 
+  /// Creates a new note with the specified content
+  ///
+  /// [content] - The text content of the note
+  /// [createdAt] - Optional creation timestamp
+  /// [replyTo] - Optional note this is replying to
+  /// [root] - Optional root note in the conversation thread
+  /// [tags] - Optional hashtags for the note
   PartialNote(
     String content, {
     DateTime? createdAt,

@@ -1,7 +1,14 @@
 part of models;
 
+/// A user profile event (kind 0) containing metadata about a Nostr user.
+///
+/// Profiles store user information like display name, bio, picture, and other
+/// metadata. They are replaceable events, meaning newer profiles replace older ones.
 class Profile extends ReplaceableModel<Profile> {
+  /// All notes authored by this profile.
   late final HasMany<Note> notes;
+
+  /// The contact list (following list) for this profile.
   late final BelongsTo<ContactList> contactList;
 
   Profile.fromMap(super.map, super.ref) : super.fromMap() {
@@ -63,18 +70,38 @@ class Profile extends ReplaceableModel<Profile> {
     return super.transformMap(map);
   }
 
+  /// The user's public key
   String get pubkey => event.pubkey;
+
+  /// The user's npub (Bech32-encoded public key)
   String get npub => _bech32Encode('npub', pubkey);
+
+  /// The user's display name
   String? get name => event.metadata['name'];
+
+  /// The user's NIP-05 address for verification
   String? get nip05 => event.metadata['nip05'];
+
+  /// URL to the user's profile picture
   String? get pictureUrl => event.metadata['picture'];
+
+  /// Lightning address for receiving payments
   String? get lud16 => event.metadata['lud16'];
+
+  /// The user's bio or description
   String? get about => event.metadata['about'];
+
+  /// URL to the user's banner image
   String? get banner => event.metadata['banner'];
+
+  /// The user's website URL
   String? get website => event.metadata['website'];
+
+  /// The user's birthday
   DateTime? get birthday => event.metadata['birthday'];
 
   // External identities from NIP-39 as Record (platform, proofUrl)
+  /// External platform identities (platform, proof URL) from NIP-39
   Set<(String, String)> get externalIdentities {
     final identities = <(String, String)>{};
 
@@ -87,6 +114,7 @@ class Profile extends ReplaceableModel<Profile> {
     return identities;
   }
 
+  /// Returns the display name if available, otherwise the npub
   String get nameOrNpub => name ?? npub;
 
   PartialProfile copyWith({

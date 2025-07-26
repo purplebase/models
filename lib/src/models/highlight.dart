@@ -1,12 +1,20 @@
 part of models;
 
+/// A highlight event (kind 9802) for highlighting portions of content.
+///
+/// Highlights allow users to emphasize specific parts of articles, notes,
+/// or other content. They can include context and reference the original content.
 class Highlight extends RegularModel<Highlight> {
+  /// The highlighted text content
   String get content => event.content;
 
   late final BelongsTo<Note> referencedNote;
   late final BelongsTo<Article> referencedArticle;
 
+  /// URL being highlighted (for external content)
   String? get referencedUrl => event.getFirstTagValue('r');
+
+  /// Additional context for the highlight
   String? get context => event.getFirstTagValue('context');
 
   /// The event ID being highlighted (from 'e' tag)
@@ -51,21 +59,41 @@ class Highlight extends RegularModel<Highlight> {
 
 /// Generated partial model mixin for Highlight
 mixin PartialHighlightMixin on RegularPartialModel<Highlight> {
+  /// The highlighted text content
   String? get content => event.content.isEmpty ? null : event.content;
+
+  /// Sets the highlighted text content
   set content(String? value) => event.content = value ?? '';
 
+  /// URL being highlighted (for external content)
   String? get referencedUrl => event.getFirstTagValue('r');
+
+  /// Sets the referenced URL
   set referencedUrl(String? value) => event.setTagValue('r', value);
 
+  /// Additional context for the highlight
   String? get context => event.getFirstTagValue('context');
+
+  /// Sets the highlight context
   set context(String? value) => event.setTagValue('context', value);
 }
 
+/// Create and sign new highlight events.
+///
+/// Example usage:
+/// ```dart
+/// final highlight = await PartialHighlight.fromNote('highlighted text', note).signWith(signer);
+/// ```
 class PartialHighlight extends RegularPartialModel<Highlight>
     with PartialHighlightMixin {
   PartialHighlight.fromMap(super.map) : super.fromMap();
 
-  /// Create a highlight for a Nostr note
+  /// Creates a highlight for a Nostr note
+  ///
+  /// [content] - The text being highlighted
+  /// [referencedNote] - The note containing the highlighted text
+  /// [context] - Optional additional context
+  /// [createdAt] - Optional creation timestamp
   PartialHighlight.fromNote(
     String content,
     Note referencedNote, {
@@ -89,7 +117,12 @@ class PartialHighlight extends RegularPartialModel<Highlight>
     }
   }
 
-  /// Create a highlight for a Nostr article
+  /// Creates a highlight for a Nostr article
+  ///
+  /// [content] - The text being highlighted
+  /// [referencedArticle] - The article containing the highlighted text
+  /// [context] - Optional additional context
+  /// [createdAt] - Optional creation timestamp
   PartialHighlight.fromArticle(
     String content,
     Article referencedArticle, {
@@ -113,7 +146,13 @@ class PartialHighlight extends RegularPartialModel<Highlight>
     }
   }
 
-  /// Create a highlight for an external URL
+  /// Creates a highlight for an external URL
+  ///
+  /// [content] - The text being highlighted
+  /// [url] - The URL where the content was found
+  /// [context] - Optional additional context
+  /// [authorPubkey] - Optional pubkey of the original author
+  /// [createdAt] - Optional creation timestamp
   PartialHighlight.fromUrl(
     String content,
     String url, {
@@ -137,7 +176,15 @@ class PartialHighlight extends RegularPartialModel<Highlight>
     }
   }
 
-  /// Create a general highlight with manual configuration
+  /// Creates a general highlight with manual configuration
+  ///
+  /// [content] - The text being highlighted
+  /// [referencedEventId] - Optional event ID being highlighted
+  /// [referencedAddress] - Optional addressable event being highlighted
+  /// [url] - Optional external URL being highlighted
+  /// [context] - Optional additional context
+  /// [authorPubkey] - Optional pubkey of the original author
+  /// [createdAt] - Optional creation timestamp
   PartialHighlight(
     String content, {
     String? referencedEventId,

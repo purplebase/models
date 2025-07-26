@@ -51,13 +51,7 @@ part 'src/models/custom_data.dart';
 part 'src/models/repost.dart';
 part 'src/models/generic_repost.dart';
 
-// NWC (Nostr Wallet Connect) models - only the actual models remain here
-part 'src/models/nwc_info.dart';
-part 'src/models/nwc_request.dart';
-part 'src/models/nwc_response.dart';
-part 'src/models/nwc_notification.dart';
-
-// NWC (Nostr Wallet Connect) non-model components
+part 'src/models/nwc.dart';
 part 'src/nwc/nwc_connection.dart';
 part 'src/nwc/nwc_commands.dart';
 

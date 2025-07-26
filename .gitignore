@@ -10,3 +10,5 @@ pubspec.lock
 .fvm/
 .fvmrc
 .vscode/
+
+.DS_Store

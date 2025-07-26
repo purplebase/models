@@ -1,49 +1,75 @@
 part of models;
 
+/// Base class for all Nostr events, both mutable and immutable.
+///
+/// Provides common functionality for event handling, tag manipulation,
+/// and data access patterns used across all event types.
 sealed class EventBase<E extends Model<E>> {
   EventBase([Map<String, dynamic>? map])
-      : content = map?['content'] ?? '',
-        createdAt = (map?['created_at'] as int?)?.toDate() ?? DateTime.now(),
-        tags = [
-          for (final tag in map?['tags'] ?? [])
-            if (tag is Iterable && tag.length > 1)
-              [for (final e in tag) e.toString()]
-        ] {
+    : content = map?['content'] ?? '',
+      createdAt = (map?['created_at'] as int?)?.toDate() ?? DateTime.now(),
+      tags = [
+        for (final tag in map?['tags'] ?? [])
+          if (tag is Iterable && tag.length > 1)
+            [for (final e in tag) e.toString()],
+      ] {
     if (map != null && map['kind'] != kind) {
       throw Exception(
-          'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E ($kind)');
+        'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E ($kind)',
+      );
     }
   }
 
+  /// The Nostr event kind number.
   final int kind = Model._kindFor<E>();
+
+  /// When this event was created.
   DateTime createdAt;
+
+  /// The content/body of this event.
   String content;
+
+  /// Tags associated with this event.
+  ///
+  /// Tags are arrays of strings where the first element is the tag name
+  /// and subsequent elements are the tag values.
   List<List<String>> tags;
 
   Map<String, dynamic> toMap();
 
   // Read tag utilities
 
+  /// Get all tags with the specified key as a set.
   Set<List<String>> getTagSet(String key) =>
       tags.where((e) => e[0] == key).toSet();
 
+  /// Check if this event contains any tags with the specified key.
   bool containsTag(String key) => tags.any((t) => t[0] == key);
 
+  /// Get the first tag with the specified key, or null if none found.
   List<String>? getFirstTag(String key) {
     return tags.firstWhereOrNull((t) => t[0] == key);
   }
 
+  /// Get the value (second element) of the first tag with the specified key.
   String? getFirstTagValue(String key) {
     return getFirstTag(key)?[1];
   }
 
+  /// Get all tag values for the specified key as a set.
   Set<String> getTagSetValues(String key) =>
       getTagSet(key).map((e) => e[1]).toSet();
 }
 
-/// A finalized (signed) nostr event
+/// A finalized (signed) Nostr event that cannot be modified.
+///
+/// This represents a complete, immutable Nostr event with a signature
+/// and event ID. All [Model] instances wrap an [ImmutableEvent].
+/// ```
 final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
+  /// The unique event ID (hex-encoded SHA256 hash).
   final String id;
+
   @override
   DateTime get createdAt;
   final String pubkey;
@@ -62,12 +88,12 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
   final Set<String> relays;
 
   ImmutableEvent(Map<String, dynamic> map)
-      : id = map['id'],
-        pubkey = map['pubkey'],
-        signature = map['sig'],
-        metadata = Map<String, dynamic>.from(map['metadata'] ?? {}),
-        relays = <String>{...?map['relays']},
-        super(map);
+    : id = map['id'],
+      pubkey = map['pubkey'],
+      signature = map['sig'],
+      metadata = Map<String, dynamic>.from(map['metadata'] ?? {}),
+      relays = <String>{...?map['relays']},
+      super(map);
 
   /// Addressable event ID to use in tags
   String get addressableId {
@@ -75,7 +101,7 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
       ImmutableParameterizableReplaceableEvent(:final identifier) =>
         '$kind:$pubkey:$identifier',
       ImmutableReplaceableEvent() => '$kind:$pubkey:',
-      ImmutableEvent() => id
+      ImmutableEvent() => id,
     };
   }
 
@@ -83,8 +109,8 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
       this is ImmutableReplaceableEvent ? 'a' : 'e';
 
   Map<String, Set<String>> get addressableIdTagMap => {
-        '#$addressableIdTagLetter': {addressableId}
-      };
+    '#$addressableIdTagLetter': {addressableId},
+  };
 
   /// NIP-19
   String get shareableId {
@@ -97,14 +123,10 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
       default:
         // nprofile
         if (kind == 0) {
-          return Utils.encodeShareableIdentifier(
-            ProfileInput(pubkey: pubkey),
-          );
+          return Utils.encodeShareableIdentifier(ProfileInput(pubkey: pubkey));
         }
         // nevent
-        return Utils.encodeShareableIdentifier(
-          EventInput(eventId: id),
-        );
+        return Utils.encodeShareableIdentifier(EventInput(eventId: id));
     }
   }
 

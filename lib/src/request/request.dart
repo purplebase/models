@@ -1,5 +1,19 @@
 part of models;
 
+/// A request for fetching Nostr events with automatic relationship loading.
+///
+/// Requests define what data to fetch and how to handle relationships between
+/// models. They can be executed to retrieve data from storage or relays.
+///
+/// Example usage:
+/// ```dart
+/// final request = RequestFilter<Note>(
+///   authors: {'pubkey1', 'pubkey2'},
+///   limit: 50,
+/// ).toRequest();
+///
+/// final notes = await storage.query(request);
+/// ```
 class Request<E extends Model<dynamic>> with EquatableMixin {
   static final _random = Random();
 
@@ -27,9 +41,11 @@ class Request<E extends Model<dynamic>> with EquatableMixin {
         authors: {author},
       );
       if (rest.isNotEmpty && rest.first.isNotEmpty) {
-        filter = filter.copyWith(tags: {
-          '#d': {rest.first}
-        });
+        filter = filter.copyWith(
+          tags: {
+            '#d': {rest.first},
+          },
+        );
       }
       filters.add(filter);
     }
@@ -80,11 +96,11 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
     this.search,
     this.where,
     this.and,
-  })  : ids = ids ?? const {},
-        authors = authors ?? const {},
-        kinds = kinds ??
-            (_isModelOfDynamic<E>() ? const {} : {Model._kindFor<E>()}),
-        tags = tags ?? const {} {
+  }) : ids = ids ?? const {},
+       authors = authors ?? const {},
+       kinds =
+           kinds ?? (_isModelOfDynamic<E>() ? const {} : {Model._kindFor<E>()}),
+       tags = tags ?? const {} {
     // IDs are either regular (64 character) or replaceable and match its regexp
     if (ids != null &&
         ids.any((i) => i.length != 64 && !_kReplaceableRegexp.hasMatch(i))) {
@@ -99,12 +115,13 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   factory RequestFilter.fromMap(Map<String, dynamic> map) {
     return RequestFilter<E>(
       ids: {...?map['ids']},
-      kinds:
-          _isModelOfDynamic<E>() ? {...?map['kinds']} : {Model._kindFor<E>()},
+      kinds: _isModelOfDynamic<E>()
+          ? {...?map['kinds']}
+          : {Model._kindFor<E>()},
       authors: {...?map['authors']},
       tags: {
         for (final e in map.entries)
-          if (e.key.startsWith('#')) e.key: {...e.value}
+          if (e.key.startsWith('#')) e.key: {...e.value},
       },
       search: map['search'],
       since: map['since'] != null
@@ -161,8 +178,16 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   Request<E> toRequest() => Request([this]);
 
   @override
-  List<Object?> get props =>
-      [ids, kinds, authors, tags, search, since, until, limit];
+  List<Object?> get props => [
+    ids,
+    kinds,
+    authors,
+    tags,
+    search,
+    since,
+    until,
+    limit,
+  ];
 
   @override
   String toString() => toMap().toString();
@@ -209,8 +234,9 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
             changed = true; // A merge happened
           }
         }
-        nextFilters
-            .add(accumulator); // Add the final result for this accumulator
+        nextFilters.add(
+          accumulator,
+        ); // Add the final result for this accumulator
         merged[i] = true; // Mark i as processed (placed in nextFilters)
       }
 
@@ -237,10 +263,7 @@ extension RequestFilterIterableExt<E extends Model<dynamic>>
   Request<E> toRequest() => Request<E>(toList());
 }
 
-Map<String, dynamic>? _merge(
-  Map<String, dynamic> f1,
-  Map<String, dynamic> f2,
-) {
+Map<String, dynamic>? _merge(Map<String, dynamic> f1, Map<String, dynamic> f2) {
   final Set<String> allKeys = {...f1.keys, ...f2.keys};
   final Set<String> arrayKeys = {
     'ids',
@@ -289,8 +312,9 @@ Map<String, dynamic>? _merge(
     } else {
       // We only have limit as differing
       final maxLimit = max(limit1, limit2);
-      intValues['limit'] =
-          maxLimit == double.infinity ? null : maxLimit.toInt();
+      intValues['limit'] = maxLimit == double.infinity
+          ? null
+          : maxLimit.toInt();
     }
   }
 
@@ -310,8 +334,9 @@ Map<String, dynamic>? _merge(
       final sinceNum = min(f1Since, f2Since);
       intValues['since'] = sinceNum == 0 ? null : sinceNum.toInt();
       final untilNum = max(f1Until, f2Until);
-      intValues['until'] =
-          untilNum == double.infinity ? null : untilNum.toInt();
+      intValues['until'] = untilNum == double.infinity
+          ? null
+          : untilNum.toInt();
     } else {
       return null;
     }

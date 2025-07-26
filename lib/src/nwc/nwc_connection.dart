@@ -1,6 +1,16 @@
 part of models;
 
-/// Represents a connection to a Nostr Wallet Connect service
+/// A Nostr Wallet Connect (NWC) connection for interacting with Lightning wallets.
+///
+/// NWC allows applications to connect to Lightning wallets over Nostr for
+/// making payments, checking balances, and other wallet operations.
+///
+/// Example usage:
+/// ```dart
+/// final connection = NwcConnection.fromUri(connectionString);
+/// print(connection.walletPubkey); // Wallet service public key
+/// print(connection.relay); // Relay URL
+/// ```
 class NwcConnection {
   /// The wallet service's public key
   final String walletPubkey;

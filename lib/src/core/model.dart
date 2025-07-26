@@ -1,11 +1,17 @@
 part of models;
 
+/// Base mixin for all domain model entities.
+///
+/// Provides the fundamental interface that all models must implement.
 mixin ModelBase<E extends Model<E>> {
   EventBase get event;
   Map<String, dynamic> toMap();
 }
 
-/// A domain model entity that wraps a signed, finalized nostr event
+/// A domain model entity that wraps a signed, finalized Nostr event.
+///
+/// This is the base abstract class for all Nostr models and provides common functionality
+/// like relationships, metadata processing, and storage access.
 sealed class Model<E extends Model<E>>
     with EquatableMixin
     implements ModelBase<E> {
@@ -15,10 +21,19 @@ sealed class Model<E extends Model<E>>
   @override
   final ImmutableEvent event;
 
+  /// The author (profile) of this model.
   late final BelongsTo<Profile> author;
+
+  /// All reactions to this model.
   late final HasMany<Reaction> reactions;
+
+  /// All zaps (lightning payments) to this model.
   late final HasMany<Zap> zaps;
+
+  /// All targeted publications of this model.
   late final HasMany<TargetedPublication> targetedPublications;
+
+  /// All generic reposts of this model.
   late final HasMany<GenericRepost> genericReposts;
 
   Model._(this.ref, this.event)
@@ -78,17 +93,27 @@ sealed class Model<E extends Model<E>>
 
   // General wrapper getters
 
+  /// The unique addressable identifier for this model.
   String get id => event.addressableId;
+
+  /// When this model was created.
   DateTime get createdAt => event.createdAt;
 
+  /// Topic tags for this model.
+  Set<String> get tags => event.getTagSetValues('t');
+
   /// Parse once in-event data that requires expensive decoding,
-  /// for instance zap amounts
+  /// for instance zap amounts.
+  ///
+  /// Override this method to process metadata specific to your model type.
   Map<String, dynamic> processMetadata() {
     return {};
   }
 
   /// Map transformations before the event is fed into the constructor,
-  /// for instance to strip signatures
+  /// for instance to strip signatures.
+  ///
+  /// Override this method to transform the incoming map data before construction.
   @mustCallSuper
   Map<String, dynamic> transformMap(Map<String, dynamic> map) {
     if (!storage.config.keepSignatures) {
@@ -102,6 +127,9 @@ sealed class Model<E extends Model<E>>
     return event.toMap();
   }
 
+  /// Convert this model to its partial representation.
+  ///
+  /// Partial models are lightweight versions used for creation and updates.
   P toPartial<P extends PartialModel<E>>() {
     return Model._getPartialConstructorFor<E>()!.call(toMap()) as P;
   }
@@ -117,14 +145,13 @@ sealed class Model<E extends Model<E>>
 
   // Storage-related
 
-  /// Save this model to storage
+  /// Save this model to local storage.
   Future<void> save() async {
     await storage.save({this});
   }
 
-  /// Publish this model to relays
+  /// Publish this model to relays. This does NOT save to local storage.
   Future<void> publish({RemoteSource source = const RemoteSource()}) async {
-    await save(); // Save locally first
     await storage.publish({this}, source: source);
   }
 
@@ -165,7 +192,7 @@ sealed class Model<E extends Model<E>>
     return kind;
   }
 
-  /// Finds the constructor for type parameter [E]
+  /// Finds the constructor for type parameter [E].
   static ModelConstructor<E>? getConstructorFor<E extends Model<E>>() {
     final constructor =
         _modelRegistry[E.toString()]?.constructor as ModelConstructor<E>?;
@@ -175,7 +202,7 @@ sealed class Model<E extends Model<E>>
     return constructor;
   }
 
-  /// Finds the constructor for kind [kind]
+  /// Finds the constructor for the given Nostr event kind.
   static ModelConstructor<Model<dynamic>>? getConstructorForKind(int kind) {
     final constructor = _modelRegistry.values
         .firstWhereOrNull((v) => v.kind == kind)
@@ -186,7 +213,7 @@ sealed class Model<E extends Model<E>>
     return constructor;
   }
 
-  /// Finds the partial constructor for type parameter [E]
+  /// Finds the partial constructor for type parameter [E].
   static PartialModelConstructor<E>?
   _getPartialConstructorFor<E extends Model<E>>() {
     final constructor =
@@ -199,8 +226,11 @@ sealed class Model<E extends Model<E>>
   }
 }
 
-/// A mutable domain model entity that wraps a partial nostr event
-/// which is meant to be signed
+/// Abstract interface for a mutable domain model entity that wraps a partial Nostr event
+/// which is meant to be signed.
+///
+/// Partial models are used for creating new events before they are signed
+/// and become immutable [Model] instances.
 sealed class PartialModel<E extends Model<E>>
     with Signable<E>
     implements ModelBase<E> {
@@ -211,9 +241,13 @@ sealed class PartialModel<E extends Model<E>>
 
   PartialModel.fromMap(Map<String, dynamic> map) : event = PartialEvent<E>(map);
 
+  /// Transient data that doesn't get included in the event.
   final transientData = <String, dynamic>{};
 
-  /// Add an a/e tag of the passed model
+  /// Add an a/e tag referencing the passed model.
+  ///
+  /// This creates a link to another Nostr event, using the appropriate
+  /// tag type based on whether the model is replaceable or not.
   void linkModel(
     Model model, {
     String? relayUrl,
@@ -229,6 +263,10 @@ sealed class PartialModel<E extends Model<E>>
     );
   }
 
+  /// Add an a/e tag referencing a model by its ID.
+  ///
+  /// Use [isReplaceable] to specify whether to use an 'a' tag (replaceable)
+  /// or 'e' tag (regular event).
   void linkModelById(
     String modelId, {
     bool isReplaceable = false,

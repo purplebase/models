@@ -1,5 +1,10 @@
 part of models;
 
+/// A software release event (kind 30063) representing a version of an application.
+///
+/// Releases contain version information, download links, and associated files
+/// for a specific version of a software application. They link to apps and
+/// can include file metadata and software assets.
 class Release extends ParameterizableReplaceableModel<Release> {
   late final BelongsTo<App> app;
   late final HasMany<FileMetadata> fileMetadatas;
@@ -35,23 +40,33 @@ class Release extends ParameterizableReplaceableModel<Release> {
     );
   }
 
+  /// Release notes content describing changes and features
   String? get releaseNotes => event.content.isEmpty ? null : event.content;
+
+  /// Download URL for the release
   String? get url =>
       event.getFirstTagValue('url') ?? event.getFirstTagValue('r');
+
+  /// Release channel (e.g., 'stable', 'beta', 'alpha')
   String? get channel => event.getFirstTagValue('c');
+
+  /// Git commit identifier for this release
   String? get commitId => event.getFirstTagValue('commit');
 
   @override
+  /// Combined identifier in format 'appId@version'
   String get identifier {
     return '$appIdentifier@$version';
   }
 
+  /// The parent application identifier
   String get appIdentifier {
     // With fallback to legacy method
     return event.getFirstTagValue('i') ??
         _getNullableSplit(event.identifier).$1!;
   }
 
+  /// The version string for this release
   String get version {
     // With fallback to legacy method
     return event.getFirstTagValue('version') ??
@@ -59,29 +74,60 @@ class Release extends ParameterizableReplaceableModel<Release> {
   }
 }
 
-// ignore_for_file: annotate_overrides
-
 /// Generated partial model mixin for Release
 mixin PartialReleaseMixin on ParameterizableReplaceablePartialModel<Release> {
+  /// Release notes content
   String? get releaseNotes => event.content.isEmpty ? null : event.content;
+
+  /// Sets the release notes content
   set releaseNotes(String? value) => event.content = value ?? '';
+
+  /// Download URL for the release
   String? get url => event.getFirstTagValue('url');
+
+  /// Sets the download URL
   set url(String? value) => event.setTagValue('url', value);
+
+  /// Release channel
   String? get channel => event.getFirstTagValue('c');
+
+  /// Sets the release channel
   set channel(String? value) => event.setTagValue('c', value);
+
+  /// Git commit identifier
   String? get commitId => event.getFirstTagValue('commit');
+
+  /// Sets the commit identifier
   set commitId(String? value) => event.setTagValue('commit', value);
+
+  /// The parent application identifier
   String? get appIdentifier => event.getFirstTagValue('i');
+
+  /// Sets the application identifier
   set appIdentifier(String? value) => event.setTagValue('i', value);
+
+  /// The version string
   String? get version => event.getFirstTagValue('version');
+
+  /// Sets the version string
   set version(String? value) => event.setTagValue('version', value);
 }
 
+/// Create and sign new release events.
+///
+/// Example usage:
+/// ```dart
+/// final release = await PartialRelease().signWith(signer);
+/// ```
 class PartialRelease extends ParameterizableReplaceablePartialModel<Release>
     with PartialReleaseMixin {
   PartialRelease.fromMap(super.map) : newFormat = false, super.fromMap();
 
   final bool newFormat;
+
+  /// Creates a new release event
+  ///
+  /// [newFormat] - Whether to use the new tag-based format instead of legacy format
   PartialRelease({this.newFormat = false});
 
   @override

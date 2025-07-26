@@ -1,8 +1,11 @@
 part of models;
 
-/// Zap is technically a kind 9735 Zap Receipt
-
+/// A zap event (kind 9735) representing a Lightning Network payment.
+///
+/// Zaps are Bitcoin Lightning payments sent to content creators as tips or
+/// donations. They include the payment amount and can include a message.
 class Zap extends RegularModel<Zap> {
+  /// Overrides the default author to point to the wallet that sent the zap
   @override
   BelongsTo<Profile> get author => BelongsTo(
     ref,
@@ -62,12 +65,13 @@ class Zap extends RegularModel<Zap> {
     return super.transformMap(map);
   }
 
-  /// Amount in sats
+  /// Payment amount in satoshis
   int get amount {
     return event.metadata['amount'];
   }
 }
 
+/// A zap request event (kind 9734) used to request Lightning payments
 class ZapRequest extends RegularModel<ZapRequest> {
   ZapRequest.fromMap(super.map, super.ref) : super.fromMap() {
     // use constructor body?
@@ -75,6 +79,9 @@ class ZapRequest extends RegularModel<ZapRequest> {
 
   /// Pay this zap request using the signer's NWC connection
   /// This should be called on a signed ZapRequest that contains all necessary information
+  ///
+  /// [expiration] - Optional expiration time for the payment
+  /// [timeout] - How long to wait for payment completion
   Future<PayInvoiceResult> pay({
     DateTime? expiration,
     Duration timeout = const Duration(seconds: 30),
@@ -159,18 +166,19 @@ class ZapRequest extends RegularModel<ZapRequest> {
 
 /// Generated partial model mixin for ZapRequest
 mixin PartialZapRequestMixin on RegularPartialModel<ZapRequest> {
+  /// Optional comment or message to include with the zap
   String? get comment => event.content.isEmpty ? null : event.content;
+
+  /// Sets the zap comment
   set comment(String? value) => event.content = value ?? '';
 
+  /// Payment amount in millisatoshis
   int? get amount => int.tryParse(event.getFirstTagValue('amount') ?? '');
-  set amount(int? value) {
-    if (value != null) {
-      event.setTagValue('amount', value.toString());
-    } else {
-      event.removeTag('amount');
-    }
-  }
 
+  /// Sets the payment amount in millisatoshis
+  set amount(int? value) => event.setTagValue('amount', value?.toString());
+
+  /// List of relay URLs for the zap request
   List<String> get relays {
     final relaysTag = event.tags
         .where((tag) => tag.isNotEmpty && tag[0] == 'relays')
@@ -179,6 +187,7 @@ mixin PartialZapRequestMixin on RegularPartialModel<ZapRequest> {
     return relaysTag.skip(1).toList();
   }
 
+  /// Sets the relay URLs
   set relays(Iterable<String> value) {
     if (value.isNotEmpty) {
       event.setTag('relays', value.toList());
@@ -187,19 +196,19 @@ mixin PartialZapRequestMixin on RegularPartialModel<ZapRequest> {
     }
   }
 
+  /// LNURL-pay endpoint for the recipient
   String? get lnurl => event.getFirstTagValue('lnurl');
-  set lnurl(String? value) {
-    if (value != null && value.isNotEmpty) {
-      event.setTagValue('lnurl', value);
-    } else {
-      event.removeTag('lnurl');
-    }
-  }
+
+  /// Sets the LNURL-pay endpoint
+  set lnurl(String? value) =>
+      event.setTagValue('lnurl', value?.isNotEmpty == true ? value : null);
 }
 
 class PartialZapRequest extends RegularPartialModel<ZapRequest>
     with PartialZapRequestMixin {
   PartialZapRequest.fromMap(super.map) : super.fromMap();
+
+  /// Creates a new zap request
   PartialZapRequest();
 }
 
@@ -207,6 +216,14 @@ class PartialZapRequest extends RegularPartialModel<ZapRequest>
 class PartialZap extends RegularPartialModel<Zap> {
   PartialZap.fromMap(super.map) : super.fromMap();
 
+  /// Creates a new zap receipt
+  ///
+  /// [recipientPubkey] - Public key of the zap recipient
+  /// [zapRequestId] - ID of the original zap request
+  /// [amountSats] - Payment amount in satoshis
+  /// [preimage] - Lightning payment preimage
+  /// [zappedModel] - Optional model that was zapped
+  /// [description] - Optional description (JSON-encoded zap request)
   PartialZap({
     required String recipientPubkey,
     required String zapRequestId,

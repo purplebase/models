@@ -1,6 +1,12 @@
 part of models;
 
+/// A repost event (kind 6) for sharing existing notes.
+///
+/// Reposts amplify existing content by referencing the original note
+/// and optionally adding commentary. They help spread content across
+/// the network while preserving attribution.
 class Repost extends RegularModel<Repost> {
+  /// Optional commentary on the repost
   String get content => event.content;
 
   /// The relay URL where the reposted note can be fetched
@@ -46,22 +52,43 @@ class Repost extends RegularModel<Repost> {
   }
 }
 
-// ignore_for_file: annotate_overrides
-
 /// Generated partial model mixin for Repost
 mixin PartialRepostMixin on RegularPartialModel<Repost> {
+  /// Optional commentary on the repost
   String? get content => event.content.isEmpty ? null : event.content;
+
+  /// Sets the repost commentary
   set content(String? value) => event.content = value ?? '';
+
+  /// ID of the note being reposted
   String? get repostedNoteId => event.getFirstTagValue('e');
+
+  /// Sets the reposted note ID
   set repostedNoteId(String? value) => event.setTagValue('e', value);
+
+  /// Public key of the reposted note's author
   String? get repostedNotePubkey => event.getFirstTagValue('p');
+
+  /// Sets the reposted note author's pubkey
   set repostedNotePubkey(String? value) => event.setTagValue('p', value);
 }
 
+/// Create and sign new repost events.
+///
+/// Example usage:
+/// ```dart
+/// final repost = await PartialRepost(content: 'Great content!', repostedNote: note).signWith(signer);
+/// ```
 class PartialRepost extends RegularPartialModel<Repost>
     with PartialRepostMixin {
   PartialRepost.fromMap(super.map) : super.fromMap();
 
+  /// Creates a new repost of a note
+  ///
+  /// [content] - Optional commentary on the repost
+  /// [repostedNote] - The note being reposted
+  /// [repostedNoteAuthor] - The author of the original note
+  /// [relayUrl] - Optional relay URL where the original can be found
   PartialRepost({
     String? content,
     Note? repostedNote,

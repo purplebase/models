@@ -1,26 +1,38 @@
 part of models;
 
-/// Base class for all signers
+/// Base class for all Nostr event signers.
+///
+/// Signers handle cryptographic operations for creating and signing Nostr events.
+/// Different implementations can provide various signing methods like private keys,
+/// hardware wallets, or remote signing services.
 abstract class Signer {
   final Ref ref;
 
   String? _pubkey;
+
+  /// The public key (in hex format) associated with this signer.
   String get pubkey => _pubkey!;
+
   @protected
   void internalSetPubkey(String pubkey) => _pubkey = pubkey;
 
   Signer(this.ref);
 
+  /// Check if this signer is available for use.
+  ///
+  /// Override this method to implement availability checks,
+  /// such as hardware wallet connectivity or service reachability.
   Future<bool> get isAvailable async {
     return true;
   }
 
   // New Public API Methods
 
-  /// Sign in the signer with the current pubkey
+  /// Sign in the signer with the current pubkey.
   ///
   /// This is the preferred method for signing in signers.
   /// [setAsActive] determines whether this signer becomes the active signer after sign in.
+  /// [registerSigner] determines whether to register this signer in the global registry.
   @mustCallSuper
   Future<void> signIn({
     bool setAsActive = true,

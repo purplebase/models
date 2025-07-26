@@ -73,35 +73,74 @@ class Comment extends RegularModel<Comment> {
     );
   }
 
+  /// The text content of the comment
   String get content => event.content;
 
+  /// External URI for the root content (if not a Nostr event)
   String? get externalRootUri => event.getFirstTagValue('I');
+
+  /// External URI for the parent content (if not a Nostr event)
   String? get externalParentUri => event.getFirstTagValue('i');
 
+  /// Kind number of the root content
   int? get rootKind => event.getFirstTagValue('K').toInt();
+
+  /// Kind number of the parent content
   int? get parentKind => event.getFirstTagValue('k').toInt();
 }
 
-// ignore_for_file: annotate_overrides
-
 /// Generated partial model mixin for Comment
 mixin PartialCommentMixin on RegularPartialModel<Comment> {
+  /// The text content of the comment
   String? get content => event.content.isEmpty ? null : event.content;
+
+  /// Sets the comment text content
   set content(String? value) => event.content = value ?? '';
+
+  /// External URI for the root content
   String? get externalRootUri => event.getFirstTagValue('I');
+
+  /// Sets the external root URI
   set externalRootUri(String? value) => event.setTagValue('I', value);
+
+  /// External URI for the parent content
   String? get externalParentUri => event.getFirstTagValue('i');
+
+  /// Sets the external parent URI
   set externalParentUri(String? value) => event.setTagValue('i', value);
+
+  /// Kind number of the root content
   int? get rootKind => int.tryParse(event.getFirstTagValue('K') ?? '');
+
+  /// Sets the root content kind
   set rootKind(int? value) => event.setTagValue('K', value?.toString());
+
+  /// Kind number of the parent content
   int? get parentKind => int.tryParse(event.getFirstTagValue('k') ?? '');
+
+  /// Sets the parent content kind
   set parentKind(int? value) => event.setTagValue('k', value?.toString());
 }
 
+/// Create and sign new comment events.
+///
+/// Example usage:
+/// ```dart
+/// final comment = await PartialComment(content: 'Great article!', rootModel: article).signWith(signer);
+/// ```
 class PartialComment extends RegularPartialModel<Comment>
     with PartialCommentMixin {
   PartialComment.fromMap(super.map) : super.fromMap();
 
+  /// Creates a new comment on content
+  ///
+  /// [content] - The comment text (required)
+  /// [rootModel] - The root content being commented on
+  /// [parentModel] - The immediate parent content (for threaded comments)
+  /// [externalRootUri] - External URI if commenting on non-Nostr content
+  /// [externalParentUri] - External parent URI if applicable
+  /// [quotedModel] - Content being quoted in the comment
+  /// [createdAt] - Optional creation timestamp
   PartialComment({
     required String content,
     Model? rootModel,
