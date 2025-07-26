@@ -69,10 +69,93 @@ class Zap extends RegularModel<Zap> {
 }
 
 class ZapRequest extends RegularModel<ZapRequest> {
-  ZapRequest.fromMap(super.map, super.ref) : super.fromMap();
-}
+  ZapRequest.fromMap(super.map, super.ref) : super.fromMap() {
+    // use constructor body?
+  }
 
-// ignore_for_file: annotate_overrides
+  /// Pay this zap request using the signer's NWC connection
+  /// This should be called on a signed ZapRequest that contains all necessary information
+  Future<PayInvoiceResult> pay({
+    DateTime? expiration,
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    // Get the signer for this zap request
+    final signer = ref.read(Signer.signerProvider(event.pubkey));
+    if (signer == null) {
+      throw Exception('No signer found for pubkey ${event.pubkey}');
+    }
+
+    // Get the NWC connection string from the signer
+    final nwcConnectionString = await signer.getNWCString();
+    if (nwcConnectionString == null) {
+      throw Exception(
+        'No NWC connection configured for signer. Use signer.setNWCString() first.',
+      );
+    }
+
+    // Parse the connection string
+    final connection = NwcConnection.fromUri(nwcConnectionString);
+
+    // Check if connection has expired
+    if (connection.isExpired) {
+      throw Exception('NWC connection has expired');
+    }
+
+    final storage = ref.read(storageNotifierProvider.notifier);
+
+    // Get the recipient pubkey from the zap request
+    final recipientPubkey = event.getFirstTagValue('p');
+    if (recipientPubkey == null) {
+      throw Exception('Zap request missing recipient pubkey (p tag)');
+    }
+
+    // Get recipient profile for Lightning invoice
+    final recipientProfileState = await storage.query(
+      RequestFilter<Profile>(authors: {recipientPubkey}).toRequest(),
+      source: LocalAndRemoteSource(stream: false),
+    );
+
+    if (recipientProfileState.isEmpty) {
+      throw Exception('Could not find recipient profile for Lightning invoice');
+    }
+
+    final recipientProfile = recipientProfileState.first;
+
+    // Get the amount from the zap request (in millisats, convert to sats)
+    final amountTag = event.getFirstTagValue('amount');
+    if (amountTag == null) {
+      throw Exception('Zap request missing amount tag');
+    }
+    final amountMillisats = int.tryParse(amountTag);
+    if (amountMillisats == null) {
+      throw Exception('Invalid amount in zap request: $amountTag');
+    }
+    final amountSats = amountMillisats ~/ 1000;
+
+    // Get Lightning invoice from recipient profile
+    final lightningInvoice = await recipientProfile.getLightningInvoice(
+      amountSats: amountSats,
+      comment: event.content.isEmpty ? null : event.content,
+      zapRequest: toMap(),
+    );
+
+    if (lightningInvoice == null) {
+      throw Exception(
+        'Recipient does not support Lightning payments (no LNURL)',
+      );
+    }
+
+    // Create and execute the pay invoice command
+    final command = PayInvoiceCommand(invoice: lightningInvoice);
+
+    return await command.execute(
+      connectionUri: nwcConnectionString,
+      ref: ref,
+      expiration: expiration,
+      timeout: timeout,
+    );
+  }
+}
 
 /// Generated partial model mixin for ZapRequest
 mixin PartialZapRequestMixin on RegularPartialModel<ZapRequest> {

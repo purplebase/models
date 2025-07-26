@@ -132,11 +132,12 @@ class Profile extends ReplaceableModel<Profile> {
     }
   }
 
-  /// Get a Lightning invoice via lud16 (Lightning address)
   /// Returns the BOLT11 invoice string or null if unable to generate
+  /// For zap requests, pass the signed zap request in zapRequest parameter
   Future<String?> getLightningInvoice({
     required int amountSats,
     String? comment,
+    Map<String, dynamic>? zapRequest,
   }) async {
     if (lud16 == null) return null;
 
@@ -173,27 +174,85 @@ class Profile extends ReplaceableModel<Profile> {
           return null;
         }
 
+        // If this is a zap request, validate Nostr zap support (NIP-57)
+        if (zapRequest != null) {
+          final allowsNostr = lnurlData['allowsNostr'] as bool?;
+          final nostrPubkey = lnurlData['nostrPubkey'] as String?;
+
+          if (allowsNostr != true ||
+              nostrPubkey == null ||
+              nostrPubkey.isEmpty) {
+            // Recipient doesn't support Nostr zaps
+            throw Exception(
+              'Recipient does not support Nostr zaps (missing allowsNostr or nostrPubkey)',
+            );
+          }
+
+          // Validate nostrPubkey format (should be 64-char hex)
+          if (nostrPubkey.length != 64 ||
+              !RegExp(r'^[0-9a-fA-F]+$').hasMatch(nostrPubkey)) {
+            throw Exception('Invalid nostrPubkey format');
+          }
+        }
+
         // Convert sats to millisats for LNURL-pay
         final amountMsat = amountSats * 1000;
 
         // Check amount limits
         if (amountMsat < minSendable || amountMsat > maxSendable) {
-          return null;
+          throw Exception('Amount not between min and max sendable');
+        }
+
+        // Handle comment length restrictions
+        final commentAllowed = lnurlData['commentAllowed'] as int?;
+        if (commentAllowed != null &&
+            comment != null &&
+            comment.length > commentAllowed) {
+          comment = comment.substring(0, commentAllowed);
         }
 
         // Step 2: Request invoice from callback URL
-        final callbackUri = Uri.parse(callback).replace(
-          queryParameters: {
-            ...Uri.parse(callback).queryParameters,
-            'amount': amountMsat.toString(),
-            if (comment != null && comment.isNotEmpty) 'comment': comment,
-          },
-        );
+        final callbackParams = <String, String>{
+          ...Uri.parse(callback).queryParameters,
+          'amount': amountMsat.toString(),
+        };
+
+        if (comment != null && comment.isNotEmpty) {
+          callbackParams['comment'] = comment;
+        }
+
+        // Add zap request as nostr parameter for NIP-57 compliance
+        if (zapRequest != null) {
+          callbackParams['nostr'] = jsonEncode(zapRequest);
+        }
+
+        final callbackUri = Uri.parse(
+          callback,
+        ).replace(queryParameters: callbackParams);
+
+        // Debug: Print the URI being called
+        print('LNURL Callback URI: $callbackUri');
+        if (zapRequest != null) {
+          print('Zap request JSON length: ${jsonEncode(zapRequest).length}');
+        }
 
         final invoiceRequest = await client.getUrl(callbackUri);
+        // Add proper headers
+        invoiceRequest.headers.set('Accept', 'application/json');
+        invoiceRequest.headers.set('User-Agent', 'Nostr-Dart-Client/1.0');
+
         final invoiceResponse = await invoiceRequest.close();
 
-        if (invoiceResponse.statusCode != 200) return null;
+        if (invoiceResponse.statusCode != 200) {
+          // Get error details for debugging
+          final errorBody = await invoiceResponse
+              .transform(utf8.decoder)
+              .join();
+          print('LNURL Error Response: $errorBody');
+          throw Exception(
+            'LNURL callback failed (${invoiceResponse.statusCode}): $errorBody',
+          );
+        }
 
         final invoiceBody = await invoiceResponse
             .transform(utf8.decoder)
