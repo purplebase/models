@@ -66,6 +66,16 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       partialConstructor: PartialPicture.fromMap,
     );
     Model.register(
+      kind: 21,
+      constructor: Video.fromMap,
+      partialConstructor: PartialVideo.fromMap,
+    );
+    Model.register(
+      kind: 22,
+      constructor: ShortFormPortraitVideo.fromMap,
+      partialConstructor: PartialShortFormPortraitVideo.fromMap,
+    );
+    Model.register(
       kind: 1063,
       constructor: FileMetadata.fromMap,
       partialConstructor: PartialFileMetadata.fromMap,
@@ -79,6 +89,16 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       kind: 1111,
       constructor: Comment.fromMap,
       partialConstructor: PartialComment.fromMap,
+    );
+    Model.register(
+      kind: 1222,
+      constructor: VoiceMessage.fromMap,
+      partialConstructor: PartialVoiceMessage.fromMap,
+    );
+    Model.register(
+      kind: 1244,
+      constructor: VoiceMessageComment.fromMap,
+      partialConstructor: PartialVoiceMessageComment.fromMap,
     );
     Model.register(
       kind: 1984,

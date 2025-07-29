@@ -52,8 +52,10 @@ part 'src/models/repost.dart';
 part 'src/models/generic_repost.dart';
 part 'src/models/event_deletion.dart';
 part 'src/models/picture.dart';
+part 'src/models/video.dart';
 part 'src/models/reporting.dart';
 part 'src/models/calendar_events.dart';
+part 'src/models/voice_message.dart';
 
 part 'src/models/nwc.dart';
 part 'src/nwc/nwc_connection.dart';

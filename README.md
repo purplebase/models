@@ -120,11 +120,13 @@ Then run `dart pub get` or `flutter pub get`.
 - [x] **NIP-55: Android Signer Application**
 - [x] **NIP-57: Lightning Zaps**
 - [x] **NIP-65: Relay List Metadata**
+- [x] **NIP-71: Video Events**
 - [x] **NIP-72: Moderated Communities (Reddit Style)**
 - [x] **NIP-78: Arbitrary custom app data**
 - [x] **NIP-82: Application metadata, releases, assets** _(draft)_
 - [x] **NIP-90: Data Vending Machine**
 - [x] **NIP-94: File Metadata**
+- [x] **NIP-A0: Voice Messages**
 
 ## Registered Event Kinds 📋
 
@@ -143,8 +145,12 @@ This table lists all Nostr event kinds currently registered in this library to h
 | 11 | `RelayInfo` | NIP-11 | Relay Information Document | Regular |
 | 16 | `GenericRepost` | NIP-18 | Generic Repost | Regular |
 | 20 | `Picture` | NIP-68 | Picture Event | Regular |
+| 21 | `Video` | NIP-71 | Video Event | Regular |
+| 22 | `ShortFormPortraitVideo` | NIP-71 | Short-form Portrait Video Event | Regular |
 | 1063 | `FileMetadata` | NIP-94 | File Metadata | Regular |
 | 1111 | `Comment` | NIP-22 | Comment | Regular |
+| 1222 | `VoiceMessage` | NIP-A0 | Voice Message | Regular |
+| 1244 | `VoiceMessageComment` | NIP-A0 | Voice Message Comment | Regular |
 | 1984 | `Report` | NIP-56 | Content Report | Regular |
 | 3063 | `SoftwareAsset` | NIP-82 | Software Asset | Regular |
 | 5312 | `VerifyReputationRequest` | NIP-90 | DVM Request | Regular |
