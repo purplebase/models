@@ -35,6 +35,11 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       partialConstructor: PartialDirectMessage.fromMap,
     );
     Model.register(
+      kind: 5,
+      constructor: EventDeletionRequest.fromMap,
+      partialConstructor: PartialEventDeletionRequest.fromMap,
+    );
+    Model.register(
       kind: 6,
       constructor: Repost.fromMap,
       partialConstructor: PartialRepost.fromMap,
@@ -56,6 +61,11 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       partialConstructor: PartialGenericRepost.fromMap,
     );
     Model.register(
+      kind: 20,
+      constructor: Picture.fromMap,
+      partialConstructor: PartialPicture.fromMap,
+    );
+    Model.register(
       kind: 1063,
       constructor: FileMetadata.fromMap,
       partialConstructor: PartialFileMetadata.fromMap,
@@ -69,6 +79,11 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       kind: 1111,
       constructor: Comment.fromMap,
       partialConstructor: PartialComment.fromMap,
+    );
+    Model.register(
+      kind: 1984,
+      constructor: Report.fromMap,
+      partialConstructor: PartialReport.fromMap,
     );
     Model.register(
       kind: 9734,
@@ -114,6 +129,30 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       partialConstructor: PartialBlossomAuthorization.fromMap,
     );
 
+    // NIP-65: Relay List Metadata
+    Model.register(
+      kind: 10002,
+      constructor: RelayListMetadata.fromMap,
+      partialConstructor: PartialRelayListMetadata.fromMap,
+    );
+
+    // NIP-51: User Lists (Replaceable)
+    Model.register(
+      kind: 10000,
+      constructor: MuteList.fromMap,
+      partialConstructor: PartialMuteList.fromMap,
+    );
+    Model.register(
+      kind: 10001,
+      constructor: PinList.fromMap,
+      partialConstructor: PartialPinList.fromMap,
+    );
+    Model.register(
+      kind: 10003,
+      constructor: BookmarkList.fromMap,
+      partialConstructor: PartialBookmarkList.fromMap,
+    );
+
     // Parameterized replaceable
     Model.register(
       kind: 30023,
@@ -135,6 +174,12 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       constructor: TargetedPublication.fromMap,
       partialConstructor: PartialTargetedPublication.fromMap,
     );
+    // NIP-51: Parameterizable Sets
+    Model.register(
+      kind: 30000,
+      constructor: FollowSets.fromMap,
+      partialConstructor: PartialFollowSets.fromMap,
+    );
     Model.register(
       kind: 30267,
       constructor: AppCurationSet.fromMap,
@@ -144,6 +189,28 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       kind: 32267,
       constructor: App.fromMap,
       partialConstructor: PartialApp.fromMap,
+    );
+
+    // NIP-52: Calendar Events
+    Model.register(
+      kind: 31922,
+      constructor: DateBasedCalendarEvent.fromMap,
+      partialConstructor: PartialDateBasedCalendarEvent.fromMap,
+    );
+    Model.register(
+      kind: 31923,
+      constructor: TimeBasedCalendarEvent.fromMap,
+      partialConstructor: PartialTimeBasedCalendarEvent.fromMap,
+    );
+    Model.register(
+      kind: 31924,
+      constructor: Calendar.fromMap,
+      partialConstructor: PartialCalendar.fromMap,
+    );
+    Model.register(
+      kind: 31925,
+      constructor: CalendarEventRSVP.fromMap,
+      partialConstructor: PartialCalendarEventRSVP.fromMap,
     );
 
     // NWC (Nostr Wallet Connect) models

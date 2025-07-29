@@ -87,6 +87,11 @@ class MessageHandler {
       _handleNwcRequest(event);
     }
 
+    // Handle deletion requests (kind 5) by removing referenced events
+    if (event['kind'] == 5) {
+      _handleDeletionRequest(event);
+    }
+
     // Broadcast to active subscriptions (excluding closed ones)
     _broadcastEvent(event, null);
 
@@ -386,6 +391,39 @@ class MessageHandler {
           : null,
       limit: json['limit'] as int?,
     );
+  }
+
+  /// Handles deletion requests (NIP-09) by removing referenced events
+  void _handleDeletionRequest(Map<String, dynamic> deletionEvent) {
+    final tags = deletionEvent['tags'] as List<dynamic>? ?? [];
+    final authorPubkey = deletionEvent['pubkey'] as String;
+
+    // Process 'e' tags (event deletions)
+    for (final tag in tags) {
+      if (tag is List && tag.isNotEmpty && tag[0] == 'e') {
+        final eventIdToDelete = tag[1] as String?;
+        if (eventIdToDelete != null) {
+          // Only allow deletion of events authored by the same user
+          final eventToDelete = storage._getEventById(eventIdToDelete);
+          if (eventToDelete != null &&
+              eventToDelete['pubkey'] == authorPubkey) {
+            storage._deleteEventById(eventIdToDelete);
+          }
+        }
+      }
+    }
+
+    // Process 'p' tags (profile deletions) - delete all events by these authors
+    // but only if the deletion request is from the same pubkey
+    for (final tag in tags) {
+      if (tag is List && tag.isNotEmpty && tag[0] == 'p') {
+        final pubkeyToDelete = tag[1] as String?;
+        if (pubkeyToDelete != null && pubkeyToDelete == authorPubkey) {
+          // Only allow users to delete their own profile/events
+          storage._deleteEventsByAuthor(pubkeyToDelete);
+        }
+      }
+    }
   }
 
   /// Closes all subscriptions and resources

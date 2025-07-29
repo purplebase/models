@@ -298,6 +298,32 @@ class MemoryStorage {
     _deletedEvents.clear();
   }
 
+  /// Gets an event by ID for deletion validation
+  Map<String, dynamic>? _getEventById(String eventId) {
+    return _events[eventId];
+  }
+
+  /// Deletes an event by ID (used by NIP-09 deletion requests)
+  bool _deleteEventById(String eventId) {
+    return removeEvent(eventId);
+  }
+
+  /// Deletes all events by a specific author (used by NIP-09 profile deletions)
+  int _deleteEventsByAuthor(String pubkey) {
+    final eventsToDelete = _events.entries
+        .where((entry) => entry.value['pubkey'] == pubkey)
+        .map((entry) => entry.key)
+        .toList();
+
+    int deletedCount = 0;
+    for (final eventId in eventsToDelete) {
+      if (removeEvent(eventId)) {
+        deletedCount++;
+      }
+    }
+    return deletedCount;
+  }
+
   /// Removes an event by ID from storage
   bool removeEvent(String eventId) {
     final event = _events[eventId];

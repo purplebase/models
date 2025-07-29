@@ -126,6 +126,58 @@ Then run `dart pub get` or `flutter pub get`.
 - [x] **NIP-90: Data Vending Machine**
 - [x] **NIP-94: File Metadata**
 
+## Registered Event Kinds 📋
+
+This table lists all Nostr event kinds currently registered in this library to help developers avoid conflicts when implementing custom models:
+
+| Kind | Model Class | NIP | Description | Type |
+|------|-------------|-----|-------------|------|
+| 0 | `Profile` | NIP-01 | User Metadata | Replaceable |
+| 1 | `Note` | NIP-01 | Short Text Note | Regular |
+| 3 | `ContactList` | NIP-02 | Follow List | Replaceable |
+| 4 | `DirectMessage` | NIP-04 | Encrypted Direct Message | Regular |
+| 5 | `EventDeletionRequest` | NIP-09 | Event Deletion Request | Regular |
+| 6 | `Repost` | NIP-18 | Repost | Regular |
+| 7 | `Reaction` | NIP-25 | Reaction | Regular |
+| 9 | `ChatMessage` | NIP-28 | Chat Message | Regular |
+| 11 | `RelayInfo` | NIP-11 | Relay Information Document | Regular |
+| 16 | `GenericRepost` | NIP-18 | Generic Repost | Regular |
+| 20 | `Picture` | NIP-68 | Picture Event | Regular |
+| 1063 | `FileMetadata` | NIP-94 | File Metadata | Regular |
+| 1111 | `Comment` | NIP-22 | Comment | Regular |
+| 1984 | `Report` | NIP-56 | Content Report | Regular |
+| 3063 | `SoftwareAsset` | NIP-82 | Software Asset | Regular |
+| 5312 | `VerifyReputationRequest` | NIP-90 | DVM Request | Regular |
+| 6312 | `VerifyReputationResponse` | NIP-90 | DVM Response | Regular |
+| 7000 | `DVMError` | NIP-90 | DVM Error | Regular |
+| 9734 | `ZapRequest` | NIP-57 | Zap Request | Regular |
+| 9735 | `Zap` | NIP-57 | Zap Receipt | Regular |
+| 9802 | `Highlight` | NIP-84 | Highlight | Regular |
+| 10000 | `MuteList` | NIP-51 | Mute List | Replaceable |
+| 10001 | `PinList` | NIP-51 | Pin List | Replaceable |
+| 10002 | `RelayListMetadata` | NIP-65 | Relay List Metadata | Replaceable |
+| 10003 | `BookmarkList` | NIP-51 | Bookmark List | Replaceable |
+| 10222 | `Community` | NIP-72 | Community Definition | Replaceable |
+| 13194 | `NwcInfo` | NIP-47 | NWC Wallet Info | Regular |
+| 23194 | `NwcRequest` | NIP-47 | NWC Request | Regular |
+| 23195 | `NwcResponse` | NIP-47 | NWC Response | Regular |
+| 23196 | `NwcNotification` | NIP-47 | NWC Notification | Regular |
+| 24133 | `BunkerAuthorization` | NIP-46 | Bunker Authorization | Ephemeral |
+| 24242 | `BlossomAuthorization` | Blossom | Blossom Authorization | Ephemeral |
+| 30000 | `FollowSets` | NIP-51 | Follow Sets | Parameterizable |
+| 30023 | `Article` | NIP-23 | Long-form Content | Parameterizable |
+| 30063 | `Release` | NIP-82 | Software Release | Parameterizable |
+| 30078 | `CustomData` | NIP-78 | Application Data | Parameterizable |
+| 30222 | `TargetedPublication` | NIP-72 | Targeted Publication | Parameterizable |
+| 30267 | `AppCurationSet` | NIP-89 | App Curation Set | Parameterizable |
+| 31922 | `DateBasedCalendarEvent` | NIP-52 | Date-Based Calendar Event | Parameterizable |
+| 31923 | `TimeBasedCalendarEvent` | NIP-52 | Time-Based Calendar Event | Parameterizable |
+| 31924 | `Calendar` | NIP-52 | Calendar Collection | Parameterizable |
+| 31925 | `CalendarEventRSVP` | NIP-52 | Calendar Event RSVP | Parameterizable |
+| 32267 | `App` | NIP-89 | Application Metadata | Parameterizable |
+
+> **Note**: When implementing custom models, choose unused kind numbers to avoid conflicts. Regular events use kinds 1000-9999, Replaceable events use 10000-19999, and Parameterizable Replaceable events use 30000-39999 per NIP-01 conventions.
+
 ## Core Concepts 🧠
 
 ### Models & Partial Models
