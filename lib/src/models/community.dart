@@ -25,7 +25,8 @@ class Community extends ReplaceableModel<Community> {
   Set<String> get relayUrls => event.getTagSetValues('r');
 
   /// Description of the community
-  String? get description => event.getFirstTagValue('description');
+  String? get description =>
+      event.getFirstTagValue('description') ?? author.value?.about;
 
   /// Content moderation sections with allowed kinds and fees
   Set<CommunityContentSection> get contentSections {

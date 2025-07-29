@@ -168,7 +168,7 @@ _requestNotifierProvider<E extends Model<dynamic>>(
     })(filter);
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
-/// with default type ([Model]), [remote] is true by default
+/// with type [Model] (of any kind)
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   Set<String>? ids,
   Set<int>? kinds,
@@ -198,7 +198,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
 }
 
 /// Syntax-sugar for `requestNotifierProvider(RequestFilter<E>(...))`
-/// with type [E] (one specific kind), [remote] is true by default
+/// with type [E] (one specific kind)
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 query<E extends Model<E>>({
   Set<String>? ids,
@@ -226,8 +226,7 @@ query<E extends Model<E>>({
   return _requestNotifierProvider<E>(filter, source);
 }
 
-/// Syntax sugar for watching one model of type [E],
-/// [remote] is true by default
+/// Syntax sugar for watching one model of type [E]
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
 model<E extends Model<E>>(
   E model, {

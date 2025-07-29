@@ -258,12 +258,6 @@ class Profile extends ReplaceableModel<Profile> {
           callback,
         ).replace(queryParameters: callbackParams);
 
-        // Debug: Print the URI being called
-        print('LNURL Callback URI: $callbackUri');
-        if (zapRequest != null) {
-          print('Zap request JSON length: ${jsonEncode(zapRequest).length}');
-        }
-
         final invoiceRequest = await client.getUrl(callbackUri);
         // Add proper headers
         invoiceRequest.headers.set('Accept', 'application/json');
@@ -276,7 +270,6 @@ class Profile extends ReplaceableModel<Profile> {
           final errorBody = await invoiceResponse
               .transform(utf8.decoder)
               .join();
-          print('LNURL Error Response: $errorBody');
           throw Exception(
             'LNURL callback failed (${invoiceResponse.statusCode}): $errorBody',
           );

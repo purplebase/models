@@ -5,6 +5,10 @@ Fast local-first nostr framework designed to make developers (and vibe-coders) h
 It provides:
  - Domain-specific models that wrap common nostr event kinds (with relationships between them)
  - A local-first model storage and relay interface, leveraging reactive Riverpod providers
+ - Built-in Nostr relay server for testing and development
+ - Complete NostrWalletConnect (NWC) implementation for Lightning payments
+ - Comprehensive authentication and signer management
+ - Event verification and cryptographic operations
  - Easy extensibility
 
 > 📚 **For practical recipes and examples, check out [Purplestack](https://github.com/purplebase/purplestack)**, an agentic development stack for building Nostr-enabled Flutter applications - the best way to use this package with ready-to-use app templates and patterns.
@@ -44,9 +48,11 @@ Current implementations:
 
  - **Domain models**: Instead of NIP-jargon, use type-safe classes with domain language to interact with nostr, many common nostr event kinds are available (or bring your own)
  - **Relationships**: Smoothly navigate local storage with model relationships
- - **Watchable queries**: Reactive querying interface with a familiar nostr request filter API
- - **Signers**: Construct new nostr events and sign them using Amber (Android) and other NIP-55 signers available via external packages
- - **Reactive signed-in profile provider**: Keep track of signed in pubkeys and the current active user in your application
+ - **Reactive querying**: Multiple query providers for different use cases with familiar nostr request filter API
+ - **Built-in relay server**: Production-ready Nostr relay server for development and testing
+ - **NostrWalletConnect**: Complete NIP-47 implementation for Lightning wallet integration
+ - **Signers & Authentication**: Construct new nostr events and sign them using Amber (Android) and other NIP-55 signers, with comprehensive authentication management
+ - **Event verification**: Built-in BIP-340 signature verification with configurable verifiers
  - **Dummy implementation**: Plug-and-play implementation for testing/prototyping, easily generate dummy profiles, notes, and even a whole feed
  - **Raw events**: Access lower-level nostr event data (`event` property on all models)
  - and much more
@@ -70,10 +76,16 @@ Then run `dart pub get` or `flutter pub get`.
 - [Core Concepts 🧠](#core-concepts-)
   - [Models & Partial Models](#models--partial-models)
   - [Relationships](#relationships)
-  - [Querying](#querying)
+  - [Querying & Providers](#querying--providers)
   - [Storage & Relays](#storage--relays)
   - [Source Behavior](#source-behavior)
+- [Authentication & Signers 🔐](#authentication--signers-)
+  - [Signer Providers](#signer-providers)
+  - [Authentication Management](#authentication-management)
+- [Built-in Relay Server 🖥️](#built-in-relay-server-)
+- [NostrWalletConnect 💰](#nostrwalletconnect-)
 - [API Reference 📚](#api-reference-)
+  - [Query Providers](#query-providers)
   - [Storage Configuration](#storage-configuration)
   - [Query Filters](#query-filters)
   - [Utilities](#utilities)
@@ -103,6 +115,7 @@ Then run `dart pub get` or `flutter pub get`.
 - [x] **NIP-39: External Identities in Profiles**
 - [x] **NIP-42: Authentication of clients to relays**
 - [x] **NIP-44: Encrypted Payloads (Versioned)**
+- [x] **NIP-47: Nostr Wallet Connect** - Complete implementation with connection management, commands, and secure storage
 - [x] **NIP-51: Lists**
 - [x] **NIP-55: Android Signer Application**
 - [x] **NIP-57: Lightning Zaps**
@@ -112,7 +125,6 @@ Then run `dart pub get` or `flutter pub get`.
 - [x] **NIP-82: Application metadata, releases, assets** _(draft)_
 - [x] **NIP-90: Data Vending Machine**
 - [x] **NIP-94: File Metadata**
-- [x] **NIP-47: Nostr Wallet Connect** - Complete implementation with connection management, commands, and secure storage
 
 ## Core Concepts 🧠
 
@@ -163,9 +175,13 @@ final reactions = note.reactions.toList();
 final zaps = note.zaps.toList();
 ```
 
-### Querying
+### Querying & Providers
 
-Use the `query` function to reactively watch for models:
+The framework provides multiple reactive query providers for different use cases:
+
+#### Typed Query Provider (`query<E>`)
+
+Query specific model types with full type safety:
 
 ```dart
 final notesState = ref.watch(
@@ -173,20 +189,68 @@ final notesState = ref.watch(
     authors: {userPubkey},
     limit: 20,
     since: DateTime.now().subtract(Duration(days: 7)),
+    and: (note) => {note.author, note.reactions, note.zaps}, // Load relationships
   ),
 );
 
-// Access models and handle loading/error states
+// Access typed models
 switch (notesState) {
   case StorageLoading():
     return CircularProgressIndicator();
   case StorageError():
     return Text('Error loading notes');
-  case StorageData():
+  case StorageData(:final models):
     return ListView.builder(
-      itemCount: notesState.models.length,
-      itemBuilder: (context, index) => NoteCard(notesState.models[index]),
+      itemCount: models.length,
+      itemBuilder: (context, index) => NoteCard(models[index]),
     );
+}
+```
+
+#### Generic Query Provider (`queryKinds`)
+
+Query events across multiple kinds without type constraints:
+
+```dart
+final multiKindState = ref.watch(
+  queryKinds(
+    kinds: {1, 6}, // Notes and reposts
+    authors: {userPubkey},
+    limit: 20,
+    since: DateTime.now().subtract(Duration(days: 7)),
+  ),
+);
+
+// Access models and handle loading/error states
+switch (multiKindState) {
+  case StorageLoading():
+    return CircularProgressIndicator();
+  case StorageError():
+    return Text('Error loading events');
+  case StorageData(:final models):
+    return ListView.builder(
+      itemCount: models.length,
+      itemBuilder: (context, index) => EventCard(models[index]),
+    );
+}
+```
+
+#### Single Model Provider (`model<E>`)
+
+Watch a specific model instance for updates:
+
+```dart
+final noteState = ref.watch(
+  model<Note>(
+    existingNote,
+    and: (note) => {note.author, note.reactions, note.zaps},
+  ),
+);
+
+// The provider automatically updates when the model changes
+final note = noteState.models.firstOrNull;
+if (note != null) {
+  return NoteDetailCard(note);
 }
 ```
 
@@ -252,7 +316,7 @@ source: LocalAndRemoteSource(
     'wss://priority.relay.io',
   },
   stream: true,           // Enable streaming (default)
-  background: true,       // Don't wait for EOSE
+  background: true,       // Don't wait for EOSE to return
 )
 ```
 
@@ -302,6 +366,120 @@ final hybridQuery = ref.watch(
 - If `background: true`, queries return immediately after local results, relay results stream in
 - The streaming phase never blocks regardless of `background` setting
 
+## Authentication & Signers 🔐
+
+### Signer Providers
+
+The framework provides comprehensive signer and authentication management through reactive providers:
+
+#### Active Signer Management
+
+```dart
+// Get the currently active signer
+final activeSigner = ref.watch(Signer.activeSignerProvider);
+if (activeSigner != null) {
+  final signedEvents = await activeSigner.sign([partialNote]);
+}
+
+// Get the active user's pubkey
+final activePubkey = ref.watch(Signer.activePubkeyProvider);
+
+// Get the active user's profile
+final activeProfile = ref.watch(
+  Signer.activeProfileProvider(LocalAndRemoteSource()),
+);
+```
+
+#### Multi-User Support
+
+```dart
+// Get all signed-in pubkeys
+final signedInPubkeys = ref.watch(Signer.signedInPubkeysProvider);
+
+// Get a specific signer by pubkey
+final specificSigner = ref.watch(Signer.signerProvider(pubkey));
+
+// Check if a user is signed in
+final isSignedIn = signedInPubkeys.contains(somePubkey);
+```
+
+### Authentication Management
+
+```dart
+// Sign in a user (makes them active by default)
+await signer.signIn(setAsActive: true);
+
+// Sign in without making active
+await signer.signIn(setAsActive: false);
+
+// Sign in without registering (for external signers that handle their own registration)
+await signer.signIn(setAsActive: true, registerSigner: false);
+
+// Set as active signer
+signer.setAsActivePubkey();
+
+// Sign out user
+await signer.signOut();
+
+// Remove from active (but keep signed in)
+signer.removeAsActivePubkey();
+
+// Check sign-in status
+final isSignedIn = signer.isSignedIn;
+```
+
+## Built-in Relay Server 🖥️
+
+The framework includes a production-ready Nostr relay server for development and testing:
+
+### Running the Relay
+
+```bash
+# Run with default settings (port 8080, all interfaces)
+dart run models:dart_relay
+
+# Custom port and host
+dart run models:dart_relay --port 7777 --host localhost
+
+# See all options
+dart run models:dart_relay --help
+```
+
+### Programmatic Usage
+
+```dart
+final container = ProviderContainer();
+final relay = NostrRelay(
+  port: 8080,
+  host: '0.0.0.0',
+  ref: container.read(refProvider),
+);
+
+// Start the relay
+await relay.start();
+print('Relay running on ws://localhost:8080');
+
+// Stop the relay
+await relay.stop();
+```
+
+### Relay Features
+
+- **WebSocket support**: Full Nostr protocol implementation
+- **Memory storage**: Fast in-memory event storage
+- **Real-time subscriptions**: Live event streaming
+- **NIP compliance**: Supports core Nostr NIPs
+- **Production ready**: Suitable for development and testing environments
+
+## NostrWalletConnect 💰
+
+Complete implementation of NIP-47 for Lightning wallet integration:
+
+```dart
+// Pay a Lightning invoice using high-level API
+await signer.pay('lnbc...', amount: 1000);
+```
+
 ## Recipes 🍳
 
 Find detailed code examples and implementation guides for common tasks:
@@ -314,6 +492,50 @@ Find detailed code examples and implementation guides for common tasks:
 - **[Working with DVMs (NIP-90)](tools/recipes/working-with-dvms.md)** - Integrate with Decentralized Virtual Machines for various services
 
 ## API Reference 📚
+
+### Query Providers
+
+The framework provides three main query providers for different use cases:
+
+#### `query<E>()` - Typed Queries
+- **Returns**: `AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>`
+- **Purpose**: Query specific model types with full type safety
+- **Models accessible as**: `state.models (List<E>)`
+
+#### `queryKinds()` - Multi-Kind Queries  
+- **Returns**: `AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>`
+- **Purpose**: Query events across multiple kinds without type constraints
+- **Models accessible as**: `state.models (List<Model<dynamic>>)`
+
+#### `model<E>()` - Single Model Watching
+- **Returns**: `AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>`
+- **Purpose**: Watch a specific model instance for updates
+- **Model accessible as**: `state.models.firstOrNull`
+
+#### Provider Usage Patterns
+
+```dart
+// Watch with error handling
+final notesState = ref.watch(query<Note>(authors: {pubkey}));
+switch (notesState) {
+  case StorageLoading():
+    return CircularProgressIndicator();
+  case StorageError(:final exception):
+    return ErrorWidget(exception.toString());
+  case StorageData(:final models):
+    return NotesList(models);
+}
+
+// Listen for changes
+ref.listen(query<Note>(authors: {pubkey}), (previous, next) {
+  if (next is StorageData && previous is StorageLoading) {
+    print('Notes loaded: ${next.models.length}');
+  }
+});
+
+// One-time read
+final currentState = ref.read(query<Note>(authors: {pubkey}));
+```
 
 ### Storage Configuration
 
@@ -568,8 +790,8 @@ switch (queryState) {
     );
   case StorageLoading():
     return LoadingWidget();
-  case StorageData():
-    return NotesList(notes: queryState.models);
+  case StorageData(:final models):
+    return NotesList(notes: models);
 }
 
 // Handle network failures

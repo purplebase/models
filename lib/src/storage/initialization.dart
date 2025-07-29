@@ -1,7 +1,7 @@
 part of models;
 
 /// Initialization provider that MUST be called from any client
-/// application, with a [config]
+/// application, with a [StorageConfiguration]
 final initializationProvider =
     FutureProvider.family<void, StorageConfiguration>((ref, config) async {
       _dummySigner = DummySigner(ref);
@@ -41,6 +41,7 @@ class StorageConfiguration extends Equatable {
   /// older will be removed (default: 20000)
   final int keepMaxModels;
 
+  /// Storage configuration
   StorageConfiguration({
     this.databasePath,
     this.keepSignatures = false,
@@ -108,8 +109,7 @@ class StorageConfiguration extends Equatable {
     }
   }
 
-  /// Find relays given a group,
-  /// [useDefault] if missing whether to return the default one
+  /// Find relays via relayUrls (takes priority) or resolve to a group's relayUrls
   Set<String> getRelays({RemoteSource source = const RemoteSource()}) {
     if (source.relayUrls.isNotEmpty) {
       return source.relayUrls;

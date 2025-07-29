@@ -2,11 +2,7 @@ part of models;
 
 /// Sealed class representing different types of shareable identifier inputs
 sealed class ShareableIdentifierInput {
-  const ShareableIdentifierInput({
-    this.relays,
-    this.author,
-    this.kind,
-  });
+  const ShareableIdentifierInput({this.relays, this.author, this.kind});
 
   final List<String>? relays;
   final String? author;
@@ -51,25 +47,19 @@ class AddressInput extends ShareableIdentifierInput {
 
 /// Input for encoding a public key (npub)
 class NpubInput extends ShareableIdentifierInput {
-  const NpubInput({
-    required this.value,
-  }) : super();
+  const NpubInput({required this.value}) : super();
   final String value;
 }
 
 /// Input for encoding a private key (nsec)
 class NsecInput extends ShareableIdentifierInput {
-  const NsecInput({
-    required this.value,
-  }) : super();
+  const NsecInput({required this.value}) : super();
   final String value;
 }
 
 /// Input for encoding a note/event id (note)
 class NoteInput extends ShareableIdentifierInput {
-  const NoteInput({
-    required this.value,
-  }) : super();
+  const NoteInput({required this.value}) : super();
   final String value;
 }
 
@@ -165,9 +155,9 @@ String _encodeShareableIdentifiers({
     final byteData = ByteData(4);
     byteData.setUint32(0, kind);
     final value = List.generate(
-        byteData.lengthInBytes,
-        (index) =>
-            byteData.getUint8(index).toRadixString(16).padLeft(2, '0')).join();
+      byteData.lengthInBytes,
+      (index) => byteData.getUint8(index).toRadixString(16).padLeft(2, '0'),
+    ).join();
     result =
         '$result${hex.decode(value).length.toRadixString(16).padLeft(2, '0')}$value';
   }
