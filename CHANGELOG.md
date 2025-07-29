@@ -1,6 +1,8 @@
 # Changelog
 
-## [0.3.3] - Draft
+## [0.3.3] - 2025-07-28
+
+We are starting Changelogs today, so this release shows more than it actually covers.
 
 ### Added
 - **NostrWalletConnect (NWC)** - Complete NIP-47 implementation for Lightning wallet integration

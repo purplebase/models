@@ -75,13 +75,10 @@ class MemoryStorage {
           );
           final existingId = existing['id'] as String;
 
+          // For replaceable events: newer timestamp wins,
+          // or same timestamp with new event received later wins
           if (createdAt.isAfter(existingCreatedAt) ||
-              (createdAt.isAtSameMomentAs(existingCreatedAt) &&
-                  (event['content'] as String).isEmpty) ||
-              (createdAt.isAtSameMomentAs(existingCreatedAt) &&
-                  (existing['content'] as String).isNotEmpty &&
-                  (event['content'] as String).isNotEmpty &&
-                  id.compareTo(existingId) > 0)) {
+              createdAt.isAtSameMomentAs(existingCreatedAt)) {
             // Remove old event from main storage
             _events.remove(existingId);
 

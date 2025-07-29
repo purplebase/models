@@ -176,7 +176,13 @@ mixin PartialZapRequestMixin on RegularPartialModel<ZapRequest> {
   int? get amount => int.tryParse(event.getFirstTagValue('amount') ?? '');
 
   /// Sets the payment amount in millisatoshis
-  set amount(int? value) => event.setTagValue('amount', value?.toString());
+  set amount(int? value) {
+    if (value != null) {
+      event.setTagValue('amount', value.toString());
+    } else {
+      event.removeTag('amount');
+    }
+  }
 
   /// List of relay URLs for the zap request
   List<String> get relays {
@@ -200,8 +206,13 @@ mixin PartialZapRequestMixin on RegularPartialModel<ZapRequest> {
   String? get lnurl => event.getFirstTagValue('lnurl');
 
   /// Sets the LNURL-pay endpoint
-  set lnurl(String? value) =>
-      event.setTagValue('lnurl', value?.isNotEmpty == true ? value : null);
+  set lnurl(String? value) {
+    if (value?.isNotEmpty == true) {
+      event.setTagValue('lnurl', value!);
+    } else {
+      event.removeTag('lnurl');
+    }
+  }
 }
 
 class PartialZapRequest extends RegularPartialModel<ZapRequest>
