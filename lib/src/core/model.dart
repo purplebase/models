@@ -18,7 +18,11 @@ sealed class Model<E extends Model<E>>
   final Ref ref;
   final StorageNotifier storage;
 
+  @protected
+  @visibleForTesting
   @override
+  /// Internal representation of the Nostr event
+  /// to be accessed only through this Model class
   final ImmutableEvent event;
 
   /// The author (profile) of this model.
