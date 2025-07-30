@@ -50,9 +50,14 @@ class RelayInfo extends RegularModel<RelayInfo> {
   final String software;
   final String version;
   final String contact;
-  final String? pubkey;
   final String? icon;
   final Map<String, dynamic>? supportedNipsDetails;
+
+  /// The relay's pubkey from the content (different from the event's pubkey)
+  String? get relayPubkey {
+    final content = _parseContent(event.content);
+    return content['pubkey'] as String?;
+  }
 
   RelayInfo._(
     Ref ref,
@@ -63,7 +68,6 @@ class RelayInfo extends RegularModel<RelayInfo> {
     required this.software,
     required this.version,
     required this.contact,
-    this.pubkey,
     this.icon,
     this.supportedNipsDetails,
   }) : super._(ref, event);
@@ -82,7 +86,6 @@ class RelayInfo extends RegularModel<RelayInfo> {
       software: content['software'] as String? ?? '',
       version: content['version'] as String? ?? '',
       contact: content['contact'] as String? ?? '',
-      pubkey: content['pubkey'] as String?,
       icon: content['icon'] as String?,
       supportedNipsDetails:
           content['supported_nips_details'] as Map<String, dynamic>?,
@@ -108,7 +111,6 @@ class RelayInfo extends RegularModel<RelayInfo> {
         'software': software,
         'version': version,
         'contact': contact,
-        if (pubkey != null) 'pubkey': pubkey,
         if (icon != null) 'icon': icon,
         if (supportedNipsDetails != null)
           'supported_nips_details': supportedNipsDetails,

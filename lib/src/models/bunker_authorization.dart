@@ -11,7 +11,7 @@ class BunkerAuthorization extends EphemeralModel<BunkerAuthorization> {
   String get content => event.content;
 
   /// Authorized public key for remote signing
-  String get pubkey => event.getFirstTagValue('p')!;
+  String get authorizedPubkey => event.getFirstTagValue('p')!;
 }
 
 /// Create and sign new bunker authorization events.

@@ -100,10 +100,13 @@ sealed class Model<E extends Model<E>>
   /// The unique addressable identifier for this model.
   String get id => event.addressableId;
 
+  /// Public key of the author of this model.
+  String get pubkey => event.pubkey;
+
   /// When this model was created.
   DateTime get createdAt => event.createdAt;
 
-  /// Topic tags for this model.
+  /// Topic tags (hashtags) for this model.
   Set<String> get tags => event.getTagSetValues('t');
 
   /// Parse once in-event data that requires expensive decoding,

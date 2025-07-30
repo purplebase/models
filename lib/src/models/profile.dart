@@ -70,9 +70,6 @@ class Profile extends ReplaceableModel<Profile> {
     return super.transformMap(map);
   }
 
-  /// The user's public key
-  String get pubkey => event.pubkey;
-
   /// The user's npub (Bech32-encoded public key)
   String get npub => _bech32Encode('npub', pubkey);
 

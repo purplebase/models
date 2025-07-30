@@ -47,9 +47,11 @@ void main() {
       expect(relayInfo.version, equals('1.0.0'));
       expect(relayInfo.contact, equals('test@example.com'));
       expect(
-          relayInfo.pubkey,
-          equals(
-              'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be'));
+        relayInfo.relayPubkey,
+        equals(
+          'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be',
+        ),
+      );
       expect(relayInfo.icon, equals('https://example.com/icon.png'));
     });
 
@@ -75,7 +77,7 @@ void main() {
       final relayInfo = RelayInfo.fromMap(json, ref);
 
       expect(relayInfo.name, equals('Test Relay'));
-      expect(relayInfo.pubkey, isNull);
+      expect(relayInfo.relayPubkey, isNull);
       expect(relayInfo.icon, isNull);
       expect(relayInfo.supportedNipsDetails, isNull);
     });
@@ -102,9 +104,11 @@ void main() {
       expect(relayInfo.version, equals('1.0.0'));
       expect(relayInfo.contact, equals('test@example.com'));
       expect(
-          relayInfo.pubkey,
-          equals(
-              'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be'));
+        relayInfo.pubkey,
+        equals(
+          'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be',
+        ),
+      );
       expect(relayInfo.icon, equals('https://example.com/icon.png'));
     });
 
