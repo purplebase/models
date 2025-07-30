@@ -65,6 +65,12 @@ BelongsTo<Calendar>(
 ```
 If the relationship direction doesn't make logical sense, don't create it. Think: "Does X logically belong to Y?" before adding `BelongsTo<Y>` relationships.
 
+**Relationship naming**: Name them as close as the class noun as possible, (only allowed to change when the identifier is already taken or does not compile):
+ - ✅ `BelongsTo<Community> community`
+ - ✅ `HasMany<Note> notes`
+ - ❌ `BelongsTo<Community> communityRelation`
+ - ❌ `HasMany<Note> posts`
+
 ### Property Pattern Generation
 
 #### Tag Value Properties
