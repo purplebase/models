@@ -45,16 +45,44 @@ class VoiceMessage extends RegularModel<VoiceMessage> {
   }
 
   /// The voice message description or caption
+  ///
+  /// Note: For voice messages (NIP-A0), the content field actually contains
+  /// the audio URL, not a description. This getter maintains backward compatibility
+  /// but may not represent the actual semantic meaning.
   String get description => event.content;
 
   /// The primary audio file URL
-  String? get audioUrl => event.getFirstTagValue('url');
+  String? get audioUrl {
+    // Primary location per NIP-A0: content field MUST contain the audio URL
+    if (event.content.isNotEmpty) return event.content;
+
+    // Fall back to imeta tags (supplementary per NIP-A0)
+    final imetaUrls = Utils.extractImetaUrls(event.getTagSet('imeta'));
+    if (imetaUrls.isNotEmpty) return imetaUrls.first;
+
+    // Fall back to simple url tags (backward compatibility)
+    return event.getFirstTagValue('url');
+  }
 
   /// Alternative audio URLs for different qualities or formats
-  Set<String> get altAudioUrls => event.getTagSetValues('url').skip(1).toSet();
+  /// Per NIP-A0: primary URL is in content, so all url tags are alternatives
+  Set<String> get altAudioUrls => event.getTagSetValues('url');
 
   /// All audio URLs (primary + alternatives)
-  Set<String> get allAudioUrls => event.getTagSetValues('url');
+  Set<String> get allAudioUrls {
+    final urls = <String>{};
+
+    // Add URL from content field (primary location per NIP-A0)
+    if (event.content.isNotEmpty) urls.add(event.content);
+
+    // Add URLs from imeta tags (supplementary per NIP-A0)
+    urls.addAll(Utils.extractImetaUrls(event.getTagSet('imeta')));
+
+    // Add URLs from simple url tags
+    urls.addAll(event.getTagSetValues('url'));
+
+    return urls;
+  }
 
   /// The audio file hash for verification
   String? get audioHash => event.getFirstTagValue('x');
@@ -163,16 +191,44 @@ class VoiceMessageComment extends RegularModel<VoiceMessageComment> {
   }
 
   /// The voice comment description or caption
+  ///
+  /// Note: For voice message comments (NIP-A0), the content field actually contains
+  /// the audio URL, not a description. This getter maintains backward compatibility
+  /// but may not represent the actual semantic meaning.
   String get description => event.content;
 
   /// The primary audio file URL
-  String? get audioUrl => event.getFirstTagValue('url');
+  String? get audioUrl {
+    // Primary location per NIP-A0: content field MUST contain the audio URL
+    if (event.content.isNotEmpty) return event.content;
+
+    // Fall back to imeta tags (supplementary per NIP-A0)
+    final imetaUrls = Utils.extractImetaUrls(event.getTagSet('imeta'));
+    if (imetaUrls.isNotEmpty) return imetaUrls.first;
+
+    // Fall back to simple url tags (backward compatibility)
+    return event.getFirstTagValue('url');
+  }
 
   /// Alternative audio URLs for different qualities or formats
-  Set<String> get altAudioUrls => event.getTagSetValues('url').skip(1).toSet();
+  /// Per NIP-A0: primary URL is in content, so all url tags are alternatives
+  Set<String> get altAudioUrls => event.getTagSetValues('url');
 
   /// All audio URLs (primary + alternatives)
-  Set<String> get allAudioUrls => event.getTagSetValues('url');
+  Set<String> get allAudioUrls {
+    final urls = <String>{};
+
+    // Add URL from content field (primary location per NIP-A0)
+    if (event.content.isNotEmpty) urls.add(event.content);
+
+    // Add URLs from imeta tags (supplementary per NIP-A0)
+    urls.addAll(Utils.extractImetaUrls(event.getTagSet('imeta')));
+
+    // Add URLs from simple url tags
+    urls.addAll(event.getTagSetValues('url'));
+
+    return urls;
+  }
 
   /// The audio file hash for verification
   String? get audioHash => event.getFirstTagValue('x');
@@ -489,8 +545,12 @@ class PartialVoiceMessage extends RegularPartialModel<VoiceMessage>
     String? waveform,
     String? summary,
   }) {
+    // Per NIP-A0: content field MUST contain the audio URL
+    event.content = audioUrl;
+
+    // For backward compatibility, also set url tag
     this.audioUrl = audioUrl;
-    if (description != null) this.description = description;
+
     if (duration != null) this.duration = duration;
     if (transcript != null) this.transcript = transcript;
     if (title != null) this.title = title;
@@ -502,6 +562,9 @@ class PartialVoiceMessage extends RegularPartialModel<VoiceMessage>
     if (audioHash != null) this.audioHash = audioHash;
     if (waveform != null) this.waveform = waveform;
     if (summary != null) this.summary = summary;
+
+    // Note: description parameter ignored per NIP-A0 (content must be audio URL)
+    // If needed, description can be stored in a tag or summary field
   }
 }
 
@@ -549,11 +612,15 @@ class PartialVoiceMessageComment
     String? audioHash,
     String? waveform,
   }) {
+    // Per NIP-A0: content field MUST contain the audio URL
+    event.content = audioUrl;
+
+    // For backward compatibility, also set url tag
     this.audioUrl = audioUrl;
+
     if (originalVoiceMessage != null) {
       event.tags.add(['e', originalVoiceMessage.event.id]);
     }
-    if (description != null) this.description = description;
     if (duration != null) this.duration = duration;
     if (transcript != null) this.transcript = transcript;
     if (altText != null) this.altText = altText;
@@ -563,5 +630,8 @@ class PartialVoiceMessageComment
     if (fileSize != null) this.fileSize = fileSize;
     if (audioHash != null) this.audioHash = audioHash;
     if (waveform != null) this.waveform = waveform;
+
+    // Note: description parameter ignored per NIP-A0 (content must be audio URL)
+    // If needed, description can be stored in a tag or summary field
   }
 }

@@ -463,5 +463,163 @@ void main() {
       expect(video.fileSize, isNull);
       expect(video.duration, isNull);
     });
+
+    test('imeta URL parsing (NIP-71)', () {
+      // Create a video event with imeta tags instead of simple url tags
+      final eventData = {
+        'id': 'test123',
+        'pubkey': nielPubkey,
+        'created_at': 1671217411,
+        'kind': 21,
+        'content': 'Test video with imeta tags',
+        'tags': [
+          ['title', 'Test Video'],
+          [
+            'imeta',
+            'url https://videos.example.com/video-1080p.mp4',
+            'm video/mp4',
+            'dim 1920x1080',
+            'x 3093509d1e0bc604ff60cb9286f4cd7c781553bc8991937befaacfdc28ec5cdc',
+            'image https://videos.example.com/thumb.jpg',
+          ],
+          [
+            'imeta',
+            'url https://videos.example.com/video-720p.mp4',
+            'm video/mp4',
+            'dim 1280x720',
+            'x e1d4f808dae475ed32fb23ce52ef8ac82e3cc760702fca10d62d382d2da3697d',
+          ],
+        ],
+        'sig': 'testsig123',
+      };
+
+      final video = Video.fromMap(eventData, ref);
+
+      // Test that imeta URLs are parsed correctly
+      expect(video.videoUrl, 'https://videos.example.com/video-1080p.mp4');
+      expect(video.allVideoUrls, {
+        'https://videos.example.com/video-1080p.mp4',
+        'https://videos.example.com/video-720p.mp4',
+      });
+    });
+
+    test('imeta fallback to url tags', () {
+      // Create a video with both imeta and url tags - imeta should take precedence
+      final eventData = {
+        'id': 'test123',
+        'pubkey': nielPubkey,
+        'created_at': 1671217411,
+        'kind': 21,
+        'content': 'Test video with both imeta and url tags',
+        'tags': [
+          ['title', 'Mixed Video'],
+          ['url', 'https://old-style.com/video.mp4'],
+          ['imeta', 'url https://new-style.com/video.mp4', 'm video/mp4'],
+        ],
+        'sig': 'testsig123',
+      };
+
+      final video = Video.fromMap(eventData, ref);
+
+      // imeta URL should take precedence
+      expect(video.videoUrl, 'https://new-style.com/video.mp4');
+      expect(video.allVideoUrls, {
+        'https://new-style.com/video.mp4',
+        'https://old-style.com/video.mp4',
+      });
+    });
+
+    test('fallback to url tags when no imeta', () {
+      // Create a video with only old-style url tags
+      final eventData = {
+        'id': 'test123',
+        'pubkey': nielPubkey,
+        'created_at': 1671217411,
+        'kind': 21,
+        'content': 'Test video with only url tags',
+        'tags': [
+          ['title', 'Legacy Video'],
+          ['url', 'https://old-style.com/video1.mp4'],
+          ['url', 'https://old-style.com/video2.mp4'],
+        ],
+        'sig': 'testsig123',
+      };
+
+      final video = Video.fromMap(eventData, ref);
+
+      // Should fall back to url tags
+      expect(video.videoUrl, 'https://old-style.com/video1.mp4');
+      expect(video.allVideoUrls, {
+        'https://old-style.com/video1.mp4',
+        'https://old-style.com/video2.mp4',
+      });
+    });
+  });
+
+  group('ShortFormPortraitVideo (kind 22)', () {
+    test('imeta URL parsing (NIP-71)', () {
+      // Create a short-form video event with imeta tags
+      final eventData = {
+        'id': 'test456',
+        'pubkey': nielPubkey,
+        'created_at': 1671217411,
+        'kind': 22,
+        'content': 'Quick dance video! #dance #shorts',
+        'tags': [
+          ['title', 'Dance Moves'],
+          [
+            'imeta',
+            'url https://shorts.example.com/dance-1080p.mp4',
+            'm video/mp4',
+            'dim 1080x1920',
+            'x 4186509d1e0bc604ff60cb9286f4cd7c781553bc8991937befaacfdc28ec5cdc',
+            'image https://shorts.example.com/dance-thumb.jpg',
+          ],
+          [
+            'imeta',
+            'url https://shorts.example.com/dance-720p.mp4',
+            'm video/mp4',
+            'dim 720x1280',
+            'x f2e5f808dae475ed32fb23ce52ef8ac82e3cc760702fca10d62d382d2da3697d',
+          ],
+        ],
+        'sig': 'testsig456',
+      };
+
+      final shortVideo = ShortFormPortraitVideo.fromMap(eventData, ref);
+
+      // Test that imeta URLs are parsed correctly
+      expect(shortVideo.videoUrl, 'https://shorts.example.com/dance-1080p.mp4');
+      expect(shortVideo.allVideoUrls, {
+        'https://shorts.example.com/dance-1080p.mp4',
+        'https://shorts.example.com/dance-720p.mp4',
+      });
+    });
+
+    test('imeta fallback to url tags', () {
+      // Create a short video with both imeta and url tags
+      final eventData = {
+        'id': 'test456',
+        'pubkey': nielPubkey,
+        'created_at': 1671217411,
+        'kind': 22,
+        'content': 'Test short video with mixed tags',
+        'tags': [
+          ['title', 'Mixed Short Video'],
+          ['url', 'https://old-style.com/short.mp4'],
+          ['imeta', 'url https://new-style.com/short.mp4', 'm video/mp4'],
+        ],
+        'sig': 'testsig456',
+      };
+
+      final shortVideo = ShortFormPortraitVideo.fromMap(eventData, ref);
+
+      // imeta URL should take precedence
+      expect(shortVideo.videoUrl, 'https://new-style.com/short.mp4');
+      expect(shortVideo.allVideoUrls, {
+        'https://new-style.com/short.mp4',
+        'https://old-style.com/short.mp4',
+      });
+    });
   });
 }

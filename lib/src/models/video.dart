@@ -36,13 +36,30 @@ class Video extends RegularModel<Video> {
   String get description => event.content;
 
   /// The primary video URL
-  String? get videoUrl => event.getFirstTagValue('url');
+  String? get videoUrl {
+    // First try to get URL from imeta tags (NIP-71)
+    final imetaUrls = Utils.extractImetaUrls(event.getTagSet('imeta'));
+    if (imetaUrls.isNotEmpty) return imetaUrls.first;
+
+    // Fall back to simple url tags
+    return event.getFirstTagValue('url');
+  }
 
   /// Alternative video URLs for different qualities or formats
   Set<String> get altVideoUrls => event.getTagSetValues('url').skip(1).toSet();
 
   /// All video URLs (primary + alternatives)
-  Set<String> get allVideoUrls => event.getTagSetValues('url');
+  Set<String> get allVideoUrls {
+    final urls = <String>{};
+
+    // Add URLs from imeta tags (NIP-71)
+    urls.addAll(Utils.extractImetaUrls(event.getTagSet('imeta')));
+
+    // Add URLs from simple url tags
+    urls.addAll(event.getTagSetValues('url'));
+
+    return urls;
+  }
 
   /// The video file hash for verification
   String? get videoHash => event.getFirstTagValue('x');
@@ -148,13 +165,30 @@ class ShortFormPortraitVideo extends RegularModel<ShortFormPortraitVideo> {
   String get description => event.content;
 
   /// The primary video URL
-  String? get videoUrl => event.getFirstTagValue('url');
+  String? get videoUrl {
+    // First try to get URL from imeta tags (NIP-71)
+    final imetaUrls = Utils.extractImetaUrls(event.getTagSet('imeta'));
+    if (imetaUrls.isNotEmpty) return imetaUrls.first;
+
+    // Fall back to simple url tags
+    return event.getFirstTagValue('url');
+  }
 
   /// Alternative video URLs for different qualities or formats
   Set<String> get altVideoUrls => event.getTagSetValues('url').skip(1).toSet();
 
   /// All video URLs (primary + alternatives)
-  Set<String> get allVideoUrls => event.getTagSetValues('url');
+  Set<String> get allVideoUrls {
+    final urls = <String>{};
+
+    // Add URLs from imeta tags (NIP-71)
+    urls.addAll(Utils.extractImetaUrls(event.getTagSet('imeta')));
+
+    // Add URLs from simple url tags
+    urls.addAll(event.getTagSetValues('url'));
+
+    return urls;
+  }
 
   /// The video file hash for verification
   String? get videoHash => event.getFirstTagValue('x');
@@ -241,13 +275,30 @@ mixin PartialVideoMixin on RegularPartialModel<Video> {
   set description(String? value) => event.content = value ?? '';
 
   /// The primary video URL
-  String? get videoUrl => event.getFirstTagValue('url');
+  String? get videoUrl {
+    // First try to get URL from imeta tags (NIP-71)
+    final imetaUrls = Utils.extractImetaUrls(event.getTagSet('imeta'));
+    if (imetaUrls.isNotEmpty) return imetaUrls.first;
+
+    // Fall back to simple url tags
+    return event.getFirstTagValue('url');
+  }
 
   /// Sets the primary video URL
   set videoUrl(String? value) => event.setTagValue('url', value);
 
   /// All video URLs (primary + alternatives)
-  Set<String> get allVideoUrls => event.getTagSetValues('url');
+  Set<String> get allVideoUrls {
+    final urls = <String>{};
+
+    // Add URLs from imeta tags (NIP-71)
+    urls.addAll(Utils.extractImetaUrls(event.getTagSet('imeta')));
+
+    // Add URLs from simple url tags
+    urls.addAll(event.getTagSetValues('url'));
+
+    return urls;
+  }
 
   /// Sets all video URLs
   set allVideoUrls(Set<String> value) => event.setTagValues('url', value);
@@ -353,13 +404,30 @@ mixin PartialShortFormPortraitVideoMixin
   set description(String? value) => event.content = value ?? '';
 
   /// The primary video URL
-  String? get videoUrl => event.getFirstTagValue('url');
+  String? get videoUrl {
+    // First try to get URL from imeta tags (NIP-71)
+    final imetaUrls = Utils.extractImetaUrls(event.getTagSet('imeta'));
+    if (imetaUrls.isNotEmpty) return imetaUrls.first;
+
+    // Fall back to simple url tags
+    return event.getFirstTagValue('url');
+  }
 
   /// Sets the primary video URL
   set videoUrl(String? value) => event.setTagValue('url', value);
 
   /// All video URLs (primary + alternatives)
-  Set<String> get allVideoUrls => event.getTagSetValues('url');
+  Set<String> get allVideoUrls {
+    final urls = <String>{};
+
+    // Add URLs from imeta tags (NIP-71)
+    urls.addAll(Utils.extractImetaUrls(event.getTagSet('imeta')));
+
+    // Add URLs from simple url tags
+    urls.addAll(event.getTagSetValues('url'));
+
+    return urls;
+  }
 
   /// Sets all video URLs
   set allVideoUrls(Set<String> value) => event.setTagValues('url', value);

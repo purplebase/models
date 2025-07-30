@@ -231,4 +231,32 @@ class Utils {
       _ => false,
     };
   }
+
+  /// Extract URLs from imeta tags
+  ///
+  /// Parses imeta tags (NIP-92) to extract URL values.
+  /// Used by media models (Picture, Video, VoiceMessage) for URL fallback.
+  ///
+  /// Example imeta tag format:
+  /// ```
+  /// ["imeta", "url https://example.com/image.jpg", "m image/jpeg", "dim 1920x1080"]
+  /// ```
+  static List<String> extractImetaUrls(Set<List<String>> imetaTags) {
+    final urls = <String>[];
+
+    for (final tag in imetaTags) {
+      // Skip the first element which is 'imeta'
+      for (int i = 1; i < tag.length; i++) {
+        final part = tag[i];
+        if (part.startsWith('url ')) {
+          final url = part.substring(4); // Remove 'url ' prefix
+          if (url.isNotEmpty) {
+            urls.add(url);
+          }
+        }
+      }
+    }
+
+    return urls;
+  }
 }

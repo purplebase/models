@@ -36,13 +36,30 @@ class Picture extends RegularModel<Picture> {
   String get description => event.content;
 
   /// The primary image URL
-  String? get imageUrl => event.getFirstTagValue('url');
+  String? get imageUrl {
+    // First try to get URL from imeta tags (NIP-68)
+    final imetaUrls = Utils.extractImetaUrls(event.getTagSet('imeta'));
+    if (imetaUrls.isNotEmpty) return imetaUrls.first;
+
+    // Fall back to simple url tags
+    return event.getFirstTagValue('url');
+  }
 
   /// Alternative image URLs for different resolutions
   Set<String> get altImageUrls => event.getTagSetValues('url').skip(1).toSet();
 
   /// All image URLs (primary + alternatives)
-  Set<String> get allImageUrls => event.getTagSetValues('url');
+  Set<String> get allImageUrls {
+    final urls = <String>{};
+
+    // Add URLs from imeta tags (NIP-68)
+    urls.addAll(Utils.extractImetaUrls(event.getTagSet('imeta')));
+
+    // Add URLs from simple url tags
+    urls.addAll(event.getTagSetValues('url'));
+
+    return urls;
+  }
 
   /// The image file hash for verification
   String? get imageHash => event.getFirstTagValue('x');
@@ -103,13 +120,30 @@ mixin PartialPictureMixin on RegularPartialModel<Picture> {
   set description(String? value) => event.content = value ?? '';
 
   /// The primary image URL
-  String? get imageUrl => event.getFirstTagValue('url');
+  String? get imageUrl {
+    // First try to get URL from imeta tags (NIP-68)
+    final imetaUrls = Utils.extractImetaUrls(event.getTagSet('imeta'));
+    if (imetaUrls.isNotEmpty) return imetaUrls.first;
+
+    // Fall back to simple url tags
+    return event.getFirstTagValue('url');
+  }
 
   /// Sets the primary image URL
   set imageUrl(String? value) => event.setTagValue('url', value);
 
   /// All image URLs (primary + alternatives)
-  Set<String> get allImageUrls => event.getTagSetValues('url');
+  Set<String> get allImageUrls {
+    final urls = <String>{};
+
+    // Add URLs from imeta tags (NIP-68)
+    urls.addAll(Utils.extractImetaUrls(event.getTagSet('imeta')));
+
+    // Add URLs from simple url tags
+    urls.addAll(event.getTagSetValues('url'));
+
+    return urls;
+  }
 
   /// Sets all image URLs
   set allImageUrls(Set<String> value) => event.setTagValues('url', value);

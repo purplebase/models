@@ -43,7 +43,10 @@ void main() {
       ).dummySign(nielPubkey);
 
       expect(voiceMessage.event.kind, 1222);
-      expect(voiceMessage.description, 'Test voice message');
+      expect(
+        voiceMessage.description,
+        'https://example.com/voice.mp3',
+      ); // Per NIP-A0: content contains audio URL
       expect(voiceMessage.audioUrl, 'https://example.com/voice.mp3');
       expect(voiceMessage.duration, 60);
       expect(voiceMessage.transcript, 'Hello, this is a test voice message');
@@ -74,7 +77,10 @@ void main() {
 
       expect(voiceMessage.event.kind, 1222);
       expect(voiceMessage.audioUrl, 'https://example.com/voice.wav');
-      expect(voiceMessage.description, '');
+      expect(
+        voiceMessage.description,
+        'https://example.com/voice.wav',
+      ); // Per NIP-A0: content contains audio URL
       expect(voiceMessage.duration, null);
       expect(voiceMessage.transcript, null);
       expect(voiceMessage.hasLocation, false);
@@ -89,9 +95,9 @@ void main() {
         'pubkey': Utils.generateRandomHex64(),
         'created_at': 1234567890,
         'kind': 1222,
-        'content': 'Voice message content',
+        'content':
+            'https://example.com/voice.mp3', // Per NIP-A0: content must be audio URL
         'tags': [
-          ['url', 'https://example.com/voice.mp3'],
           ['url', 'https://example.com/voice_alt.ogg'],
           ['x', 'hash123'],
           ['m', 'audio/mp3'],
@@ -112,7 +118,10 @@ void main() {
 
       final voiceMessage = VoiceMessage.fromMap(eventMap, ref);
 
-      expect(voiceMessage.description, 'Voice message content');
+      expect(
+        voiceMessage.description,
+        'https://example.com/voice.mp3',
+      ); // Per NIP-A0: description returns content (audio URL)
       expect(voiceMessage.audioUrl, 'https://example.com/voice.mp3');
       expect(voiceMessage.allAudioUrls, {
         'https://example.com/voice.mp3',
@@ -198,7 +207,10 @@ void main() {
       ).dummySign(nielPubkey);
 
       expect(voiceComment.event.kind, 1244);
-      expect(voiceComment.description, 'Voice response');
+      expect(
+        voiceComment.description,
+        'https://example.com/comment.mp3',
+      ); // Per NIP-A0: content contains audio URL
       expect(voiceComment.audioUrl, 'https://example.com/comment.mp3');
       expect(voiceComment.duration, 30);
       expect(voiceComment.transcript, 'Thanks for your message');
@@ -226,7 +238,10 @@ void main() {
 
       expect(voiceComment.event.kind, 1244);
       expect(voiceComment.audioUrl, 'https://example.com/comment.wav');
-      expect(voiceComment.description, '');
+      expect(
+        voiceComment.description,
+        'https://example.com/comment.wav',
+      ); // Per NIP-A0: content contains audio URL
       expect(voiceComment.event.containsTag('e'), false);
     });
 
@@ -237,10 +252,10 @@ void main() {
         'pubkey': Utils.generateRandomHex64(),
         'created_at': 1234567890,
         'kind': 1244,
-        'content': 'Voice comment content',
+        'content':
+            'https://example.com/comment.mp3', // Per NIP-A0: content must be audio URL
         'tags': [
           ['e', originalVoiceMessageId],
-          ['url', 'https://example.com/comment.mp3'],
           ['x', 'commenthash123'],
           ['m', 'audio/mp3'],
           ['size', '128000'],
@@ -256,7 +271,10 @@ void main() {
 
       final voiceComment = VoiceMessageComment.fromMap(eventMap, ref);
 
-      expect(voiceComment.description, 'Voice comment content');
+      expect(
+        voiceComment.description,
+        'https://example.com/comment.mp3',
+      ); // Per NIP-A0: description returns content (audio URL)
       expect(voiceComment.audioUrl, 'https://example.com/comment.mp3');
       expect(voiceComment.audioHash, 'commenthash123');
       expect(voiceComment.mimeType, 'audio/mp3');

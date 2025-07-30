@@ -251,5 +251,97 @@ void main() {
         null,
       ); // Partial should return null for empty content
     });
+
+    test('imeta URL parsing (NIP-68)', () {
+      // Create a picture event with imeta tags instead of simple url tags
+      final eventData = {
+        'id': 'test123',
+        'pubkey': nielPubkey,
+        'created_at': 1671217411,
+        'kind': 20,
+        'content': 'Test picture with imeta tags',
+        'tags': [
+          [
+            'imeta',
+            'url https://nostr.build/i/sunset.jpg',
+            'm image/jpeg',
+            'blurhash eVF\$^OI:\${M{o#*0-nNFxakD-?xVM}WEWB%iNKxvR-oetmo#R-aen\$',
+            'dim 3024x4032',
+            'alt A scenic photo of sunset',
+            'x 5c83da77af1dec6d7289834998ad7aafbd9e2191396d75ec3cc27f5a77226f36',
+          ],
+          [
+            'imeta',
+            'url https://nostr.build/i/beach.jpg',
+            'm image/jpeg',
+            'alt Beach view at sunset',
+            'x 6d83da77af1dec6d7289834998ad7aafbd9e2191396d75ec3cc27f5a77226f36',
+          ],
+        ],
+        'sig': 'testsig123',
+      };
+
+      final ref = container.read(refProvider);
+      final picture = Picture.fromMap(eventData, ref);
+
+      // Test that imeta URLs are parsed correctly
+      expect(picture.imageUrl, 'https://nostr.build/i/sunset.jpg');
+      expect(picture.allImageUrls, {
+        'https://nostr.build/i/sunset.jpg',
+        'https://nostr.build/i/beach.jpg',
+      });
+    });
+
+    test('imeta fallback to url tags', () {
+      // Create a picture with both imeta and url tags - imeta should take precedence
+      final eventData = {
+        'id': 'test123',
+        'pubkey': nielPubkey,
+        'created_at': 1671217411,
+        'kind': 20,
+        'content': 'Test picture with both imeta and url tags',
+        'tags': [
+          ['url', 'https://old-style.com/image.jpg'],
+          ['imeta', 'url https://new-style.com/image.jpg', 'm image/jpeg'],
+        ],
+        'sig': 'testsig123',
+      };
+
+      final ref = container.read(refProvider);
+      final picture = Picture.fromMap(eventData, ref);
+
+      // imeta URL should take precedence
+      expect(picture.imageUrl, 'https://new-style.com/image.jpg');
+      expect(picture.allImageUrls, {
+        'https://new-style.com/image.jpg',
+        'https://old-style.com/image.jpg',
+      });
+    });
+
+    test('fallback to url tags when no imeta', () {
+      // Create a picture with only old-style url tags
+      final eventData = {
+        'id': 'test123',
+        'pubkey': nielPubkey,
+        'created_at': 1671217411,
+        'kind': 20,
+        'content': 'Test picture with only url tags',
+        'tags': [
+          ['url', 'https://old-style.com/image1.jpg'],
+          ['url', 'https://old-style.com/image2.jpg'],
+        ],
+        'sig': 'testsig123',
+      };
+
+      final ref = container.read(refProvider);
+      final picture = Picture.fromMap(eventData, ref);
+
+      // Should fall back to url tags
+      expect(picture.imageUrl, 'https://old-style.com/image1.jpg');
+      expect(picture.allImageUrls, {
+        'https://old-style.com/image1.jpg',
+        'https://old-style.com/image2.jpg',
+      });
+    });
   });
 }
