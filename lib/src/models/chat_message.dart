@@ -9,20 +9,40 @@ class ChatMessage extends RegularModel<ChatMessage> {
   late final BelongsTo<Community> community;
 
   ChatMessage.fromMap(super.map, super.ref) : super.fromMap() {
-    quotedMessage = BelongsTo(
-      ref,
-      RequestFilter<ChatMessage>(
-        tags: {
-          '#q': {event.id},
-        },
-      ).toRequest(),
-    );
-    community = BelongsTo(
-      ref,
-      event.containsTag('h')
-          ? Request<Community>.fromIds({event.getFirstTagValue('h')!})
-          : null,
-    );
+    // Quoted message relationship - handle invalid ID formats gracefully
+    BelongsTo<ChatMessage>? quotedRelation;
+    if (event.containsTag('q')) {
+      final qValue = event.getFirstTagValue('q')!;
+      try {
+        // Try to create the request - this will throw if the ID format is invalid
+        quotedRelation = BelongsTo(ref, Request<ChatMessage>.fromIds({qValue}));
+      } catch (e) {
+        // If the ID format is invalid, set to null relationship
+        quotedRelation = BelongsTo(ref, null);
+      }
+    } else {
+      quotedRelation = BelongsTo(ref, null);
+    }
+    quotedMessage = quotedRelation;
+
+    // Community relationship - handle invalid ID formats gracefully
+    BelongsTo<Community>? communityRelation;
+    if (event.containsTag('h')) {
+      final hValue = event.getFirstTagValue('h')!;
+      try {
+        // Try to create the request - this will throw if the ID format is invalid
+        communityRelation = BelongsTo(
+          ref,
+          Request<Community>.fromIds({hValue}),
+        );
+      } catch (e) {
+        // If the ID format is invalid, set to null relationship
+        communityRelation = BelongsTo(ref, null);
+      }
+    } else {
+      communityRelation = BelongsTo(ref, null);
+    }
+    community = communityRelation;
   }
 
   /// The message text content
