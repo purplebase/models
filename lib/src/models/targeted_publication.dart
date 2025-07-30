@@ -78,15 +78,42 @@ class PartialTargetedPublication
   /// [model] - The content model to be published
   /// [communities] - The communities to target for publication
   /// [relayUrls] - Optional relay URLs for distribution
+  /// [identifier] - Optional identifier for the targeted publication
   PartialTargetedPublication(
     Model model, {
     required Set<Community> communities,
     Set<String>? relayUrls,
+    String? identifier,
   }) {
     linkModel(model);
 
-    event.addTagValue('d', Utils.generateRandomHex64());
+    // Use provided identifier or generate one
+    event.addTagValue('d', identifier ?? Utils.generateRandomHex64());
     targetedKind = model.event.kind;
+
+    communityPubkeys = communities.map((c) => c.event.pubkey).toSet();
+    if (relayUrls != null) {
+      this.relayUrls = relayUrls;
+    }
+  }
+
+  /// Creates a targeted publication for an existing event
+  ///
+  /// [eventId] - ID of the existing event to target
+  /// [eventKind] - Kind of the existing event
+  /// [communities] - The communities to target for publication
+  /// [relayUrls] - Optional relay URLs for distribution
+  /// [identifier] - Optional identifier for the targeted publication
+  PartialTargetedPublication.forExistingEvent(
+    String eventId,
+    int eventKind, {
+    required Set<Community> communities,
+    Set<String>? relayUrls,
+    String? identifier,
+  }) {
+    event.addTagValue('e', eventId);
+    event.addTagValue('k', eventKind.toString());
+    event.addTagValue('d', identifier ?? Utils.generateRandomHex64());
 
     communityPubkeys = communities.map((c) => c.event.pubkey).toSet();
     if (relayUrls != null) {

@@ -12,7 +12,7 @@ class Community extends ReplaceableModel<Community> {
       ref,
       RequestFilter<ChatMessage>(
         tags: {
-          '#h': {id},
+          '#h': {event.pubkey}, // NIP-CC: find by community pubkey
         },
       ).toRequest(),
     );
