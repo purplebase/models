@@ -8,6 +8,7 @@ part of models;
 class App extends ParameterizableReplaceableModel<App> {
   late final HasMany<Release> releases;
   late final BelongsTo<Release> latestRelease;
+  late final HasMany<AppCurationSet> appCurationSets;
 
   App.fromMap(super.map, super.ref) : super.fromMap() {
     releases = HasMany(
@@ -27,6 +28,14 @@ class App extends ParameterizableReplaceableModel<App> {
               },
               limit: 1,
             ).toRequest(),
+    );
+    appCurationSets = HasMany(
+      ref,
+      RequestFilter<AppCurationSet>(
+        tags: {
+          '#a': {event.addressableId},
+        },
+      ).toRequest(),
     );
   }
 

@@ -277,16 +277,14 @@ class PartialFollowSets
 /// App curation sets provide curated lists of applications,
 /// similar to app stores or recommendation lists.
 class AppCurationSet extends ParameterizableReplaceableModel<AppCurationSet> {
-  AppCurationSet.fromMap(super.map, super.ref) : super.fromMap();
+  late final HasMany<App> apps;
 
-  /// The name of this app curation set
-  String? get name => event.getFirstTagValue('name');
+  AppCurationSet.fromMap(super.map, super.ref) : super.fromMap() {
+    apps = HasMany(ref, Request<App>.fromIds(event.getTagSetValues('a')));
+  }
 
-  /// Application identifiers in this curation set
-  Set<String> get appIdentifiers => event.getTagSetValues('a');
-
-  /// Whether this set contains any applications
-  bool get hasApps => appIdentifiers.isNotEmpty;
+  /// The name of this app curation set, falls back to identifier if not available
+  String? get name => event.getFirstTagValue('name') ?? event.identifier;
 }
 
 /// Curate collections of applications for discovery and recommendation.
@@ -294,27 +292,20 @@ class PartialAppCurationSet
     extends ParameterizableReplaceablePartialModel<AppCurationSet> {
   PartialAppCurationSet.fromMap(super.map) : super.fromMap();
 
-  /// The name of this app curation set
-  String? get name => event.getFirstTagValue('name');
+  /// The name of this app curation set, falls back to identifier if not available
+  String? get name =>
+      event.getFirstTagValue('name') ?? event.getFirstTagValue('d');
   set name(String? value) => event.setTagValue('name', value);
 
-  /// Application identifiers in this curation set
-  Set<String> get appIdentifiers => event.getTagSetValues('a');
-  set appIdentifiers(Set<String> value) => event.setTagValues('a', value);
-  void addAppIdentifier(String? identifier) =>
-      event.addTagValue('a', identifier);
-  void removeAppIdentifier(String? identifier) =>
-      event.removeTagWithValue('a', identifier);
-
   /// Creates a new app curation set
-  PartialAppCurationSet({
-    String? name,
-    String? identifier,
-    Set<String>? appIdentifiers,
-  }) {
+  PartialAppCurationSet({String? name, String? identifier}) {
     if (name != null) this.name = name;
     event.setTagValue('d', identifier ?? _generateIdentifier());
-    if (appIdentifiers != null) this.appIdentifiers = appIdentifiers;
+  }
+
+  /// Add app
+  void addApp(String shareableId) {
+    linkModelById(shareableId, isReplaceable: true);
   }
 
   String _generateIdentifier() =>

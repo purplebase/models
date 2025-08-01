@@ -309,6 +309,178 @@ void main() {
     });
   });
 
+  group('AppCurationSet', () {
+    test('basic app curation set creation', () {
+      final appCurationSet = PartialAppCurationSet(
+        name: 'Developer Tools',
+        identifier: 'dev-tools-2024',
+      ).dummySign(nielPubkey);
+
+      expect(appCurationSet.name, 'Developer Tools');
+      expect(appCurationSet.identifier, 'dev-tools-2024');
+    });
+
+    test('name falls back to identifier when not set', () {
+      final appCurationSet = PartialAppCurationSet(
+        identifier: 'my-apps',
+      ).dummySign(nielPubkey);
+
+      expect(appCurationSet.name, 'my-apps');
+    });
+
+    test('event kind and structure', () {
+      final appCurationSet = PartialAppCurationSet(
+        name: 'Test Apps',
+        identifier: 'test-apps',
+      ).dummySign(nielPubkey);
+
+      expect(appCurationSet.event.kind, 30267);
+      expect(appCurationSet.event.getFirstTagValue('d'), 'test-apps');
+      expect(appCurationSet.event.getFirstTagValue('name'), 'Test Apps');
+    });
+
+    test('addApp method adds a-tags correctly', () {
+      final partial = PartialAppCurationSet(
+        name: 'My Apps',
+        identifier: 'my-apps',
+      );
+
+      const appId1 =
+          '32267:abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab:app1';
+      const appId2 =
+          '32267:efgh1234567890abcdef1234567890abcdef1234567890abcdef1234567890cd:app2';
+
+      partial.addApp(appId1);
+      partial.addApp(appId2);
+
+      final appCurationSet = partial.dummySign(nielPubkey);
+
+      // Check a tags for app IDs
+      final aTags = appCurationSet.event.getTagSet('a');
+      expect(aTags.length, 2);
+
+      final appIds = aTags.map((tag) => tag[1]).toSet();
+      expect(appIds, {appId1, appId2});
+    });
+
+    test('apps relationship queries correctly', () async {
+      // Create test apps
+      final app1Partial = PartialApp()
+        ..name = 'Test App 1'
+        ..event.setTagValue('d', 'test-app-1');
+      final app1 = app1Partial.dummySign(nielPubkey);
+
+      final app2Partial = PartialApp()
+        ..name = 'Test App 2'
+        ..event.setTagValue('d', 'test-app-2');
+      final app2 = app2Partial.dummySign(nielPubkey);
+
+      await storage.save({app1, app2});
+
+      // Create app curation set with these apps
+      final partial = PartialAppCurationSet(
+        name: 'Test Collection',
+        identifier: 'test-collection',
+      );
+
+      partial.addApp(app1.id);
+      partial.addApp(app2.id);
+
+      final appCurationSet = partial.dummySign(nielPubkey);
+      await storage.save({appCurationSet});
+
+      // Test the apps relationship
+      final curationSets = await storage.query(
+        Request<AppCurationSet>.fromIds({appCurationSet.id}),
+      );
+      expect(curationSets.length, 1);
+      final retrievedSet = curationSets.first;
+      expect(retrievedSet.apps.length, 2);
+
+      final appNames = retrievedSet.apps
+          .toList()
+          .map((app) => app.name)
+          .toSet();
+      expect(appNames, {'Test App 1', 'Test App 2'});
+    });
+
+    test('automatic identifier generation', () async {
+      final appCurationSet1 = PartialAppCurationSet(
+        name: 'Apps 1',
+      ).dummySign(nielPubkey);
+
+      // Ensure different timestamps by waiting a brief moment
+      await Future.delayed(Duration(milliseconds: 1));
+
+      final appCurationSet2 = PartialAppCurationSet(
+        name: 'Apps 2',
+      ).dummySign(nielPubkey);
+
+      expect(appCurationSet1.identifier, isNotEmpty);
+      expect(appCurationSet2.identifier, isNotEmpty);
+      expect(
+        appCurationSet1.identifier,
+        isNot(equals(appCurationSet2.identifier)),
+      );
+    });
+
+    test('linkModelById works for apps', () {
+      final partial = PartialAppCurationSet(
+        name: 'Linked Apps',
+        identifier: 'linked-apps',
+      );
+
+      const appId =
+          '32267:abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab:myapp';
+      partial.linkModelById(appId, isReplaceable: true);
+
+      final appCurationSet = partial.dummySign(nielPubkey);
+
+      // Check that a-tag was added
+      final aTags = appCurationSet.event.getTagSet('a');
+      expect(aTags.length, 1);
+      expect(aTags.first[1], appId);
+    });
+
+    test('app can find curation sets it belongs to', () async {
+      // Create test app
+      final appPartial = PartialApp()
+        ..name = 'My App'
+        ..event.setTagValue('d', 'my-app');
+      final app = appPartial.dummySign(nielPubkey);
+      await storage.save({app});
+
+      // Create curation sets that include this app
+      final curationSet1Partial = PartialAppCurationSet(
+        name: 'Tools',
+        identifier: 'tools',
+      );
+      curationSet1Partial.addApp(app.id);
+      final curationSet1 = curationSet1Partial.dummySign(nielPubkey);
+
+      final curationSet2Partial = PartialAppCurationSet(
+        name: 'Favorites',
+        identifier: 'favorites',
+      );
+      curationSet2Partial.addApp(app.id);
+      final curationSet2 = curationSet2Partial.dummySign(nielPubkey);
+
+      await storage.save({curationSet1, curationSet2});
+
+      // Test the reverse relationship
+      final apps = await storage.query(Request<App>.fromIds({app.id}));
+      expect(apps.length, 1);
+      final retrievedApp = apps.first;
+      expect(retrievedApp.appCurationSets.length, 2);
+
+      final curationSetNames = retrievedApp.appCurationSets
+          .toList()
+          .map((set) => set.name)
+          .toSet();
+      expect(curationSetNames, {'Tools', 'Favorites'});
+    });
+  });
+
   group('Lists integration tests', () {
     test('create and use multiple list types', () async {
       const user1 =
