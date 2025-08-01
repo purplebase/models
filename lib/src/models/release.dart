@@ -8,6 +8,7 @@ part of models;
 class Release extends ParameterizableReplaceableModel<Release> {
   late final BelongsTo<App> app;
   late final HasMany<FileMetadata> fileMetadatas;
+  late final BelongsTo<FileMetadata> latestMetadata;
   late final HasMany<SoftwareAsset> softwareAssets;
 
   Release.fromMap(super.map, super.ref) : super.fromMap() {
@@ -28,14 +29,19 @@ class Release extends ParameterizableReplaceableModel<Release> {
       ref,
       RequestFilter<FileMetadata>(
         ids: event.getTagSetValues('e').toSet(),
-        kinds: {1063},
+      ).toRequest(),
+    );
+    latestMetadata = BelongsTo(
+      ref,
+      RequestFilter<FileMetadata>(
+        ids: {?event.getFirstTagValue('e')},
+        limit: 1,
       ).toRequest(),
     );
     softwareAssets = HasMany(
       ref,
       RequestFilter<SoftwareAsset>(
         ids: event.getTagSetValues('e').toSet(),
-        kinds: {3063},
       ).toRequest(),
     );
   }
