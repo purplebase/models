@@ -227,7 +227,7 @@ query<E extends Model<E>>({
 }
 
 /// Syntax sugar for watching one model of type [E]
-AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
+AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState>
 model<E extends Model<E>>(
   E model, {
   Source source = const LocalAndRemoteSource(background: true),
