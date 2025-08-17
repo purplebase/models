@@ -12,8 +12,6 @@ It provides:
  - Easy extensibility
 
 > 📚 **For practical recipes and examples, check out [Purplestack](https://github.com/purplebase/purplestack)**, an agentic development stack for building Nostr-enabled Flutter applications - the best way to use this package with ready-to-use app templates and patterns.
->
-> 📖 **Per-model documentation** is available in the [`docs/`](docs/) directory with detailed API references and usage examples.
 
 An offline-ready app with reactions/zaps in a few lines of code:
 
@@ -49,7 +47,7 @@ Current implementations:
  - **Domain models**: Instead of NIP-jargon, use type-safe classes with domain language to interact with nostr, many common nostr event kinds are available (or bring your own)
  - **Relationships**: Smoothly navigate local storage with model relationships
  - **Reactive querying**: Multiple query providers for different use cases with familiar nostr request filter API
- - **Built-in relay server**: Production-ready Nostr relay server for development and testing
+ - **Built-in relay server**: In-memory Nostr relay suitable for development and testing
  - **NostrWalletConnect**: Complete NIP-47 implementation for Lightning wallet integration
  - **Signers & Authentication**: Construct new nostr events and sign them using Amber (Android) and other NIP-55 signers, with comprehensive authentication management
  - **Event verification**: Built-in BIP-340 signature verification with configurable verifiers
@@ -205,8 +203,11 @@ final signedNote = await partialNote.signWith(signer);
 Models can be converted back to editable partial models using the `toPartial()` method:
 
 ```dart
-// Load an existing note
-final note = await ref.storage.get<Note>(noteId);
+// Load an existing note by ID from local storage
+final note = (await ref.storage.query(
+  RequestFilter<Note>(ids: {noteId}).toRequest(),
+  source: LocalSource(),
+)).first;
 
 // Convert to partial for editing
 final partialNote = note.toPartial<PartialNote>();
@@ -419,9 +420,9 @@ final hybridQuery = ref.watch(
 ```
 
 **Query Behavior**:
-- All queries block until local storage returns results
-- If `background: false`, queries additionally block until EOSE from relays
-- If `background: true`, queries return immediately after local results, relay results stream in
+- All queries return local results first
+- With `RemoteSource(stream: true)`, additional results may stream in
+- With `background: false`, calls wait until initial remote results (EOSE)
 - The streaming phase never blocks regardless of `background` setting
 
 ## Authentication & Signers 🔐
@@ -488,7 +489,7 @@ final isSignedIn = signer.isSignedIn;
 
 ## Built-in Relay Server 🖥️
 
-The framework includes a production-ready Nostr relay server for development and testing:
+The framework includes an in-memory Nostr relay intended for development and testing:
 
 ### Running the Relay
 
@@ -507,6 +508,10 @@ dart run models:dart_relay --help
 
 ```dart
 final container = ProviderContainer();
+
+// Provide a ref to the relay
+final refProvider = Provider((ref) => ref);
+
 final relay = NostrRelay(
   port: 8080,
   host: '0.0.0.0',
@@ -527,7 +532,7 @@ await relay.stop();
 - **Memory storage**: Fast in-memory event storage
 - **Real-time subscriptions**: Live event streaming
 - **NIP compliance**: Supports core Nostr NIPs
-- **Production ready**: Suitable for development and testing environments
+- **Dev-focused**: Designed for development and testing environments
 
 ## NostrWalletConnect 💰
 
@@ -540,14 +545,7 @@ await signer.pay('lnbc...', amount: 1000);
 
 ## Recipes 🍳
 
-Find detailed code examples and implementation guides for common tasks:
-
-- **[Signer Interface & Authentication](tools/recipes/signer-interface-authentication.md)** - Set up authentication, manage multiple accounts, and handle sign-in/sign-out flows
-- **[Building a Feed](tools/recipes/building-a-feed.md)** - Create reactive feeds with real-time updates and relationship loading
-- **[Creating Custom Event Kinds](tools/recipes/creating-custom-event-kinds.md)** - Extend the framework with your own event types and models
-- **[Using the `and` Operator for Relationships](tools/recipes/using-and-operator-relationships.md)** - Load and manage model relationships efficiently
-- **[Direct Messages & Encryption](tools/recipes/direct-messages-encryption.md)** - Implement encrypted messaging with NIP-04 and NIP-44
-- **[Working with DVMs (NIP-90)](tools/recipes/working-with-dvms.md)** - Integrate with Decentralized Virtual Machines for various services
+See examples and patterns in Purplestack.
 
 ## API Reference 📚
 
@@ -668,7 +666,6 @@ final searchQuery = query<Note>(
 // Complex filters with relationships
 final complexQuery = query<Note>(
   authors: {pubkey},
-  kinds: {1, 6}, // Notes and reposts
   since: DateTime.now().subtract(Duration(hours: 24)),
   and: (note) => {
     note.author,
@@ -811,13 +808,12 @@ final config = StorageConfiguration(
 **Verification in Storage Operations:**
 
 ```dart
-// Events are automatically verified when saved (unless skipVerification: true)
-await ref.storage.save({signedEvent});
-
-// Manual verification
+// Manual verification example
 final verifier = ref.read(verifierProvider);
 final isValid = verifier.verify(signedEvent.toMap());
 ```
+
+Note: Verification is provided via `verifierProvider`. Storage implementations may choose how to use it.
 
 ### Error Handling
 
