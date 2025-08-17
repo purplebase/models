@@ -31,6 +31,7 @@ class VerifyReputationRequest extends RegularModel<VerifyReputationRequest> {
         tags: {
           'e': {event.id},
         },
+        limit: 1,
       ).toRequest(),
       source: source,
     );

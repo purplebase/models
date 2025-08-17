@@ -100,7 +100,12 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
        authors = authors ?? const {},
        kinds =
            kinds ?? (_isModelOfDynamic<E>() ? const {} : {Model._kindFor<E>()}),
-       tags = tags ?? const {} {
+       tags = tags == null
+           ? const {}
+           : {
+               for (final e in tags.entries)
+                 e.key.startsWith('#') ? e.key : '#${e.key}': e.value,
+             } {
     // IDs are either regular (64 character) or replaceable and match its regexp
     if (ids != null &&
         ids.any((i) => i.length != 64 && !_kReplaceableRegexp.hasMatch(i))) {
