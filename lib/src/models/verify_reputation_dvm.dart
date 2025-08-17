@@ -51,9 +51,17 @@ class PartialVerifyReputationRequest
   PartialVerifyReputationRequest({
     required String source,
     required String target,
+    String? sort,
+    int? limit,
   }) {
     event.addTag('param', ['source', source]);
     event.addTag('param', ['target', target]);
+    if (sort != null) {
+      event.addTag('param', ['sort', sort]);
+    }
+    if (limit != null) {
+      event.addTag('param', ['limit', limit.toString()]);
+    }
   }
 }
 
