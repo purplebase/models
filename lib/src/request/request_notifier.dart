@@ -10,6 +10,7 @@ class RequestNotifier<E extends Model<dynamic>>
   final Source source;
   final StorageNotifier storage;
   final List<Request> relationshipRequests = [];
+  final List<Request> mergedRelationshipRequests = [];
 
   RequestNotifier(this.ref, this.req, this.source)
     : storage = ref.read(storageNotifierProvider.notifier),
@@ -30,7 +31,15 @@ class RequestNotifier<E extends Model<dynamic>>
           }
         });
 
-    ref.onDispose(() => storage.cancel(req));
+    ref.onDispose(() {
+      // Cancel main request
+      storage.cancel(req);
+
+      // Cancel all merged relationship requests (the actual subscriptions)
+      for (final mergedReq in mergedRelationshipRequests) {
+        storage.cancel(mergedReq);
+      }
+    });
   }
 
   void _startSubscription() {
@@ -105,6 +114,9 @@ class RequestNotifier<E extends Model<dynamic>>
     ).toRequest();
     if (mergedRelationshipRequest.filters.isNotEmpty &&
         source is RemoteSource) {
+      // Store the merged request for proper cleanup on dispose
+      mergedRelationshipRequests.add(mergedRelationshipRequest);
+
       storage.query(
         mergedRelationshipRequest,
         source: RemoteSource(
