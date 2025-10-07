@@ -77,37 +77,8 @@ class ZapRequest extends RegularModel<ZapRequest> {
     // use constructor body?
   }
 
-  /// Pay this zap request using the signer's NWC connection
-  /// This should be called on a signed ZapRequest that contains all necessary information
-  ///
-  /// [expiration] - Optional expiration time for the payment
-  /// [timeout] - How long to wait for payment completion
-  Future<PayInvoiceResult> pay({
-    DateTime? expiration,
-    Duration timeout = const Duration(seconds: 30),
-  }) async {
-    // Get the signer for this zap request
-    final signer = ref.read(Signer.signerProvider(event.pubkey));
-    if (signer == null) {
-      throw Exception('No signer found for pubkey ${event.pubkey}');
-    }
-
-    // Get the NWC connection string from the signer
-    final nwcConnectionString = await signer.getNWCString();
-    if (nwcConnectionString == null) {
-      throw Exception(
-        'No NWC connection configured for signer. Use signer.setNWCString() first.',
-      );
-    }
-
-    // Parse the connection string
-    final connection = NwcConnection.fromUri(nwcConnectionString);
-
-    // Check if connection has expired
-    if (connection.isExpired) {
-      throw Exception('NWC connection has expired');
-    }
-
+  /// Obtain a Lightning invoice for this zap request (no NWC required)
+  Future<String> getInvoice({bool refreshRecipientProfile = false}) async {
     final storage = ref.read(storageNotifierProvider.notifier);
 
     // Get the recipient pubkey from the zap request
@@ -117,16 +88,18 @@ class ZapRequest extends RegularModel<ZapRequest> {
     }
 
     // Get recipient profile for Lightning invoice
-    final recipientProfileState = await storage.query(
+    final recipientProfiles = await storage.query(
       RequestFilter<Profile>(authors: {recipientPubkey}).toRequest(),
-      source: LocalAndRemoteSource(stream: false),
+      source: refreshRecipientProfile
+          ? LocalAndRemoteSource(stream: false, background: false)
+          : LocalSource(),
     );
 
-    if (recipientProfileState.isEmpty) {
+    if (recipientProfiles.isEmpty) {
       throw Exception('Could not find recipient profile for Lightning invoice');
     }
 
-    final recipientProfile = recipientProfileState.first;
+    final recipientProfile = recipientProfiles.first;
 
     // Get the amount from the zap request (in millisats, convert to sats)
     final amountTag = event.getFirstTagValue('amount');
@@ -151,6 +124,46 @@ class ZapRequest extends RegularModel<ZapRequest> {
         'Recipient does not support Lightning payments (no LNURL)',
       );
     }
+
+    return lightningInvoice;
+  }
+
+  /// Pay this zap request using the signer's NWC connection
+  /// This should be called on a signed ZapRequest that contains all necessary information
+  ///
+  /// [expiration] - Optional expiration time for the payment
+  /// [timeout] - How long to wait for payment completion
+  Future<PayInvoiceResult> pay({
+    DateTime? expiration,
+    Duration timeout = const Duration(seconds: 30),
+    bool refreshRecipientProfile = false,
+  }) async {
+    // Get the signer for this zap request
+    final signer = ref.read(Signer.signerProvider(event.pubkey));
+    if (signer == null) {
+      throw Exception('No signer found for pubkey ${event.pubkey}');
+    }
+
+    // Get the NWC connection string from the signer
+    final nwcConnectionString = await signer.getNWCString();
+    if (nwcConnectionString == null) {
+      throw Exception(
+        'No NWC connection configured for signer. Use signer.setNWCString() first.',
+      );
+    }
+
+    // Parse the connection string
+    final connection = NwcConnection.fromUri(nwcConnectionString);
+
+    // Check if connection has expired
+    if (connection.isExpired) {
+      throw Exception('NWC connection has expired');
+    }
+
+    // Obtain the Lightning invoice
+    final lightningInvoice = await getInvoice(
+      refreshRecipientProfile: refreshRecipientProfile,
+    );
 
     // Create and execute the pay invoice command
     final command = PayInvoiceCommand(invoice: lightningInvoice);
