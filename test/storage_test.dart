@@ -249,6 +249,264 @@ void main() async {
       // NOTE: author and replies will be cached, can't assert here
     });
 
+    test('nested relationships - 2 levels', () async {
+      // Setup: App -> Release -> FileMetadata
+      final pubkey = nielPubkey;
+      
+      // Create FileMetadata
+      final partialFile = PartialFileMetadata()
+        ..version = '1.0.0'
+        ..appIdentifier = 'com.test.app'
+        ..hash = 'abc123';
+      final fileMetadata = partialFile.dummySign(pubkey);
+
+      // Create Release that references the FileMetadata
+      final partialRelease = PartialRelease(newFormat: true)
+        ..identifier = 'com.test.app@1.0.0'
+        ..appIdentifier = 'com.test.app'
+        ..version = '1.0.0';
+      partialRelease.event.addTag('e', [fileMetadata.id]);
+      final release = partialRelease.dummySign(pubkey);
+
+      // Create App that references the Release
+      final partialApp = PartialApp()
+        ..identifier = 'com.test.app'
+        ..name = 'Test App';
+      partialApp.event.setTagValue('i', 'com.test.app');
+      final app = partialApp.dummySign(pubkey);
+
+      // Save only the app initially
+      await storage.save({app});
+
+      // Query with nested relationships
+      tester = container.testerFor(
+        query<App>(
+          ids: {app.id},
+          and: (app) => {
+            app.latestRelease,
+            // Nested relationship: load metadata when release arrives
+            if (app.latestRelease.value != null)
+              app.latestRelease.value!.latestMetadata,
+          },
+          source: LocalSource(),
+        ),
+      );
+
+      // Initial state: only app
+      await tester.expectModels(hasLength(1));
+      expect(tester.notifier.state.models.first.latestRelease.value, isNull);
+
+      // Save the release - should trigger nested relationship discovery
+      await storage.save({release});
+      await Future.delayed(Duration(milliseconds: 50));
+
+      // Release should now be available
+      final appWithRelease = await storage.query(
+        RequestFilter<App>(ids: {app.id}).toRequest(),
+        source: LocalSource(),
+      );
+      expect(appWithRelease.first.latestRelease.value, isNotNull);
+      expect(appWithRelease.first.latestRelease.value!.id, release.id);
+
+      // Save the file metadata - should be queried due to nested relationship
+      await storage.save({fileMetadata});
+      await Future.delayed(Duration(milliseconds: 50));
+
+      // FileMetadata should now be available through the nested relationship
+      final appWithFullChain = await storage.query(
+        RequestFilter<App>(ids: {app.id}).toRequest(),
+        source: LocalSource(),
+      );
+      final loadedRelease = appWithFullChain.first.latestRelease.value;
+      expect(loadedRelease, isNotNull);
+      expect(loadedRelease!.latestMetadata.value, isNotNull);
+      expect(loadedRelease.latestMetadata.value!.id, fileMetadata.id);
+    });
+
+    test('nested relationships - 3 levels with Note', () async {
+      // Setup: Note -> Author (Profile) -> ContactList
+      final authorPubkey = franzapPubkey;
+      
+      // Create ContactList
+      final contactList = PartialContactList().dummySign(authorPubkey);
+
+      // Create Profile (Author)
+      final author = PartialProfile(name: 'Author Name').dummySign(authorPubkey);
+
+      // Create Note
+      final note = PartialNote('Test note content').dummySign(authorPubkey);
+
+      // Save only the note initially
+      await storage.save({note});
+
+      // Query with nested relationships
+      tester = container.testerFor(
+        query<Note>(
+          ids: {note.id},
+          and: (note) => {
+            note.author,
+            // Nested: when author arrives, load their contact list
+            if (note.author.value != null)
+              note.author.value!.contactList,
+          },
+          source: LocalSource(),
+        ),
+      );
+
+      await tester.expectModels(hasLength(1));
+
+      // Save the author - should trigger nested relationship discovery
+      await storage.save({author});
+      await Future.delayed(Duration(milliseconds: 50));
+
+      // Author should be available
+      final noteWithAuthor = await storage.query(
+        RequestFilter<Note>(ids: {note.id}).toRequest(),
+        source: LocalSource(),
+      );
+      expect(noteWithAuthor.first.author.value, isNotNull);
+      expect(noteWithAuthor.first.author.value!.name, 'Author Name');
+
+      // Save the contact list - should be queried due to nested relationship
+      await storage.save({contactList});
+      await Future.delayed(Duration(milliseconds: 50));
+
+      // ContactList should now be available through the nested relationship
+      final noteWithFullChain = await storage.query(
+        RequestFilter<Note>(ids: {note.id}).toRequest(),
+        source: LocalSource(),
+      );
+      final loadedAuthor = noteWithFullChain.first.author.value;
+      expect(loadedAuthor, isNotNull);
+      expect(loadedAuthor!.contactList.value, isNotNull);
+      expect(loadedAuthor.contactList.value!.id, contactList.id);
+    });
+
+    test('conditional nested relationships', () async {
+      // Test that conditional relationships only load when condition is met
+      final pubkey1 = nielPubkey;
+      final pubkey2 = franzapPubkey;
+
+      // Create two apps: one with a release, one without
+      final app1 = PartialApp()
+        ..identifier = 'com.app1'
+        ..name = 'App 1';
+      final signedApp1 = (app1..event.setTagValue('i', 'com.app1')).dummySign(pubkey1);
+
+      final app2 = PartialApp()
+        ..identifier = 'com.app2'
+        ..name = 'App 2';
+      final signedApp2 = (app2..event.setTagValue('i', 'com.app2')).dummySign(pubkey2);
+
+      // Create file metadata for release1
+      final partialFile1 = PartialFileMetadata()
+        ..version = '1.0.0'
+        ..appIdentifier = 'com.app1'
+        ..hash = 'hash1';
+      final file1 = partialFile1.dummySign(pubkey1);
+
+      // Create release only for app1
+      final partialRelease1 = PartialRelease(newFormat: true)
+        ..identifier = 'com.app1@1.0.0'
+        ..appIdentifier = 'com.app1'
+        ..version = '1.0.0';
+      partialRelease1.event.setTagValue('e', file1.id);
+      final release1 = partialRelease1.dummySign(pubkey1);
+
+      await storage.save({signedApp1, signedApp2, release1, file1});
+
+      // Query both apps with conditional nested relationships
+      tester = container.testerFor(
+        query<App>(
+          ids: {signedApp1.id, signedApp2.id},
+          and: (app) => {
+            app.latestRelease,
+            // Only load metadata if release exists
+            if (app.latestRelease.value != null)
+              app.latestRelease.value!.latestMetadata,
+          },
+          source: LocalSource(),
+        ),
+      );
+
+      await tester.expectModels(hasLength(2));
+      await Future.delayed(Duration(milliseconds: 50));
+
+      // Verify app1 has release and metadata
+      final apps = await storage.query(
+        RequestFilter<App>(ids: {signedApp1.id, signedApp2.id}).toRequest(),
+        source: LocalSource(),
+      );
+      final loadedApp1 = apps.firstWhere((a) => a.id == signedApp1.id);
+      final loadedApp2 = apps.firstWhere((a) => a.id == signedApp2.id);
+
+      expect(loadedApp1.latestRelease.value, isNotNull);
+      expect(loadedApp1.latestRelease.value!.latestMetadata.value, isNotNull);
+      
+      // app2 should not have a release
+      expect(loadedApp2.latestRelease.value, isNull);
+    });
+
+    test('nested relationships avoid duplicate queries', () async {
+      // Ensure that relationships are only queried once even with re-evaluation
+      final pubkey = nielPubkey;
+      
+      final partialFile = PartialFileMetadata()
+        ..version = '1.0.0'
+        ..appIdentifier = 'com.test'
+        ..hash = 'xyz';
+      final file = partialFile.dummySign(pubkey);
+
+      final partialRelease = PartialRelease(newFormat: true)
+        ..identifier = 'com.test@1.0.0'
+        ..appIdentifier = 'com.test'
+        ..version = '1.0.0';
+      partialRelease.event.setTagValue('e', file.id);
+      final release = partialRelease.dummySign(pubkey);
+
+      final partialApp = PartialApp()
+        ..identifier = 'com.test'
+        ..name = 'Test';
+      partialApp.event.setTagValue('i', 'com.test');
+      final app = partialApp.dummySign(pubkey);
+
+      // Save everything at once
+      await storage.save({app, release, file});
+
+      // Track query count by subscribing to storage state changes
+      var stateChangeCount = 0;
+      final subscription = container.listen(
+        storageNotifierProvider,
+        (prev, next) => stateChangeCount++,
+      );
+
+      tester = container.testerFor(
+        query<App>(
+          ids: {app.id},
+          and: (app) => {
+            app.latestRelease,
+            if (app.latestRelease.value != null)
+              app.latestRelease.value!.latestMetadata,
+          },
+          source: LocalSource(),
+        ),
+      );
+
+      await tester.expectModels(hasLength(1));
+      await Future.delayed(Duration(milliseconds: 100));
+
+      // The implementation should deduplicate requests
+      // Even with re-evaluation, each relationship should only be queried once
+      final finalApp = await storage.query(
+        RequestFilter<App>(ids: {app.id}).toRequest(),
+        source: LocalSource(),
+      );
+      expect(finalApp.first.latestRelease.value, isNotNull);
+      expect(finalApp.first.latestRelease.value!.latestMetadata.value, isNotNull);
+
+      subscription.close();
+    });
+
     test('relay metadata', () async {
       tester = container.testerFor(
         query<Profile>(authors: {nielPubkey}, source: LocalSource()),

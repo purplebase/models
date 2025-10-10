@@ -88,22 +88,93 @@ class DummyStorageNotifier extends StorageNotifier {
       return results;
     }
 
-    // For RemoteSource, handle streaming if enabled
-    if (source is RemoteSource && source.stream) {
-      // Mark this request as streaming (remove limits for future queries)
-      final requestId = req.toString();
-      _streamingRequestIds.add(requestId);
+    // For RemoteSource, handle both streaming and one-time queries
+    if (source is RemoteSource) {
+      // When stream=false, always wait for EOSE (ignore background flag)
+      // When stream=true, respect the background flag
+      final shouldWaitForEose = !source.stream || !source.background;
 
-      // Set up reactive listening to relay subscription changes
-      _setupRelaySubscriptionListener(req);
+      if (source.stream) {
+        // Mark this request as streaming (remove limits for future queries)
+        final requestId = req.toString();
+        _streamingRequestIds.add(requestId);
 
-      // Start streaming simulation for each filter
-      for (final filter in req.filters) {
-        _startStreamingForFilter(filter, source);
+        // Set up reactive listening to relay subscription changes
+        _setupRelaySubscriptionListener(req);
+
+        // Start streaming simulation for each filter
+        for (final filter in req.filters) {
+          _startStreamingForFilter(filter, source);
+        }
+      }
+
+      // Wait for EOSE if needed (either stream=false, or stream=true with background=false)
+      if (shouldWaitForEose) {
+        // Create relay request
+        final relayRequest = Request(
+          req.filters
+              .map(
+                (f) => RequestFilter(
+                  ids: f.ids,
+                  authors: f.authors,
+                  kinds: f.kinds,
+                  tags: f.tags,
+                  since: f.since,
+                  until: f.until,
+                  limit: f.limit,
+                  search: f.search,
+                ),
+              )
+              .toList(),
+        );
+
+        // Get the subscription state provider
+        final subscriptionProvider = relaySubscriptionProvider(relayRequest);
+
+        // Wait for EOSE
+        await _waitForEose(subscriptionProvider);
+
+        // After EOSE, get the final results
+        final finalResults = querySync(req);
+
+        return finalResults;
       }
     }
 
     return results;
+  }
+
+  /// Wait for EOSE (End of Stored Events) on a relay subscription
+  Future<void> _waitForEose(
+    StateNotifierProvider<RelaySubscriptionNotifier, RelaySubscriptionState>
+    subscriptionProvider,
+  ) async {
+    // Check if already at EOSE
+    final currentState = ref.read(subscriptionProvider);
+    if (currentState.isEose) {
+      return;
+    }
+
+    // Wait for EOSE with a completer
+    final completer = Completer<void>();
+
+    // Listen for state changes
+    final subscription = ref.listen(subscriptionProvider, (previous, current) {
+      if (current.isEose && !completer.isCompleted) {
+        completer.complete();
+      }
+    });
+
+    // Set a timeout to prevent hanging forever
+    final timeout = config.responseTimeout;
+
+    try {
+      await completer.future.timeout(timeout);
+    } catch (e) {
+      // Timeout or error - just continue with what we have
+    } finally {
+      subscription.close();
+    }
   }
 
   @override

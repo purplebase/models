@@ -234,6 +234,51 @@ final reactions = note.reactions.toList();
 final zaps = note.zaps.toList();
 ```
 
+#### Dynamic Nested Relationships
+
+The `and` parameter supports dynamic nested relationships that are automatically discovered as related models arrive. This enables powerful patterns for loading deeply connected data:
+
+```dart
+// Load apps with their releases and file metadata
+final appsState = ref.watch(
+  query<App>(
+    limit: 20,
+    and: (app) => {
+      app.latestRelease,
+      // Nested: load metadata when release arrives
+      if (app.latestRelease.value != null)
+        app.latestRelease.value!.latestMetadata,
+    },
+  ),
+);
+
+// Load notes with author profiles and their contact lists
+final notesState = ref.watch(
+  query<Note>(
+    limit: 50,
+    and: (note) => {
+      note.author,
+      // Nested: load contact list when author arrives
+      if (note.author.value != null)
+        note.author.value!.contactList,
+    },
+  ),
+);
+```
+
+**How it works:**
+1. When primary models (e.g., Apps) first arrive, the `and` function evaluates and discovers direct relationships
+2. As each relationship resolves (e.g., Release arrives), the `and` function re-evaluates on primary models
+3. New conditional branches become available (e.g., `if (app.latestRelease.value != null)`), discovering nested relationships
+4. This continues recursively for any depth, with automatic deduplication preventing redundant queries
+
+**Key features:**
+- **Automatic cascading**: Relationships discovered at any nesting level
+- **Conditional loading**: Use `if` checks to load relationships only when available
+- **Efficient**: Deduplication ensures each relationship is queried only once
+- **Event-driven**: Re-evaluation only happens when relationship data arrives
+- **No infinite loops**: Built-in safeguards prevent circular reference issues
+
 ### Querying & Providers
 
 The framework provides multiple reactive query providers for different use cases:
@@ -421,9 +466,23 @@ final hybridQuery = ref.watch(
 
 **Query Behavior**:
 - All queries return local results first
-- With `RemoteSource(stream: true)`, additional results may stream in
-- With `background: false`, calls wait until initial remote results (EOSE)
+- **`stream: true`** - Keep subscription open for new events
+  - `background: true` - Return immediately with local results, fetch remote in background
+  - `background: false` - Wait for EOSE before returning, then continue streaming
+- **`stream: false`** - One-time fetch (always waits for EOSE, ignores `background` flag)
 - The streaming phase never blocks regardless of `background` setting
+
+**Common Patterns**:
+```dart
+// Real-time feed with immediate response
+source: LocalAndRemoteSource(stream: true, background: true)
+
+// Wait for initial data then stream updates
+source: RemoteSource(stream: true, background: false)
+
+// One-time fetch (no ongoing updates)
+source: RemoteSource(stream: false)  // background flag is ignored
+```
 
 ## Authentication & Signers 🔐
 

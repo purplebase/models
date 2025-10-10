@@ -78,8 +78,9 @@ class RequestNotifier<E extends Model<dynamic>>
           }
         } else {
           // All other incomingReqs are assumed to be of some relationship
-          // of this notifier's models (gross assumption)
-          // TODO [cache]: Reduce refreshes here
+          // of this notifier's models
+          // Re-evaluate relationships on primary models to discover nested relationships
+          _processNewRelationships(state.models);
           state = StorageData(state.models);
         }
       }
@@ -96,35 +97,54 @@ class RequestNotifier<E extends Model<dynamic>>
     ];
   }
 
+  /// Process and query new relationships for the given models
+  void _processNewRelationships(Iterable<Model<dynamic>> models) {
+    // Calculate new relationships from models
+    final newRelationshipRequests = [
+      for (final r in _getRelationshipsFrom(models))
+        if (!relationshipRequests.contains(r.req)) r.req,
+    ].nonNulls;
+
+    if (newRelationshipRequests.isEmpty) return;
+
+    relationshipRequests.addAll(newRelationshipRequests);
+
+    final mergedRelationshipRequest = RequestFilter.mergeMultiple(
+      newRelationshipRequests.expand((r) => r.filters).toList(),
+    ).toRequest();
+
+    if (mergedRelationshipRequest.filters.isNotEmpty &&
+        source is RemoteSource) {
+      // Store the merged request for proper cleanup on dispose
+      mergedRelationshipRequests.add(mergedRelationshipRequest);
+
+      // Preserve LocalAndRemoteSource type and inherit background parameter from parent
+      final relationshipSource = source is LocalAndRemoteSource
+          ? LocalAndRemoteSource(
+              group: (source as RemoteSource).group,
+              relayUrls: (source as RemoteSource).relayUrls,
+              stream: (source as RemoteSource).stream,
+              background: (source as RemoteSource).background,
+            )
+          : RemoteSource(
+              group: (source as RemoteSource).group,
+              relayUrls: (source as RemoteSource).relayUrls,
+              stream: (source as RemoteSource).stream,
+              background: true,
+            );
+
+      storage.query(mergedRelationshipRequest, source: relationshipSource);
+    }
+  }
+
   void _emitNewModels(Iterable<Model<dynamic>> models) {
     // Filter only models of type E
     // Related models are stored in request cache, they only
     // thing to do is trigger a rebuild
     final newModels = models.whereType<E>();
 
-    // Calculate new relationships
-    final newRelationshipRequests = [
-      for (final r in _getRelationshipsFrom(models))
-        if (!relationshipRequests.contains(r.req)) r.req,
-    ].nonNulls;
-    relationshipRequests.addAll(newRelationshipRequests);
-
-    final mergedRelationshipRequest = RequestFilter.mergeMultiple(
-      newRelationshipRequests.expand((r) => r.filters).toList(),
-    ).toRequest();
-    if (mergedRelationshipRequest.filters.isNotEmpty &&
-        source is RemoteSource) {
-      // Store the merged request for proper cleanup on dispose
-      mergedRelationshipRequests.add(mergedRelationshipRequest);
-
-      storage.query(
-        mergedRelationshipRequest,
-        source: RemoteSource(
-          group: (source as RemoteSource).group,
-          background: true,
-        ),
-      );
-    }
+    // Process relationships for newly arrived models
+    _processNewRelationships(newModels);
 
     if (!mounted) return;
 
