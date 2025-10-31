@@ -164,9 +164,8 @@ void main() {
       // Remove the p tag to test error handling
       partialRequest.event.removeTag('p');
 
-      final request = partialRequest.dummySign(verbirichaPubkey);
-
-      expect(() => request.walletPubkey, throwsException);
+      // Now throws immediately during dummySign because prepareForSigning needs the p tag
+      expect(() => partialRequest.dummySign(verbirichaPubkey), throwsException);
     });
 
     test('roundtrip serialization', () {
@@ -180,7 +179,7 @@ void main() {
       final restored = NwcRequest.fromMap(original.toMap(), ref);
 
       expect(restored.walletPubkey, original.walletPubkey);
-      expect(restored.encryptedContent, original.encryptedContent);
+      expect(restored.content, original.content);
       expect(restored.event.id, original.event.id);
     });
   });
@@ -262,9 +261,8 @@ void main() {
       // Remove the p tag to test error handling
       partialResponse.event.removeTag('p');
 
-      final response = partialResponse.dummySign(franzapPubkey);
-
-      expect(() => response.clientPubkey, throwsException);
+      // Now throws immediately during dummySign because prepareForSigning needs the p tag
+      expect(() => partialResponse.dummySign(franzapPubkey), throwsException);
     });
 
     test('roundtrip serialization', () {
@@ -277,7 +275,7 @@ void main() {
       final restored = NwcResponse.fromMap(original.toMap(), ref);
 
       expect(restored.clientPubkey, original.clientPubkey);
-      expect(restored.encryptedContent, original.encryptedContent);
+      expect(restored.content, original.content);
       expect(restored.event.id, original.event.id);
     });
   });
@@ -329,9 +327,8 @@ void main() {
       // Remove the p tag to test error handling
       partialNotification.event.removeTag('p');
 
-      final notification = partialNotification.dummySign(franzapPubkey);
-
-      expect(() => notification.clientPubkey, throwsException);
+      // Now throws immediately during dummySign because prepareForSigning needs the p tag
+      expect(() => partialNotification.dummySign(franzapPubkey), throwsException);
     });
 
     test('roundtrip serialization', () {
@@ -348,7 +345,7 @@ void main() {
       final restored = NwcNotification.fromMap(original.toMap(), ref);
 
       expect(restored.clientPubkey, original.clientPubkey);
-      expect(restored.encryptedContent, original.encryptedContent);
+      expect(restored.content, original.content);
       expect(restored.event.id, original.event.id);
     });
   });

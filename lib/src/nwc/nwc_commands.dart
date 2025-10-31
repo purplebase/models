@@ -94,8 +94,8 @@ abstract class NwcCommand<T> {
     final response = await completer.future.timeout(timeout);
     sub.close();
 
-    // Decrypt and process the response
-    final decryptedContent = await response.decryptContent(connectionSigner);
+    // Get the response content (already plaintext)
+    final decryptedContent = response.getContentMap();
 
     // Check for errors first
     final errorData = decryptedContent['error'] as Map<String, dynamic>?;

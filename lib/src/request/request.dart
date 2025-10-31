@@ -19,14 +19,15 @@ class Request<E extends Model<dynamic>> with EquatableMixin {
 
   final List<RequestFilter<E>> filters;
 
-  /// Provide a specific subscription ID
+  /// Subscription ID for this request
   late final String subscriptionId;
 
-  Request(this.filters, {String? subscriptionId}) {
-    this.subscriptionId = subscriptionId ?? 'sub-${_random.nextInt(999999)}';
+  Request(this.filters, {String? subscriptionPrefix}) {
+    final prefix = subscriptionPrefix ?? 'sub';
+    subscriptionId = '$prefix-${_random.nextInt(999999)}';
   }
 
-  factory Request.fromIds(Iterable<String> ids) {
+  factory Request.fromIds(Iterable<String> ids, {String? subscriptionPrefix}) {
     final regularIds = <String>{};
     final filters = <RequestFilter<E>>[];
 
@@ -52,7 +53,7 @@ class Request<E extends Model<dynamic>> with EquatableMixin {
     if (regularIds.isNotEmpty) {
       filters.add(RequestFilter(ids: regularIds));
     }
-    return Request(filters);
+    return Request(filters, subscriptionPrefix: subscriptionPrefix);
   }
 
   List<Map<String, dynamic>> toMaps() {
@@ -180,7 +181,8 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
     );
   }
 
-  Request<E> toRequest() => Request([this]);
+  Request<E> toRequest({String? subscriptionPrefix}) =>
+      Request([this], subscriptionPrefix: subscriptionPrefix);
 
   @override
   List<Object?> get props => [
@@ -265,7 +267,8 @@ final _kReplaceableRegexp = RegExp(r'(\d+):([0-9a-f]{64}):(.*)');
 
 extension RequestFilterIterableExt<E extends Model<dynamic>>
     on Iterable<RequestFilter<E>> {
-  Request<E> toRequest() => Request<E>(toList());
+  Request<E> toRequest({String? subscriptionPrefix}) =>
+      Request<E>(toList(), subscriptionPrefix: subscriptionPrefix);
 }
 
 Map<String, dynamic>? _merge(Map<String, dynamic> f1, Map<String, dynamic> f2) {

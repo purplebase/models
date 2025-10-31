@@ -16,6 +16,7 @@ import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
 import 'package:pointycastle/export.dart' as pc;
+import 'src/utils/async.dart';
 
 // Relay classes are available as parts of this library
 
@@ -26,6 +27,7 @@ part 'src/core/internal_models.dart';
 part 'src/core/relationship.dart';
 part 'src/core/signer.dart';
 part 'src/core/verifier.dart';
+part 'src/core/encryptable.dart';
 
 part 'src/models/app.dart';
 part 'src/models/article.dart';
@@ -37,7 +39,12 @@ part 'src/models/contact_list.dart';
 part 'src/models/direct_message.dart';
 part 'src/models/file_metadata.dart';
 part 'src/models/highlight.dart';
-part 'src/models/lists.dart';
+part 'src/models/relay_list_metadata.dart';
+part 'src/models/mute_list.dart';
+part 'src/models/pin_list.dart';
+part 'src/models/follow_sets.dart';
+part 'src/models/bookmark_set.dart';
+part 'src/models/app_pack.dart';
 part 'src/models/note.dart';
 part 'src/models/profile.dart';
 part 'src/models/reaction.dart';

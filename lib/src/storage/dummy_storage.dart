@@ -24,7 +24,8 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<bool> save(Set<Model<dynamic>> models) async {
     // Store using relay publish API
-    final eventMaps = models.map((model) => model.event.toMap()).toList();
+    // Use model.toMap() to include storage-specific fields like _decrypted
+    final eventMaps = models.map((model) => model.toMap()).toList();
     final results = _relay.publish(eventMaps);
 
     // Check if all succeeded
@@ -55,14 +56,16 @@ class DummyStorageNotifier extends StorageNotifier {
     final response = PublishResponse();
 
     if (models.isNotEmpty) {
+      // Prepare maps for publishing (strip metadata for relay compatibility)
+      final publishMaps = _prepareForPublish(models);
+
       final relayUrls = config.getRelays(source: source);
       for (final relayUrl in relayUrls) {
-        for (final model in models) {
-          // Other events succeed as normal
+        for (final map in publishMaps) {
           final message =
               'Fake publishing ${models.length} models to $relayUrl';
           response.addEvent(
-            model.event.id,
+            map['id'],
             relayUrl: relayUrl,
             accepted: true,
             message: message,
@@ -73,10 +76,28 @@ class DummyStorageNotifier extends StorageNotifier {
     return response;
   }
 
+  /// Prepare models for publishing by stripping internal metadata.
+  ///
+  /// Metadata is an internal implementation detail (used for caching derived data
+  /// like Zap amounts, etc.) and should not be published to relays.
+  ///
+  /// Note: Content is already encrypted during signing for encryptable models.
+  List<Map<String, dynamic>> _prepareForPublish(Set<Model<dynamic>> models) {
+    return models.map((model) {
+      final map = model.toMap();
+
+      // Strip metadata before publishing (internal implementation detail)
+      map.remove('metadata');
+
+      return map;
+    }).toList();
+  }
+
   @override
   Future<List<E>> query<E extends Model<dynamic>>(
     Request<E> req, {
     Source? source,
+    String? subscriptionPrefix,
   }) async {
     source ??= config.defaultQuerySource;
 
@@ -100,7 +121,10 @@ class DummyStorageNotifier extends StorageNotifier {
         _streamingRequestIds.add(requestId);
 
         // Set up reactive listening to relay subscription changes
-        _setupRelaySubscriptionListener(req);
+        _setupRelaySubscriptionListener(
+          req,
+          subscriptionPrefix: subscriptionPrefix,
+        );
 
         // Start streaming simulation for each filter
         for (final filter in req.filters) {
@@ -126,6 +150,7 @@ class DummyStorageNotifier extends StorageNotifier {
                 ),
               )
               .toList(),
+          subscriptionPrefix: subscriptionPrefix,
         );
 
         // Get the subscription state provider
@@ -264,6 +289,7 @@ class DummyStorageNotifier extends StorageNotifier {
                 replaceableRequest.filters,
               );
 
+              // Convert to models
               final models = events
                   .map((event) {
                     final constructor = Model.getConstructorForKind(
@@ -363,8 +389,9 @@ class DummyStorageNotifier extends StorageNotifier {
 
   /// Set up reactive listening to relay subscription for streaming queries
   void _setupRelaySubscriptionListener<E extends Model<dynamic>>(
-    Request<E> req,
-  ) {
+    Request<E> req, {
+    String? subscriptionPrefix,
+  }) {
     final requestKey = req.toString();
 
     // Avoid duplicate subscriptions
@@ -388,6 +415,7 @@ class DummyStorageNotifier extends StorageNotifier {
             ),
           )
           .toList(),
+      subscriptionPrefix: subscriptionPrefix,
     );
 
     // Listen to relay subscription changes
@@ -396,16 +424,19 @@ class DummyStorageNotifier extends StorageNotifier {
       current,
     ) {
       // Only notify if we have new events and are still mounted
-      if (mounted &&
-          current.events.isNotEmpty &&
-          (previous == null ||
-              current.events.length > previous.events.length)) {
-        // Trigger a state update to notify listeners
-        final updatedIds = <String>{};
-        for (final event in current.events) {
-          updatedIds.add(event['id'] as String);
+      if (mounted && current.events.isNotEmpty) {
+        // Check if any event IDs changed (not just count) to detect replaceable updates
+        final previousIds = previous?.events.map((e) => e['id'] as String).toSet() ?? {};
+        final currentIds = current.events.map((e) => e['id'] as String).toSet();
+        
+        // Notify if we have new events OR if event IDs changed (replaceable updates)
+        if (previous == null || 
+            current.events.length > previous.events.length ||
+            previousIds.difference(currentIds).isNotEmpty ||
+            currentIds.difference(previousIds).isNotEmpty) {
+          // Trigger a state update to notify listeners
+          state = InternalStorageData(req: null, updatedIds: currentIds);
         }
-        state = InternalStorageData(req: null, updatedIds: updatedIds);
       }
     });
 

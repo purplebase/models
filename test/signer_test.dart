@@ -72,7 +72,7 @@ void main() {
         }
       });
 
-      test('signing DirectMessage with encryption works correctly', () async {
+      test('signing DirectMessage encrypts content', () async {
         await signer.signIn();
         final recipientNpub = Utils.encodeShareableFromString(
           nielPubkey,
@@ -88,16 +88,15 @@ void main() {
 
         final signedDM = await partialDM.signWith(signer);
 
-        // Should be encrypted with NIP-44
-        expect(signedDM.encryptedContent, isNotEmpty);
-        expect(
-          signedDM.encryptedContent,
-          isNot(message),
-        ); // Should be encrypted, not plain
-        expect(signedDM.isEncrypted, isTrue);
+        // Content is encrypted during signing
+        expect(signedDM.content, isNot(message)); // Not plaintext
+        expect(signedDM.content, isNotEmpty); // But not empty
 
-        // Should be able to decrypt back to original message
-        final decrypted = await signedDM.decryptContent();
+        // To read, must explicitly decrypt
+        final decrypted = await signer.nip44Decrypt(
+          signedDM.content,
+          signedDM.event.tags.firstWhere((t) => t[0] == 'p')[1],
+        );
         expect(decrypted, message);
       });
 
@@ -261,7 +260,7 @@ void main() {
       await signer.signIn();
     });
 
-    test('PartialDirectMessage creation with encryption', () {
+    test('PartialDirectMessage creation with plaintext', () {
       const message = 'Hello, this is a secret message!';
 
       final partialDM = PartialDirectMessage(
@@ -270,25 +269,23 @@ void main() {
         useNip44: true,
       );
 
-      expect(partialDM.plainContent, message);
-      expect(partialDM.content, message); // Not encrypted yet
+      expect(partialDM.content, message); // Stored as plaintext
       expect(partialDM.receiver, recipientHex);
     });
 
-    test('PartialDirectMessage with pre-encrypted content', () {
-      const encryptedContent = 'dummy_encrypted_content';
+    test('PartialDirectMessage with plaintext content', () {
+      const plainContent = 'Hello, plaintext message!';
 
-      final partialDM = PartialDirectMessage.encrypted(
-        encryptedContent: encryptedContent,
+      final partialDM = PartialDirectMessage(
+        content: plainContent,
         receiver: recipientNpub,
       );
 
-      expect(partialDM.plainContent, isNull);
-      expect(partialDM.content, encryptedContent);
+      expect(partialDM.content, plainContent);
       expect(partialDM.receiver, recipientHex);
     });
 
-    test('automatic encryption during signing works correctly', () async {
+    test('content is encrypted after signing', () async {
       const message = 'Hello, this is a secret message!';
 
       final partialDM = PartialDirectMessage(
@@ -299,43 +296,42 @@ void main() {
 
       final signedDM = await partialDM.signWith(signer);
 
-      // Should be encrypted with NIP-44
-      expect(signedDM.encryptedContent, isNotEmpty);
-      expect(
-        signedDM.encryptedContent,
-        isNot(message),
-      ); // Should be encrypted, not plain
-      expect(signedDM.isEncrypted, isTrue);
+      // Content is encrypted after signing
+      expect(signedDM.content, isNot(message)); // Not plaintext
+      expect(signedDM.content, isNotEmpty); // But not empty
 
-      // Should be able to decrypt back to original message
-      final decrypted = await signedDM.decryptContent();
+      // To read, must explicitly decrypt
+      final decrypted = await signer.nip44Decrypt(
+        signedDM.content,
+        recipientHex,
+      );
       expect(decrypted, message);
     });
 
-    test('isEncrypted detection', () {
-      // Test NIP-44 detection (starts with 'Ag')
-      final nip44DM = PartialDirectMessage.encrypted(
-        encryptedContent: 'AgSomeEncryptedContent==',
+    test('content presence checks', () {
+      // Test with content - after signing, content is encrypted
+      final dm1 = PartialDirectMessage(
+        content: 'Hello world',
         receiver: recipientNpub,
       ).dummySign();
 
-      expect(nip44DM.isEncrypted, isTrue);
+      expect(dm1.content, isNotEmpty);
+      expect(
+        dm1.content,
+        contains('dummy_nip44_encrypted'),
+      ); // DummySigner marker
 
-      // Test NIP-04 detection (contains '?')
-      final nip04DM = PartialDirectMessage.encrypted(
-        encryptedContent: 'encrypted?content=here',
+      // Test with different content
+      final dm2 = PartialDirectMessage(
+        content: 'Another message',
         receiver: recipientNpub,
       ).dummySign();
 
-      expect(nip04DM.isEncrypted, isTrue);
-
-      // Test plain text
-      final plainDM = PartialDirectMessage.encrypted(
-        encryptedContent: 'Hello world',
-        receiver: recipientNpub,
-      ).dummySign();
-
-      expect(plainDM.isEncrypted, isFalse);
+      expect(dm2.content, isNotEmpty);
+      expect(
+        dm2.content,
+        contains('dummy_nip44_encrypted'),
+      ); // DummySigner marker
     });
   });
 
@@ -381,16 +377,16 @@ void main() {
 
       final signedDM = await partialDM.signWith(signer);
 
-      // Should be encrypted with NIP-44
-      expect(signedDM.encryptedContent, isNotEmpty);
-      expect(
-        signedDM.encryptedContent,
-        isNot(message),
-      ); // Should be encrypted, not plain
-      expect(signedDM.isEncrypted, isTrue);
+      // Content is encrypted after signing
+      expect(signedDM.content, isNot(message)); // Not plaintext
+      expect(signedDM.content, isNotEmpty);
 
-      // Should be able to decrypt back to original message
-      final decrypted = await signedDM.decryptContent();
+      // To verify, must decrypt
+      final recipientHex = nielPubkey;
+      final decrypted = await signer.nip44Decrypt(
+        signedDM.content,
+        recipientHex,
+      );
       expect(decrypted, message);
     });
 
@@ -404,14 +400,17 @@ void main() {
       final partialDM = PartialDirectMessage(
         content: message,
         receiver: recipientNpub,
-        useNip44: false,
+        useNip44: false, // Using NIP-04
       );
 
       final signedDM = partialDM.dummySign();
 
-      // Should be encrypted with dummy encryption
-      expect(signedDM.encryptedContent, contains('dummy_nip04_encrypted'));
-      expect(signedDM.encryptedContent, contains(message.hashCode.toString()));
+      // Content is encrypted after signing (using NIP-04 since useNip44 = false)
+      expect(signedDM.content, isNot(message)); // Not plaintext
+      expect(
+        signedDM.content,
+        contains('dummy_nip04_encrypted'),
+      ); // DummySigner marker
     });
   });
 

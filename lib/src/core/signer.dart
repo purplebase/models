@@ -621,33 +621,11 @@ DummySigner? _dummySigner;
 /// Signable mixin to make the [signWith] method available on all models
 mixin Signable<E extends Model<E>> {
   Future<E> signWith(Signer signer) async {
-    // Handle encryption for DirectMessage models before signing
     final partialModel = this as PartialModel<E>;
-    if (partialModel is PartialDirectMessage) {
-      final dm = partialModel as PartialDirectMessage;
-      if (dm.plainContent != null) {
-        // Get the recipient pubkey from the 'p' tag
-        final recipientHex = dm.event.getFirstTagValue('p');
-        if (recipientHex != null) {
-          await dm.encryptContent(signer, recipientHex);
-        }
-      }
-    }
 
-    // Handle encryption for NWC Request models before signing
-    if (partialModel.runtimeType.toString().contains('PartialNwcRequest')) {
-      // Get the wallet pubkey from the 'p' tag
-      final walletPubkey = partialModel.event.getFirstTagValue('p');
-
-      if (walletPubkey != null && partialModel.event.content.isNotEmpty) {
-        // Encrypt the content using NIP-04 for the wallet (per NIP-47 spec)
-        final encryptedContent = await signer.nip04Encrypt(
-          partialModel.event.content,
-          walletPubkey,
-        );
-        partialModel.event.content = encryptedContent;
-      }
-    }
+    // Call the prepareForSigning hook to allow models to handle
+    // validation or other preparation before signing
+    await partialModel.prepareForSigning(signer);
 
     final signed = await signer.sign<E>([partialModel]);
     return signed.first;
@@ -656,27 +634,14 @@ mixin Signable<E extends Model<E>> {
   E dummySign([String? pubkey]) {
     pubkey ??= Utils.generateRandomHex64();
 
-    // Handle encryption for DirectMessage models before dummy signing
     final partialModel = this as PartialModel<E>;
-    if (partialModel is PartialDirectMessage) {
-      final dm = partialModel as PartialDirectMessage;
-      if (dm.plainContent != null) {
-        // Get the recipient pubkey from the 'p' tag
-        final recipientHex = dm.event.getFirstTagValue('p');
-        if (recipientHex != null) {
-          // For dummy signing, we'll use synchronous dummy encryption
-          // This is a simplified approach for testing
-          if (dm._useNip44) {
-            dm.content =
-                'dummy_nip44_encrypted_${dm.plainContent.hashCode}_$recipientHex';
-          } else {
-            dm.content =
-                'dummy_nip04_encrypted_${dm.plainContent.hashCode}_$recipientHex';
-          }
-          dm._plainContent = null; // Clear plain content for security
-        }
-      }
-    }
+
+    // Use runSync to execute async prepareForSigning synchronously
+    final dummySigner = DummySigner(_dummySigner!.ref, pubkey: pubkey);
+    dummySigner.internalSetPubkey(
+      pubkey,
+    ); // Set pubkey before prepareForSigning
+    runSync(() => partialModel.prepareForSigning(dummySigner));
 
     return _dummySigner!.signSync(partialModel, pubkey: pubkey);
   }

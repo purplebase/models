@@ -48,11 +48,11 @@ void main() async {
 
       a = PartialNote('Note A', createdAt: yesterday).dummySign(nielPubkey);
       b = PartialNote('Note B', createdAt: lastMonth).dummySign(nielPubkey);
-      c = PartialNote('Note C').dummySign(nielPubkey);
+      c = PartialNote('Note await C').dummySign(nielPubkey);
       d = PartialNote('Note D', tags: {'nostr'}).dummySign(nielPubkey);
-      e = PartialNote('Note E').dummySign(franzapPubkey);
+      e = PartialNote('Note await E').dummySign(franzapPubkey);
       f = PartialNote('Note F', tags: {'nostr'}).dummySign(franzapPubkey);
-      g = PartialNote('Note G').dummySign(verbirichaPubkey);
+      g = PartialNote('Note await G').dummySign(verbirichaPubkey);
       nielProfile = PartialProfile(name: 'neil').dummySign(nielPubkey);
       replyToA = PartialNote(
         'reply to a',
@@ -252,7 +252,7 @@ void main() async {
     test('nested relationships - 2 levels', () async {
       // Setup: App -> Release -> FileMetadata
       final pubkey = nielPubkey;
-      
+
       // Create FileMetadata
       final partialFile = PartialFileMetadata()
         ..version = '1.0.0'
@@ -326,15 +326,19 @@ void main() async {
     test('nested relationships - 3 levels with Note', () async {
       // Setup: Note -> Author (Profile) -> ContactList
       final authorPubkey = franzapPubkey;
-      
+
       // Create ContactList
       final contactList = PartialContactList().dummySign(authorPubkey);
 
       // Create Profile (Author)
-      final author = PartialProfile(name: 'Author Name').dummySign(authorPubkey);
+      final author = PartialProfile(
+        name: 'Author Name',
+      ).dummySign(authorPubkey);
 
       // Create Note
-      final note = PartialNote('Test note content').dummySign(authorPubkey);
+      final note = PartialNote(
+        'Test note await content',
+      ).dummySign(authorPubkey);
 
       // Save only the note initially
       await storage.save({note});
@@ -346,8 +350,7 @@ void main() async {
           and: (note) => {
             note.author,
             // Nested: when author arrives, load their contact list
-            if (note.author.value != null)
-              note.author.value!.contactList,
+            if (note.author.value != null) note.author.value!.contactList,
           },
           source: LocalSource(),
         ),
@@ -391,12 +394,16 @@ void main() async {
       final app1 = PartialApp()
         ..identifier = 'com.app1'
         ..name = 'App 1';
-      final signedApp1 = (app1..event.setTagValue('i', 'com.app1')).dummySign(pubkey1);
+      final signedApp1 = (app1..event.setTagValue('i', 'com.app1')).dummySign(
+        pubkey1,
+      );
 
       final app2 = PartialApp()
         ..identifier = 'com.app2'
         ..name = 'App 2';
-      final signedApp2 = (app2..event.setTagValue('i', 'com.app2')).dummySign(pubkey2);
+      final signedApp2 = (app2..event.setTagValue('i', 'com.app2')).dummySign(
+        pubkey2,
+      );
 
       // Create file metadata for release1
       final partialFile1 = PartialFileMetadata()
@@ -442,7 +449,7 @@ void main() async {
 
       expect(loadedApp1.latestRelease.value, isNotNull);
       expect(loadedApp1.latestRelease.value!.latestMetadata.value, isNotNull);
-      
+
       // app2 should not have a release
       expect(loadedApp2.latestRelease.value, isNull);
     });
@@ -450,7 +457,7 @@ void main() async {
     test('nested relationships avoid duplicate queries', () async {
       // Ensure that relationships are only queried once even with re-evaluation
       final pubkey = nielPubkey;
-      
+
       final partialFile = PartialFileMetadata()
         ..version = '1.0.0'
         ..appIdentifier = 'com.test'
@@ -502,7 +509,10 @@ void main() async {
         source: LocalSource(),
       );
       expect(finalApp.first.latestRelease.value, isNotNull);
-      expect(finalApp.first.latestRelease.value!.latestMetadata.value, isNotNull);
+      expect(
+        finalApp.first.latestRelease.value!.latestMetadata.value,
+        isNotNull,
+      );
 
       subscription.close();
     });
@@ -534,7 +544,7 @@ void main() async {
   });
 
   group('storage configuration', () {
-    test('getRelays should prioritize relayUrls over groups', () {
+    test('getRelays should prioritize relayUrls over groups', () async {
       final config = StorageConfiguration(
         relayGroups: {
           'primary': {'wss://primary1.relay.io', 'wss://primary2.relay.io'},
@@ -657,7 +667,7 @@ void main() async {
       }
     });
 
-    test('request filter', () {
+    test('request filter', () async {
       final r1 = RequestFilter<Reaction>(
         authors: {nielPubkey, franzapPubkey},
         tags: {
@@ -1298,5 +1308,118 @@ void main() async {
       expect(fetched.name, 'Roundtrip User');
       expect(fetched.about, 'Test roundtrip');
     });
+  });
+
+  group('encryptable model storage', () {
+    test('should persist encrypted content for DirectMessage', () async {
+      final senderPubkey = Utils.generateRandomHex64();
+      final receiverPubkey = Utils.generateRandomHex64();
+      final plaintext = 'Secret message for storage test';
+
+      // Create and sign a DirectMessage - content is encrypted during signing
+      final dm = PartialDirectMessage(
+        content: plaintext,
+        receiver: receiverPubkey,
+      ).dummySign(senderPubkey);
+
+      // Content is encrypted after signing
+      expect(dm.content, isNot(plaintext));
+      expect(dm.content, contains('dummy_nip44_encrypted'));
+
+      // Save to storage (stored encrypted)
+      await storage.save({dm});
+
+      // Load it back from storage
+      final tester = container.testerFor(
+        query<DirectMessage>(ids: {dm.id}, source: LocalSource()),
+      );
+      await tester.expectModels(hasLength(1));
+
+      final fetched =
+          (tester.notifier.state as StorageData).models.first as DirectMessage;
+
+      // Content is still encrypted after loading from storage
+      expect(fetched.content, isNot(plaintext));
+      expect(fetched.content, contains('dummy_nip44_encrypted'));
+    });
+
+    test('should encrypt content during signing', () async {
+      final senderPubkey = Utils.generateRandomHex64();
+      final receiverPubkey = Utils.generateRandomHex64();
+      final plaintext = 'Encrypted during signing';
+
+      // Create and sign a DirectMessage - content is encrypted during signing
+      final dm = PartialDirectMessage(
+        content: plaintext,
+        receiver: receiverPubkey,
+      ).dummySign(senderPubkey);
+
+      // Content is encrypted after signing
+      expect(dm.content, isNot(plaintext));
+      expect(dm.content, contains('dummy_nip44_encrypted'));
+
+      // Save to storage (stored encrypted)
+      await storage.save({dm});
+
+      // Load it back
+      final tester = container.testerFor(
+        query<DirectMessage>(ids: {dm.id}, source: LocalSource()),
+      );
+      await tester.expectModels(hasLength(1));
+
+      final fetched =
+          (tester.notifier.state as StorageData).models.first as DirectMessage;
+
+      // Content remains encrypted after loading
+      expect(fetched.content, isNot(plaintext));
+      expect(fetched.content, contains('dummy_nip44_encrypted'));
+    });
+
+    test(
+      'should store encrypted content with Bip340PrivateKeySigner',
+      () async {
+        // Test with a real signer (not dummySign)
+        const privateKey =
+            'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
+        final signer = Bip340PrivateKeySigner(
+          privateKey,
+          container.read(refProvider),
+        );
+        await signer.signIn();
+
+        // Use a valid pubkey (nielPubkey from helpers)
+        final receiverPubkey = nielPubkey;
+        final plaintext = 'Stored as encrypted with real signer';
+
+        // Create and sign a DirectMessage
+        final partialDM = PartialDirectMessage(
+          content: plaintext,
+          receiver: receiverPubkey,
+        );
+
+        final dm = await partialDM.signWith(signer);
+
+        // Content is encrypted after signing
+        expect(dm.content, isNot(plaintext));
+        expect(dm.content, isNotEmpty);
+
+        // Save to storage (stored encrypted)
+        await storage.save({dm});
+
+        // Load it back
+        final tester = container.testerFor(
+          query<DirectMessage>(ids: {dm.id}, source: LocalSource()),
+        );
+        await tester.expectModels(hasLength(1));
+
+        final fetched =
+            (tester.notifier.state as StorageData).models.first
+                as DirectMessage;
+
+        // Content remains encrypted after loading from storage
+        expect(fetched.content, isNot(plaintext));
+        expect(fetched.content, isNotEmpty);
+      },
+    );
   });
 }

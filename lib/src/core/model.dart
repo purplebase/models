@@ -139,7 +139,7 @@ sealed class Model<E extends Model<E>>
     return Model._getPartialConstructorFor<E>()!.call(toMap()) as P;
   }
 
-  /// Models are equal when they event IDs are (not their addressable IDs)
+  /// Models are equal when their raw event IDs match.
   @override
   List<Object?> get props => [event.id];
 
@@ -318,6 +318,15 @@ sealed class PartialModel<E extends Model<E>>
   Set<String> get tags => event.getTagSetValues('t');
   set tags(Set<String> values) {
     event.addTagValues('t', values);
+  }
+
+  /// Hook method called before signing to prepare the event.
+  ///
+  /// Override this method in subclasses to perform model-specific
+  /// preparation like encryption. This is called automatically by
+  /// the [Signable] mixin before signing.
+  Future<void> prepareForSigning(Signer signer) async {
+    // Default implementation does nothing
   }
 
   @override

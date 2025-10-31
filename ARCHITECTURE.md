@@ -173,9 +173,9 @@ graph TB
 ```
 
 **Key Features:**
-- **Multiple Signers**: Support for different signing methods
+- **Multiple Signers**: Support for different signing methods (local keys, Amber, Nostr Connect)
 - **User Management**: Track signed-in users and active profiles
-- **Encryption**: NIP-04 and NIP-44 message encryption
+- **Encryption**: NIP-04 and NIP-44 encryption/decryption (content encrypted during signing)
 - **Reactive**: Riverpod providers for authentication state
 
 ### 5. Relationship System
@@ -213,6 +213,7 @@ graph LR
 - **Type Safety**: Compile-time guarantees for relationship types
 - **Caching**: Efficient caching of relationship queries
 - **Reactive**: Can be watched for changes
+- **Source Control**: Relationships can use a different source than the main query via `andSource` parameter
 
 ### 6. Query System
 
@@ -234,7 +235,8 @@ graph TB
     subgraph "Advanced Options"
         Where[where: Function]
         And[and: Function<br/>Preload relationships]
-        Source[source: Source]
+        Source[source: Source<br/>Main query source]
+        AndSource[andSource: Source<br/>Relationship query source]
     end
     
     RequestFilter --> Authors
@@ -246,6 +248,7 @@ graph TB
     RequestFilter --> Where
     RequestFilter --> And
     RequestFilter --> Source
+    RequestFilter --> AndSource
     
     subgraph "State Management"
         StorageLoading[StorageLoading]
@@ -268,6 +271,64 @@ final notesState = ref.watch(
     and: (note) => {note.author, note.reactions, note.zaps},
   ),
 );
+
+// Advanced: Use different source for relationships
+final notesWithStreamingProfiles = ref.watch(
+  query<Note>(
+    authors: {userPubkey},
+    limit: 20,
+    source: RemoteSource(stream: false),     // One-time fetch for notes
+    andSource: RemoteSource(stream: true),   // Keep profiles streaming
+    and: (note) => {note.author},
+  ),
+);
+
+// Advanced: Post-query filtering with where
+final filteredNotes = ref.watch(
+  query<Note>(
+    authors: {pubkey1, pubkey2, pubkey3},
+    where: (note) => note.author.value?.nip05 != null,  // Only verified authors
+    and: (note) => {note.author},  // Load author data first
+  ),
+);
+```
+
+### The `where` Parameter
+
+The `where` parameter enables client-side filtering of query results using custom Dart logic. Unlike standard Nostr filters that operate at the protocol level, `where` filtering happens **after** events have been retrieved and converted to models.
+
+**Type Definition:**
+```dart
+typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
+```
+
+**Execution Pipeline:**
+```mermaid
+graph LR
+    NostrFilters[Nostr Filters<br/>authors, kinds, tags] --> Events[Events Retrieved<br/>From Storage/Relays]
+    Events --> Models[Models Constructed<br/>Type Conversion]
+    Models --> Where[Where Function<br/>Custom Dart Logic]
+    Where --> Results[Filtered Results]
+```
+
+**Use Cases:**
+1. **Relationship-based filtering**: Filter on properties of related models
+2. **Computed properties**: Filter on derived/calculated values
+3. **Complex business logic**: Multi-condition filtering not expressible in Nostr filters
+4. **Type-specific properties**: Filter on properties unique to model subclasses
+
+**Implementation Details:**
+- Applied synchronously after model construction
+- Runs in the client process (not pushed to relays/storage)
+- Should be used in conjunction with Nostr filters for optimal performance
+- Type-safe: Receives models of type `E` specified in `query<E>`
+
+**Example Implementation:**
+```dart
+// In storage implementation
+if (filter.where != null) {
+  results = results.where((m) => filter.where!(m)).toList();
+}
 ```
 
 ## Data Flow

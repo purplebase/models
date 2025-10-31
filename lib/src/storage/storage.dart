@@ -167,11 +167,6 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       constructor: PinList.fromMap,
       partialConstructor: PartialPinList.fromMap,
     );
-    Model.register(
-      kind: 10003,
-      constructor: BookmarkList.fromMap,
-      partialConstructor: PartialBookmarkList.fromMap,
-    );
 
     // Parameterized replaceable
     Model.register(
@@ -201,9 +196,14 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       partialConstructor: PartialFollowSets.fromMap,
     );
     Model.register(
+      kind: 30003,
+      constructor: BookmarkSet.fromMap,
+      partialConstructor: PartialBookmarkSet.fromMap,
+    );
+    Model.register(
       kind: 30267,
-      constructor: AppCurationSet.fromMap,
-      partialConstructor: PartialAppCurationSet.fromMap,
+      constructor: AppPack.fromMap,
+      partialConstructor: PartialAppPack.fromMap,
     );
     Model.register(
       kind: 32267,
@@ -267,6 +267,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   Future<List<E>> query<E extends Model<dynamic>>(
     Request<E> req, {
     Source? source,
+    String? subscriptionPrefix,
   });
 
   /// Save models to local storage in one transaction.
@@ -279,6 +280,19 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     Set<Model<dynamic>> models, {
     RemoteSource source = const RemoteSource(),
   });
+
+  /// Helper: Check if a kind represents an encrypted event type.
+  static bool isEncryptedKind(int kind) {
+    return kind == 4 || // DirectMessage
+        kind == 10000 || // MuteList
+        kind == 10001 || // PinList
+        kind == 30003 || // BookmarkSet
+        kind == 30267 || // AppPack
+        kind == 13194 || // NwcInfo
+        kind == 23194 || // NwcRequest
+        kind == 23195 || // NwcResponse
+        kind == 23196; // NwcNotification
+  }
 
   /// Remove all models from local storage (or those matching [req]).
   /// For errors, listen to this notifier and filter for [StorageError]

@@ -86,6 +86,7 @@ Then run `dart pub get` or `flutter pub get`.
   - [Query Providers](#query-providers)
   - [Storage Configuration](#storage-configuration)
   - [Query Filters](#query-filters)
+  - [Advanced Filtering with `where`](#advanced-filtering-with-where)
   - [Utilities](#utilities)
   - [Event Verification](#event-verification)
   - [Error Handling](#error-handling)
@@ -160,7 +161,6 @@ This table lists all Nostr event kinds currently registered in this library to h
 | 10000 | `MuteList` | NIP-51 | Mute List | Replaceable |
 | 10001 | `PinList` | NIP-51 | Pin List | Replaceable |
 | 10002 | `RelayListMetadata` | NIP-65 | Relay List Metadata | Replaceable |
-| 10003 | `BookmarkList` | NIP-51 | Bookmark List | Replaceable |
 | 10222 | `Community` | NIP-72 | Community Definition | Replaceable |
 | 13194 | `NwcInfo` | NIP-47 | NWC Wallet Info | Regular |
 | 23194 | `NwcRequest` | NIP-47 | NWC Request | Regular |
@@ -169,11 +169,12 @@ This table lists all Nostr event kinds currently registered in this library to h
 | 24133 | `BunkerAuthorization` | NIP-46 | Bunker Authorization | Ephemeral |
 | 24242 | `BlossomAuthorization` | Blossom | Blossom Authorization | Ephemeral |
 | 30000 | `FollowSets` | NIP-51 | Follow Sets | Parameterizable |
+| 30003 | `BookmarkSet` | NIP-51 | Bookmark Set (Notes/Articles) | Parameterizable |
 | 30023 | `Article` | NIP-23 | Long-form Content | Parameterizable |
 | 30063 | `Release` | NIP-82 | Software Release | Parameterizable |
 | 30078 | `CustomData` | NIP-78 | Application Data | Parameterizable |
 | 30222 | `TargetedPublication` | NIP-72 | Targeted Publication | Parameterizable |
-| 30267 | `AppCurationSet` | NIP-89 | App Curation Set | Parameterizable |
+| 30267 | `AppPack` | NIP-51 | App Pack (Named App Collection) | Parameterizable |
 | 31922 | `DateBasedCalendarEvent` | NIP-52 | Date-Based Calendar Event | Parameterizable |
 | 31923 | `TimeBasedCalendarEvent` | NIP-52 | Time-Based Calendar Event | Parameterizable |
 | 31924 | `Calendar` | NIP-52 | Calendar Collection | Parameterizable |
@@ -390,6 +391,62 @@ final remoteNotes = await ref.storage.query(
 
 Note that `background: false` means waiting for EOSE. The streaming phase is always in the background.
 
+### Private Data & Encrypted Models
+
+The framework supports encrypted content for private data (bookmarks, app lists, direct messages, etc.) with a **simple encryption strategy**:
+
+**How It Works:**
+- Content is **plaintext before signing** (in `PartialModel`)
+- Content is **encrypted during signing** (in `prepareForSigning()` hook)
+- After signing, content is **always encrypted** (locally and on relays)
+- No metadata caching, no special handling at network boundary
+- To read encrypted content, explicitly decrypt using the signer
+
+**Example Usage:**
+
+```dart
+// Create private app list
+final partial = PartialAppPack.withEncryptedApps(
+  name: 'Dev Tools',
+  identifier: 'dev',
+  apps: ['32267:pubkey:vscode', '32267:pubkey:terminal'],
+);
+
+// Before signing: plaintext access works
+print(partial.privateAppIds); // ['32267:pubkey:vscode', '32267:pubkey:terminal']
+
+// Sign: encrypts content
+final appPack = await partial.signWith(signer);
+
+// After signing: content is encrypted
+print(appPack.content); // "AQBxY3..." (encrypted)
+
+// To read: must explicitly decrypt
+final decrypted = await signer.nip44Decrypt(appPack.content, signer.pubkey);
+final apps = jsonDecode(decrypted) as List;
+print(apps); // ['32267:pubkey:vscode', '32267:pubkey:terminal']
+
+// Private bookmarks work the same way
+final partialBookmarks = PartialBookmarkSet.withEncryptedBookmarks(
+  name: 'Read Later',
+  identifier: 'reading',
+  bookmarks: [['e', eventId], ['a', addressableId]],
+);
+final bookmarks = await partialBookmarks.signWith(signer);
+// Content is now encrypted
+```
+
+**Supported Models:**
+- `AppPack` - Private app collections
+- `BookmarkSet` - Private bookmarks
+- `DirectMessage` - Encrypted direct messages (NIP-04/44)
+- `NwcRequest/Response/Notification` - Wallet commands (NIP-47)
+- `FollowSets` - Private follow sets
+- `MuteList` - Private mute list
+- `PinList` - Private pin list
+
+See `lib/src/core/encryptable.dart` for implementation details.
+
 ### Source Behavior
 
 The `Source` parameter controls where data comes from and how queries behave:
@@ -464,6 +521,45 @@ final hybridQuery = ref.watch(
 );
 ```
 
+**Relationship Source Control**:
+
+By default, relationship queries (via the `and` parameter) inherit the source configuration from the main query. However, you can specify a separate source for relationships using the `andSource` parameter:
+
+```dart
+// Main query doesn't stream, but relationships do
+final notesState = ref.watch(
+  query<Note>(
+    authors: {pubkey},
+    limit: 50,
+    source: RemoteSource(stream: false),      // One-time fetch for notes
+    andSource: RemoteSource(stream: true),    // But keep author profiles streaming
+    and: (note) => {note.author},
+  ),
+);
+
+// Main query uses one relay group, relationships use another
+final appsState = ref.watch(
+  query<App>(
+    limit: 20,
+    source: RemoteSource(group: 'apps'),
+    andSource: RemoteSource(group: 'social'),  // Fetch profiles from social relays
+    and: (app) => {app.author},
+  ),
+);
+
+// Main query is local-only, but fetch relationships from relays
+final cachedNotes = ref.watch(
+  query<Note>(
+    authors: {pubkey},
+    source: LocalSource(),                           // Only use cached notes
+    andSource: LocalAndRemoteSource(background: true), // But fetch fresh author data
+    and: (note) => {note.author},
+  ),
+);
+```
+
+If `andSource` is not provided, relationships inherit all properties from the main `source`.
+
 **Query Behavior**:
 - All queries return local results first
 - **`stream: true`** - Keep subscription open for new events
@@ -483,6 +579,45 @@ source: RemoteSource(stream: true, background: false)
 // One-time fetch (no ongoing updates)
 source: RemoteSource(stream: false)  // background flag is ignored
 ```
+
+**Subscription Prefixes for Debugging**:
+
+You can optionally provide a `subscriptionPrefix` to make subscription IDs more readable for debugging. This helps identify which part of your app created a subscription when inspecting relay traffic or logs:
+
+```dart
+// Without prefix: subscription ID is "sub-123456"
+final notesState = ref.watch(query<Note>(authors: {pubkey}));
+
+// With prefix: subscription ID is "app-detail-123456"
+final appState = ref.watch(
+  query<App>(
+    ids: {appId},
+    subscriptionPrefix: 'app-detail',
+  ),
+);
+
+// Works with queryKinds too
+final multiKindState = ref.watch(
+  queryKinds(
+    kinds: {1, 6},
+    authors: {pubkey},
+    subscriptionPrefix: 'feed',
+  ),
+);
+
+// And with model()
+final singleAppState = ref.watch(
+  model(myApp, subscriptionPrefix: 'watch-app'),
+);
+
+// Also works with direct storage.query calls
+final events = await storage.query(
+  Request.fromIds([id1, id2], subscriptionPrefix: 'bulk-fetch'),
+  subscriptionPrefix: 'bulk-fetch',
+);
+```
+
+This is purely for debugging convenience and doesn't affect functionality. The prefix is automatically appended with a random number to ensure uniqueness.
 
 ## Authentication & Signers 🔐
 
@@ -732,6 +867,120 @@ final complexQuery = query<Note>(
     note.zaps,
   },
 );
+
+// Custom post-query filtering with where
+final filteredQuery = query<Note>(
+  authors: {pubkey1, pubkey2, pubkey3},
+  where: (note) => note.author.value?.pubkey == pubkey1,
+  // Only keeps notes where author is pubkey1
+);
+```
+
+### Advanced Filtering with `where`
+
+The `where` parameter provides **post-query filtering in Dart** after the initial Nostr filters have been applied. This allows you to filter on properties and conditions that can't be expressed in standard Nostr filters.
+
+#### When to Use `where`
+
+Use `where` when you need to filter on:
+- **Computed properties**: Properties derived from multiple fields
+- **Relationship data**: Filter based on related model properties  
+- **Complex conditions**: Business logic that requires multiple checks
+- **Type-specific fields**: Properties that only exist on certain model types
+
+#### How It Works
+
+```dart
+typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
+```
+
+The `where` function receives each model that passed the Nostr filters and returns `true` to keep it or `false` to discard it.
+
+**Execution Order:**
+1. **Nostr Filters Applied**: Standard filters (`authors`, `kinds`, `tags`, etc.) query storage/relays
+2. **Models Constructed**: Matching events are converted to typed models
+3. **Where Function Applied**: Each model is passed through the `where` function
+4. **Results Returned**: Only models that returned `true` are included
+
+#### Usage Examples
+
+**Filter by relationship data:**
+```dart
+// Get notes only from authors with verified NIP-05
+final verifiedNotes = ref.watch(
+  query<Note>(
+    authors: allAuthors,
+    where: (note) => note.author.value?.nip05 != null,
+    and: (note) => {note.author}, // Load author data
+  ),
+);
+```
+
+**Filter by computed properties:**
+```dart
+// Get high-value zaps only (>10,000 sats)
+final bigZaps = ref.watch(
+  query<Zap>(
+    limit: 100,
+    where: (zap) => zap.amount > 10000,
+  ),
+);
+```
+
+**Complex business logic:**
+```dart
+// Get articles from last week with specific content patterns
+final filteredArticles = ref.watch(
+  query<Article>(
+    since: DateTime.now().subtract(Duration(days: 7)),
+    where: (article) {
+      // Multi-condition filtering
+      if (article.content.length < 500) return false;
+      if (!article.tags.any((t) => t == 'featured')) return false;
+      if (article.author.value?.pubkey == blockedPubkey) return false;
+      return true;
+    },
+    and: (article) => {article.author},
+  ),
+);
+```
+
+**Filter on properties unique to the model type:**
+```dart
+// Get communities with specific features
+final communities = ref.watch(
+  query<Community>(
+    where: (community) {
+      return community.contentSections.isNotEmpty &&
+             community.relayUrls.length >= 2;
+    },
+  ),
+);
+```
+
+#### Performance Considerations
+
+- **Nostr Filters First**: Always use standard Nostr filters (`authors`, `kinds`, `tags`, etc.) to reduce the dataset before applying `where`
+- **Load Relationships**: If filtering on relationship data, use `and` to ensure related models are loaded
+- **Keep It Simple**: Complex `where` functions run on every result; keep them efficient
+- **Local vs Remote**: `where` filtering happens client-side, so minimize the result set with good Nostr filters
+
+**Good Practice:**
+```dart
+// ✅ GOOD: Nostr filters reduce dataset, where refines it
+query<Note>(
+  authors: {pubkey1, pubkey2, pubkey3},  // Small set of authors
+  where: (note) => note.content.contains('nostr'),
+)
+```
+
+**Avoid:**
+```dart
+// ❌ AVOID: No Nostr filters means filtering entire database
+query<Note>(
+  where: (note) => note.author.value?.pubkey == targetPubkey,
+  // Better to use: authors: {targetPubkey}
+)
 ```
 
 ### Utilities

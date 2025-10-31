@@ -140,6 +140,7 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
       'kind': kind,
       'tags': tags,
       'sig': signature,
+      if (metadata.isNotEmpty) 'metadata': metadata,
     };
   }
 }
@@ -160,14 +161,41 @@ final class ImmutableParameterizableReplaceableEvent<E extends Model<E>>
 
 /// A partial, mutable, unsigned nostr event
 final class PartialEvent<E extends Model<E>> extends EventBase<E> {
-  PartialEvent([Map<String, dynamic>? map]) : super(map);
+  PartialEvent([Map<String, dynamic>? map])
+    : metadata = map?['metadata'] != null
+          ? Map<String, dynamic>.from(map!['metadata'])
+          : {},
+      super(_prepareMapForPartial(map)) {
+    // If there's cached plaintext in metadata, use it as content
+    if (metadata.containsKey('_plaintext')) {
+      content = metadata['_plaintext'] as String;
+      // Remove _plaintext from metadata to avoid confusion
+      metadata.remove('_plaintext');
+    }
+  }
+
+  /// Prepare the map for PartialEvent construction.
+  /// If metadata contains _plaintext, use it for content.
+  static Map<String, dynamic>? _prepareMapForPartial(
+    Map<String, dynamic>? map,
+  ) {
+    if (map == null) return null;
+
+    // If there's plaintext in metadata, use it for content
+    final metadata = map['metadata'];
+    if (metadata is Map && metadata.containsKey('_plaintext')) {
+      return {...map, 'content': metadata['_plaintext']};
+    }
+
+    return map;
+  }
 
   String? pubkey;
 
   String? get id => pubkey != null ? Utils.getEventId(this, pubkey!) : null;
 
   // Metadata
-  Map<String, dynamic> metadata = {};
+  final Map<String, dynamic> metadata;
 
   @override
   Map<String, dynamic> toMap() {
@@ -178,6 +206,7 @@ final class PartialEvent<E extends Model<E>> extends EventBase<E> {
       'created_at': createdAt.toSeconds(),
       'kind': kind,
       'tags': tags,
+      if (metadata.isNotEmpty) 'metadata': metadata,
     };
   }
 

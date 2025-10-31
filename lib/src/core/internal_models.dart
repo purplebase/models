@@ -1,7 +1,10 @@
 part of models;
 
-sealed class Source {
+sealed class Source extends Equatable {
   const Source();
+
+  @override
+  List<Object?> get props => [];
 }
 
 final class LocalSource extends Source {
@@ -20,6 +23,23 @@ final class RemoteSource extends Source {
     this.background = false,
   });
 
+  RemoteSource copyWith({
+    String? group,
+    Set<String>? relayUrls,
+    bool? stream,
+    bool? background,
+  }) {
+    return RemoteSource(
+      group: group ?? this.group,
+      relayUrls: relayUrls ?? this.relayUrls,
+      stream: stream ?? this.stream,
+      background: background ?? this.background,
+    );
+  }
+
+  @override
+  List<Object?> get props => [group, relayUrls, stream, background];
+
   @override
   String toString() {
     return 'RemoteSource: ${group ?? ''} [stream=$stream, background=$background]';
@@ -33,6 +53,22 @@ final class LocalAndRemoteSource extends RemoteSource {
     super.stream = true,
     super.background = false,
   });
+
+  @override
+  LocalAndRemoteSource copyWith({
+    String? group,
+    Set<String>? relayUrls,
+    bool? stream,
+    bool? background,
+  }) {
+    return LocalAndRemoteSource(
+      group: group ?? this.group,
+      relayUrls: relayUrls ?? this.relayUrls,
+      stream: stream ?? this.stream,
+      background: background ?? this.background,
+    );
+  }
+
   @override
   String toString() {
     return 'LocalAnd${super.toString()}';

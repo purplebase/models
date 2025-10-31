@@ -90,7 +90,13 @@ class PartialNwcInfo extends ReplaceablePartialModel<NwcInfo>
 
 /// NWC Response Event (NIP-47 kind 23195)
 /// Encrypted response from wallet service to client with command results
-class NwcResponse extends EphemeralModel<NwcResponse> {
+///
+/// **Encryption Strategy:**
+/// - Content is plaintext before signing
+/// - Content is encrypted during signing (to client pubkey)
+/// - Content is always encrypted after signing
+class NwcResponse extends EphemeralModel<NwcResponse>
+    with EncryptableModel<NwcResponse> {
   NwcResponse.fromMap(super.map, super.ref) : super.fromMap();
 
   /// The client public key this response is directed to
@@ -107,60 +113,52 @@ class NwcResponse extends EphemeralModel<NwcResponse> {
     return event.getFirstTagValue('e');
   }
 
-  /// Encrypted content (decrypt with NIP-04 to get actual response)
-  String get encryptedContent => event.content;
-
-  /// Decrypt the content using the provided signer
-  /// Returns a map with 'result_type', 'result', and possibly 'error' fields
-  Future<Map<String, dynamic>> decryptContent(Signer signer) async {
-    // The response is encrypted FROM the wallet TO the client using NIP-04
-    // So we decrypt using the wallet's pubkey as the sender
-    final decryptedJson = await signer.nip04Decrypt(
-      event.content,
-      event.pubkey, // wallet's pubkey (sender of the response)
-    );
-
-    if (decryptedJson.trim().isEmpty) {
-      throw Exception('Decrypted content is empty');
-    }
-
-    final decoded = jsonDecode(decryptedJson) as Map<String, dynamic>;
-
-    // Validate required fields
+  /// Get the response content as a map (already plaintext)
+  Map<String, dynamic> getContentMap() {
+    if (content.isEmpty) throw Exception('Response content is empty');
+    final decoded = jsonDecode(content) as Map<String, dynamic>;
     if (!decoded.containsKey('result_type')) {
       throw Exception('NWC response missing required "result_type" field');
     }
-
     return decoded;
   }
 
-  /// Get the result type from decrypted content (requires signer)
-  Future<String> getResultType(Signer signer) async {
-    final content = await decryptContent(signer);
+  /// Get the result type from content
+  String getResultType() {
+    final content = getContentMap();
     return content['result_type'] as String;
   }
 
-  /// Get the result data from decrypted content (requires signer)
+  /// Get the result data from content
   /// Returns null if there was an error
-  Future<Map<String, dynamic>?> getResult(Signer signer) async {
-    final content = await decryptContent(signer);
+  Map<String, dynamic>? getResult() {
+    final content = getContentMap();
     return content['result'] as Map<String, dynamic>?;
   }
 
-  /// Get error information from decrypted content (requires signer)
+  /// Get error information from content
   /// Returns null if there was no error
-  Future<NwcError?> getError(Signer signer) async {
-    final content = await decryptContent(signer);
+  NwcError? getError() {
+    final content = getContentMap();
     final errorData = content['error'] as Map<String, dynamic>?;
     if (errorData == null) return null;
     return NwcError.fromMap(errorData);
   }
 
-  /// Check if this response contains an error (requires signer)
-  Future<bool> hasError(Signer signer) async {
-    final error = await getError(signer);
+  /// Check if this response contains an error
+  bool hasError() {
+    final error = getError();
     return error != null;
   }
+
+  @override
+  String getEncryptionPubkey() {
+    // Encrypt to client pubkey
+    return clientPubkey;
+  }
+
+  @override
+  bool get useNip04 => true; // NWC uses NIP-04
 }
 
 /// NWC Error information
@@ -204,7 +202,8 @@ class NwcError {
 /// ```dart
 /// final nwcResponse = await PartialNwcResponse(clientPubkey: clientKey, resultType: 'get_balance').signWith(signer);
 /// ```
-class PartialNwcResponse extends EphemeralPartialModel<NwcResponse> {
+class PartialNwcResponse extends EphemeralPartialModel<NwcResponse>
+    with EncryptablePartialModel<NwcResponse> {
   PartialNwcResponse.fromMap(super.map) : super.fromMap();
 
   PartialNwcResponse({
@@ -235,8 +234,20 @@ class PartialNwcResponse extends EphemeralPartialModel<NwcResponse> {
     };
 
     // Content will be encrypted when signing
-    event.content = jsonEncode(response);
+    setContent(response);
   }
+
+  @override
+  String getEncryptionPubkey(Signer signer) {
+    final clientPubkey = event.getFirstTagValue('p');
+    if (clientPubkey == null) {
+      throw Exception('NwcResponse must have a client pubkey (p tag)');
+    }
+    return clientPubkey;
+  }
+
+  @override
+  bool get useNip04 => true; // NWC uses NIP-04
 
   /// Create a successful response
   PartialNwcResponse.success({
@@ -334,7 +345,13 @@ class PartialNwcResponse extends EphemeralPartialModel<NwcResponse> {
 
 /// NWC Notification Event (NIP-47 kind 23196)
 /// Encrypted notification from wallet service to client about wallet events
-class NwcNotification extends EphemeralModel<NwcNotification> {
+///
+/// **Encryption Strategy:**
+/// - Content is plaintext before signing
+/// - Content is encrypted during signing (to client pubkey)
+/// - Content is always encrypted after signing
+class NwcNotification extends EphemeralModel<NwcNotification>
+    with EncryptableModel<NwcNotification> {
   NwcNotification.fromMap(super.map, super.ref) : super.fromMap();
 
   /// The client public key this notification is directed to
@@ -346,51 +363,50 @@ class NwcNotification extends EphemeralModel<NwcNotification> {
     return pTag;
   }
 
-  /// Encrypted content (decrypt with NIP-04 to get actual notification)
-  String get encryptedContent => event.content;
-
-  /// Decrypt the content using the provided signer
-  /// Returns a map with 'notification_type' and 'notification' fields
-  Future<Map<String, dynamic>> decryptContent(Signer signer) async {
-    final decryptedJson = await signer.nip04Decrypt(
-      event.content,
-      clientPubkey,
-    );
-    final decoded = jsonDecode(decryptedJson) as Map<String, dynamic>;
-
-    // Validate required fields
+  /// Get the notification content as a map (already plaintext)
+  Map<String, dynamic> getContentMap() {
+    if (content.isEmpty) throw Exception('Notification content is empty');
+    final decoded = jsonDecode(content) as Map<String, dynamic>;
     if (!decoded.containsKey('notification_type')) {
       throw Exception(
         'NWC notification missing required "notification_type" field',
       );
     }
-
     return decoded;
   }
 
-  /// Get the notification type from decrypted content (requires signer)
-  Future<String> getNotificationType(Signer signer) async {
-    final content = await decryptContent(signer);
+  /// Get the notification type from content
+  String getNotificationType() {
+    final content = getContentMap();
     return content['notification_type'] as String;
   }
 
-  /// Get the notification data from decrypted content (requires signer)
-  Future<Map<String, dynamic>?> getNotification(Signer signer) async {
-    final content = await decryptContent(signer);
+  /// Get the notification data from content
+  Map<String, dynamic>? getNotification() {
+    final content = getContentMap();
     return content['notification'] as Map<String, dynamic>?;
   }
 
-  /// Check if this is a payment received notification (requires signer)
-  Future<bool> isPaymentReceived(Signer signer) async {
-    final type = await getNotificationType(signer);
+  /// Check if this is a payment received notification
+  bool isPaymentReceived() {
+    final type = getNotificationType();
     return type == NwcInfo.paymentReceived;
   }
 
-  /// Check if this is a payment sent notification (requires signer)
-  Future<bool> isPaymentSent(Signer signer) async {
-    final type = await getNotificationType(signer);
+  /// Check if this is a payment sent notification
+  bool isPaymentSent() {
+    final type = getNotificationType();
     return type == NwcInfo.paymentSent;
   }
+
+  @override
+  String getEncryptionPubkey() {
+    // Encrypt to client pubkey
+    return clientPubkey;
+  }
+
+  @override
+  bool get useNip04 => true; // NWC uses NIP-04
 }
 
 /// Partial model for creating NwcNotification events
@@ -400,7 +416,8 @@ class NwcNotification extends EphemeralModel<NwcNotification> {
 /// ```dart
 /// final notification = await PartialNwcNotification(clientPubkey: clientKey, notificationType: 'payment_received', notification: {}).signWith(signer);
 /// ```
-class PartialNwcNotification extends EphemeralPartialModel<NwcNotification> {
+class PartialNwcNotification extends EphemeralPartialModel<NwcNotification>
+    with EncryptablePartialModel<NwcNotification> {
   PartialNwcNotification.fromMap(super.map) : super.fromMap();
 
   PartialNwcNotification({
@@ -423,8 +440,20 @@ class PartialNwcNotification extends EphemeralPartialModel<NwcNotification> {
     };
 
     // Content will be encrypted when signing
-    event.content = jsonEncode(notificationData);
+    setContent(notificationData);
   }
+
+  @override
+  String getEncryptionPubkey(Signer signer) {
+    final clientPubkey = event.getFirstTagValue('p');
+    if (clientPubkey == null) {
+      throw Exception('NwcNotification must have a client pubkey (p tag)');
+    }
+    return clientPubkey;
+  }
+
+  @override
+  bool get useNip04 => true; // NWC uses NIP-04
 
   /// Create a payment received notification
   PartialNwcNotification.paymentReceived({
@@ -499,7 +528,13 @@ class PartialNwcNotification extends EphemeralPartialModel<NwcNotification> {
 
 /// NWC Request Event (NIP-47 kind 23194)
 /// Encrypted request from client to wallet service for wallet operations
-class NwcRequest extends EphemeralModel<NwcRequest> {
+///
+/// **Encryption Strategy:**
+/// - Content is plaintext before signing
+/// - Content is encrypted during signing (to wallet pubkey)
+/// - Content is always encrypted after signing
+class NwcRequest extends EphemeralModel<NwcRequest>
+    with EncryptableModel<NwcRequest> {
   NwcRequest.fromMap(super.map, super.ref) : super.fromMap();
 
   /// The wallet service public key this request is directed to
@@ -527,37 +562,36 @@ class NwcRequest extends EphemeralModel<NwcRequest> {
     return DateTime.now().isAfter(exp);
   }
 
-  /// Encrypted content (decrypt with NIP-04 to get actual command)
-  String get encryptedContent => event.content;
-
-  /// Decrypt the content using the provided signer
-  /// Returns a map with 'method' and 'params' fields
-  Future<Map<String, dynamic>> decryptContent(Signer signer) async {
-    final decryptedJson = await signer.nip04Decrypt(
-      event.content,
-      walletPubkey,
-    );
-    final decoded = jsonDecode(decryptedJson) as Map<String, dynamic>;
-
-    // Validate required fields
+  /// Get the command content as a map (already plaintext)
+  Map<String, dynamic> getContentMap() {
+    if (content.isEmpty) throw Exception('Request content is empty');
+    final decoded = jsonDecode(content) as Map<String, dynamic>;
     if (!decoded.containsKey('method')) {
       throw Exception('NWC request missing required "method" field');
     }
-
     return decoded;
   }
 
-  /// Get the command method from decrypted content (requires signer)
-  Future<String> getMethod(Signer signer) async {
-    final content = await decryptContent(signer);
+  /// Get the command method from content
+  String getMethod() {
+    final content = getContentMap();
     return content['method'] as String;
   }
 
-  /// Get the command parameters from decrypted content (requires signer)
-  Future<Map<String, dynamic>?> getParams(Signer signer) async {
-    final content = await decryptContent(signer);
+  /// Get the command parameters from content
+  Map<String, dynamic>? getParams() {
+    final content = getContentMap();
     return content['params'] as Map<String, dynamic>?;
   }
+
+  @override
+  String getEncryptionPubkey() {
+    // Encrypt to wallet pubkey
+    return walletPubkey;
+  }
+
+  @override
+  bool get useNip04 => true; // NWC uses NIP-04
 }
 
 /// Partial model for creating NwcRequest events
@@ -567,7 +601,8 @@ class NwcRequest extends EphemeralModel<NwcRequest> {
 /// ```dart
 /// final nwcRequest = await PartialNwcRequest(walletPubkey: walletKey, method: 'get_balance').signWith(signer);
 /// ```
-class PartialNwcRequest extends EphemeralPartialModel<NwcRequest> {
+class PartialNwcRequest extends EphemeralPartialModel<NwcRequest>
+    with EncryptablePartialModel<NwcRequest> {
   PartialNwcRequest.fromMap(super.map) : super.fromMap();
 
   PartialNwcRequest({
@@ -597,8 +632,20 @@ class PartialNwcRequest extends EphemeralPartialModel<NwcRequest> {
     };
 
     // Content will be encrypted when signing
-    event.content = jsonEncode(command);
+    setContent(command);
   }
+
+  @override
+  String getEncryptionPubkey(Signer signer) {
+    final walletPubkey = event.getFirstTagValue('p');
+    if (walletPubkey == null) {
+      throw Exception('NwcRequest must have a wallet pubkey (p tag)');
+    }
+    return walletPubkey;
+  }
+
+  @override
+  bool get useNip04 => true; // NWC uses NIP-04
 
   /// Create a request for pay_invoice command
   PartialNwcRequest.payInvoice({
