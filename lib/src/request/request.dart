@@ -23,8 +23,20 @@ class Request<E extends Model<dynamic>> with EquatableMixin {
   late final String subscriptionId;
 
   Request(this.filters, {String? subscriptionPrefix}) {
-    final prefix = subscriptionPrefix ?? 'sub';
+    final prefix = subscriptionPrefix ?? _getDefaultPrefix<E>();
     subscriptionId = '$prefix-${_random.nextInt(999999)}';
+  }
+
+  /// Get default subscription prefix based on model type
+  static String _getDefaultPrefix<T extends Model<dynamic>>() {
+    // For Model<dynamic> (no specific type), use 'sub'
+    if (<Model<dynamic>>[] is List<T>) {
+      return 'sub';
+    }
+    
+    // Extract model name from type and convert to lowercase
+    final typeName = T.toString().toLowerCase();
+    return 'sub-$typeName';
   }
 
   factory Request.fromIds(Iterable<String> ids, {String? subscriptionPrefix}) {

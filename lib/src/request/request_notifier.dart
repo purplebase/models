@@ -37,14 +37,14 @@ class RequestNotifier<E extends Model<dynamic>>
           }
         });
 
-    ref.onDispose(() {
+    ref.onDispose(() async {
       // Cancel main request
-      storage.cancel(req);
+      await storage.cancel(req);
 
       // Cancel all merged relationship requests (the actual subscriptions)
-      for (final mergedReq in mergedRelationshipRequests) {
-        storage.cancel(mergedReq);
-      }
+      await Future.wait(
+        mergedRelationshipRequests.map((mergedReq) => storage.cancel(mergedReq)),
+      );
     });
   }
 

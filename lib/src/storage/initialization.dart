@@ -31,8 +31,11 @@ class StorageConfiguration extends Equatable {
   /// After this inactivity duration, relays disconnect (default: 5 minutes)
   final Duration idleTimeout;
 
-  /// Duration to wait for relays to respond
+  /// Duration to wait for relays to respond (final timeout)
   final Duration responseTimeout;
+
+  /// Duration to wait for first EOSE before flushing (if at least 1 relay EOSE'd)
+  final Duration eoseFirstFlushTimeout;
 
   /// How often event updates are emitted from [StorageNotifier] (default: 2 seconds)
   final Duration streamingBufferWindow;
@@ -50,7 +53,8 @@ class StorageConfiguration extends Equatable {
     this.defaultQuerySource = const LocalAndRemoteSource(stream: false),
     this.defaultRelayGroup = 'default',
     this.idleTimeout = const Duration(minutes: 5),
-    this.responseTimeout = const Duration(seconds: 6),
+    this.responseTimeout = const Duration(seconds: 15),
+    this.eoseFirstFlushTimeout = const Duration(seconds: 4),
     this.streamingBufferWindow = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
   }) : relayGroups = _normalizeRelayGroups(relayGroups);
@@ -125,5 +129,10 @@ class StorageConfiguration extends Equatable {
     skipVerification,
     relayGroups,
     defaultRelayGroup,
+    idleTimeout,
+    responseTimeout,
+    eoseFirstFlushTimeout,
+    streamingBufferWindow,
+    keepMaxModels,
   ];
 }

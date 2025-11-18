@@ -15,13 +15,32 @@ void main() {
       expect(req.subscriptionId, matches(RegExp(r'app-detail-\d+')));
     });
 
-    test('Request uses default "sub" prefix when no prefix provided', () {
+    test('Request uses default "sub" prefix when no prefix provided and no type', () {
       final req = Request([
         RequestFilter(kinds: {1}, authors: {nielPubkey}),
       ]);
 
       expect(req.subscriptionId, startsWith('sub-'));
       expect(req.subscriptionId, matches(RegExp(r'sub-\d+')));
+    });
+
+    test('Request uses model-aware prefix for typed requests', () {
+      final req = Request<Note>([
+        RequestFilter<Note>(kinds: {1}, authors: {nielPubkey}),
+      ]);
+
+      expect(req.subscriptionId, startsWith('sub-note-'));
+      expect(req.subscriptionId, matches(RegExp(r'sub-note-\d+')));
+    });
+
+    test('RequestFilter.toRequest uses model-aware prefix for typed requests', () {
+      final req = RequestFilter<Note>(
+        kinds: {1},
+        authors: {nielPubkey},
+      ).toRequest();
+
+      expect(req.subscriptionId, startsWith('sub-note-'));
+      expect(req.subscriptionId, matches(RegExp(r'sub-note-\d+')));
     });
 
     test('Request.fromIds uses custom subscriptionPrefix', () {
