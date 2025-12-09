@@ -168,43 +168,42 @@ class Utils {
   }
 
   /// Decode NIP-05 identifier to public key
-  static Future<String> decodeNip05(String address) async {
+  static Future<String> decodeNip05(
+    String address, {
+    http.Client? client,
+  }) async {
+    final httpClient = client ?? http.Client();
     try {
       final [username, domain] = address.split('@');
 
       // Make HTTP request to .well-known/nostr.json
-      final client = HttpClient();
-      try {
-        final request = await client.getUrl(
-          Uri.parse('https://$domain/.well-known/nostr.json?name=$username'),
+      final response = await httpClient.get(
+        Uri.parse('https://$domain/.well-known/nostr.json?name=$username'),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'HTTP ${response.statusCode}: Failed to fetch NIP-05 data',
         );
-        final response = await request.close();
-
-        if (response.statusCode != 200) {
-          throw Exception(
-            'HTTP ${response.statusCode}: Failed to fetch NIP-05 data',
-          );
-        }
-
-        final responseBody = await response.transform(utf8.decoder).join();
-        final jsonData = jsonDecode(responseBody) as Map<String, dynamic>;
-
-        final names = jsonData['names'] as Map<String, dynamic>?;
-        if (names == null) {
-          throw Exception('No names field in NIP-05 response');
-        }
-
-        final pubkey = names[username] as String?;
-        if (pubkey == null) {
-          throw Exception('Username $username not found in NIP-05 response');
-        }
-
-        return pubkey;
-      } finally {
-        client.close();
       }
+
+      final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
+
+      final names = jsonData['names'] as Map<String, dynamic>?;
+      if (names == null) {
+        throw Exception('No names field in NIP-05 response');
+      }
+
+      final pubkey = names[username] as String?;
+      if (pubkey == null) {
+        throw Exception('Username $username not found in NIP-05 response');
+      }
+
+      return pubkey;
     } catch (e) {
       throw Exception('Failed to decode NIP-05 identifier: $e');
+    } finally {
+      if (client == null) httpClient.close();
     }
   }
 

@@ -16,7 +16,6 @@ part of models;
 // **To read encrypted content:**
 // - Explicitly decrypt using signer's decrypt methods
 // - `await signer.nip44Decrypt(content, senderPubkey)`
-// - `await signer.nip04Decrypt(content, senderPubkey)`
 //
 // ## Two Usage Patterns
 //
@@ -24,7 +23,7 @@ part of models;
 //    - Encrypted to your own pubkey
 //    - Example: `AppPack`, `BookmarkSet`, `MuteList`
 //
-// 2. **Peer-to-peer messages (NIP-04/44)**: Direct messages, NWC
+// 2. **Peer-to-peer messages (NIP-44)**: Direct messages, NWC
 //    - Encrypted to recipient's pubkey
 //    - Example: `DirectMessage`, `NwcRequest`, `NwcResponse`
 //
@@ -125,17 +124,13 @@ part of models;
 // }
 // ```
 //
-// ### Pattern 2: Peer-to-Peer Messages (NIP-04/44)
+// ### Pattern 2: Peer-to-Peer Messages (NIP-44)
 //
 // For direct messages and wallet commands.
 //
 // ```dart
 // class SecretNote extends RegularModel<SecretNote>
 //     with EncryptableModel<SecretNote> {
-//
-//   // Optional: Use NIP-04 for backward compatibility
-//   @override
-//   bool get useNip04 => true;
 //
 //   // Required: Specify encryption pubkey (recipient)
 //   @override
@@ -151,9 +146,9 @@ part of models;
 // class PartialSecretNote extends PartialModel<SecretNote>
 //     with EncryptablePartialModel<SecretNote> {
 //
-//   // Optional: Match NIP-04 usage
+//   // Only NIP-44 is supported
 //   @override
-//   bool get useNip04 => true;
+//   bool get useNip04 => false;
 //
 //   // Required: Specify encryption pubkey (recipient)
 //   @override
@@ -215,9 +210,9 @@ mixin EncryptableModel<E extends Model<E>> on Model<E> {
   /// - For peer-to-peer content (DMs): return the other party's pubkey
   String getEncryptionPubkey();
 
-  /// Whether to use NIP-04 encryption (default: false, uses NIP-44).
+  /// Whether to use NIP-04 encryption (always false, NIP-44 only).
   ///
-  /// Override to return true for models that need NIP-04 compatibility.
+  /// NIP-04 is deprecated. Only NIP-44 encryption is supported.
   bool get useNip04 => false;
 
   /// Get the encrypted content.
@@ -240,9 +235,9 @@ mixin EncryptablePartialModel<E extends Model<E>> on PartialModel<E> {
   /// - For peer-to-peer content (DMs): return recipient's pubkey from tags
   String getEncryptionPubkey(Signer signer);
 
-  /// Whether to use NIP-04 encryption (default: false, uses NIP-44).
+  /// Whether to use NIP-04 encryption (always false, NIP-44 only).
   ///
-  /// Override to return true for backward compatibility with NIP-04.
+  /// NIP-04 is deprecated. Only NIP-44 encryption is supported.
   bool get useNip04 => false;
 
   /// Set content (stored as plaintext until signing).
@@ -266,9 +261,7 @@ mixin EncryptablePartialModel<E extends Model<E>> on PartialModel<E> {
     final encPubkey = getEncryptionPubkey(signer);
 
     if (event.content.isNotEmpty && !_isAlreadyEncrypted(event.content)) {
-      event.content = useNip04
-          ? await signer.nip04Encrypt(event.content, encPubkey)
-          : await signer.nip44Encrypt(event.content, encPubkey);
+      event.content = await signer.nip44Encrypt(event.content, encPubkey);
     }
 
     await super.prepareForSigning(signer);
@@ -276,9 +269,6 @@ mixin EncryptablePartialModel<E extends Model<E>> on PartialModel<E> {
 
   /// Check if content is already encrypted (to avoid double-encryption)
   bool _isAlreadyEncrypted(String content) {
-    // NIP-04: contains '?iv=' delimiter
-    if (content.contains('?iv=')) return true;
-
     // NIP-44: base64-encoded, typically long (>50 chars) and starts with 'A'
     // Check length to avoid false positives with short messages starting with 'A'
     if (content.length > 50 && content.startsWith('A')) {

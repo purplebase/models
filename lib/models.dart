@@ -1,10 +1,11 @@
 library models;
 
-import 'dart:io';
 import 'dart:async';
 import 'dart:math';
 
-import 'package:nip44/nip44.dart' as nip44;
+import 'package:http/http.dart' as http;
+// NIP-44 encryption implementation copied from https://github.com/paulmillr/nip44
+import 'src/nip44/nip44.dart' as nip44;
 import 'package:riverpod/riverpod.dart';
 import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
@@ -15,12 +16,12 @@ import 'package:crypto/crypto.dart';
 import 'package:bip340/bip340.dart' as bip340;
 import 'package:bech32/bech32.dart';
 import 'package:convert/convert.dart';
-import 'package:pointycastle/export.dart' as pc;
 import 'src/utils/async.dart';
 
 // Relay classes are available as parts of this library
 
 part 'src/utils/encoding.dart';
+part 'src/core/http.dart';
 part 'src/core/model.dart';
 part 'src/core/event.dart';
 part 'src/core/internal_models.dart';
@@ -39,7 +40,7 @@ part 'src/models/contact_list.dart';
 part 'src/models/direct_message.dart';
 part 'src/models/file_metadata.dart';
 part 'src/models/highlight.dart';
-part 'src/models/relay_list_metadata.dart';
+part 'src/models/relay_list.dart';
 part 'src/models/mute_list.dart';
 part 'src/models/pin_list.dart';
 part 'src/models/follow_sets.dart';
@@ -77,11 +78,3 @@ part 'src/storage/dummy_storage.dart';
 
 part 'src/utils/extensions.dart';
 part 'src/utils/utils.dart';
-
-// Removed: models.g.dart - mixins are now inline in individual model files
-
-// Relay parts
-part 'src/relay/nostr_relay.dart';
-part 'src/relay/models/relay_info.dart';
-part 'src/relay/handlers/message_handler.dart';
-part 'src/relay/storage/memory_storage.dart';

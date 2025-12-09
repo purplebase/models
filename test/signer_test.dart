@@ -9,10 +9,10 @@ void main() {
   late Ref ref;
 
   setUp(() async {
-    container = ProviderContainer();
+    container = await createTestContainer(
+      config: StorageConfiguration(keepSignatures: false),
+    );
     ref = container.read(refProvider);
-    final config = StorageConfiguration(keepSignatures: false);
-    await container.read(initializationProvider(config).future);
   });
 
   tearDown(() async {
@@ -83,7 +83,6 @@ void main() {
         final partialDM = PartialDirectMessage(
           content: message,
           receiver: recipientNpub,
-          useNip44: true,
         );
 
         final signedDM = await partialDM.signWith(signer);
@@ -97,20 +96,6 @@ void main() {
           signedDM.content,
           signedDM.event.tags.firstWhere((t) => t[0] == 'p')[1],
         );
-        expect(decrypted, message);
-      });
-
-      test('NIP-04 encryption methods work with real implementation', () async {
-        await signer.signIn();
-        const recipientPubkey =
-            'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
-        const message = 'Hello, secret message!';
-
-        final encrypted = await signer.nip04Encrypt(message, recipientPubkey);
-        expect(encrypted, isNotEmpty);
-        expect(encrypted, contains('?iv='));
-
-        final decrypted = await signer.nip04Decrypt(encrypted, recipientPubkey);
         expect(decrypted, message);
       });
 
@@ -138,13 +123,13 @@ void main() {
 
         expect(
           () async => await signer.nip04Encrypt(message, recipientPubkey),
-          throwsA(isA<StateError>()),
+          throwsA(isA<UnsupportedError>()),
         );
 
         expect(
           () async =>
               await signer.nip04Decrypt('encrypted_content', recipientPubkey),
-          throwsA(isA<StateError>()),
+          throwsA(isA<UnsupportedError>()),
         );
 
         expect(
@@ -186,23 +171,6 @@ void main() {
         await customSigner.signIn();
 
         expect(customSigner.pubkey, customPubkey);
-      });
-
-      test('NIP-04 dummy encryption/decryption', () async {
-        await signer.signIn();
-        const recipientPubkey =
-            'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
-        const message = 'Hello, secret message!';
-
-        final encrypted = await signer.nip04Encrypt(message, recipientPubkey);
-        expect(encrypted, contains('dummy_nip04_encrypted'));
-        expect(encrypted, contains(message.hashCode.toString()));
-        expect(encrypted, contains(recipientPubkey));
-
-        final decrypted = await signer.nip04Decrypt(encrypted, recipientPubkey);
-        expect(decrypted, contains('dummy_nip04_decrypted'));
-        expect(decrypted, contains(encrypted.hashCode.toString()));
-        expect(decrypted, contains(recipientPubkey));
       });
 
       test('NIP-44 dummy encryption/decryption', () async {
@@ -266,7 +234,6 @@ void main() {
       final partialDM = PartialDirectMessage(
         content: message,
         receiver: recipientNpub,
-        useNip44: true,
       );
 
       expect(partialDM.content, message); // Stored as plaintext
@@ -291,7 +258,6 @@ void main() {
       final partialDM = PartialDirectMessage(
         content: message,
         receiver: recipientNpub,
-        useNip44: true,
       );
 
       final signedDM = await partialDM.signWith(signer);
@@ -372,7 +338,6 @@ void main() {
       final partialDM = PartialDirectMessage(
         content: message,
         receiver: recipientNpub,
-        useNip44: true,
       );
 
       final signedDM = await partialDM.signWith(signer);
@@ -400,16 +365,15 @@ void main() {
       final partialDM = PartialDirectMessage(
         content: message,
         receiver: recipientNpub,
-        useNip44: false, // Using NIP-04
       );
 
       final signedDM = partialDM.dummySign();
 
-      // Content is encrypted after signing (using NIP-04 since useNip44 = false)
+      // Content is encrypted after signing (using NIP-44)
       expect(signedDM.content, isNot(message)); // Not plaintext
       expect(
         signedDM.content,
-        contains('dummy_nip04_encrypted'),
+        contains('dummy_nip44_encrypted'),
       ); // DummySigner marker
     });
   });

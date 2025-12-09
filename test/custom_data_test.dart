@@ -6,10 +6,18 @@ import 'helpers.dart';
 void main() {
   late ProviderContainer container;
 
+  setUpAll(() async {
+    
+  });
+
+  tearDownAll(() async {
+    
+  });
+
   setUp(() async {
-    container = ProviderContainer();
-    final config = StorageConfiguration(keepSignatures: false);
-    await container.read(initializationProvider(config).future);
+    container = await createTestContainer(
+      config: StorageConfiguration(keepSignatures: false),
+    );
   });
 
   tearDown(() async {

@@ -12,17 +12,15 @@ void main() {
   late DummyStorageNotifier storage;
 
   setUp(() async {
-    container = ProviderContainer();
-    final config = StorageConfiguration(keepSignatures: false);
-    await container.read(initializationProvider(config).future);
+    container = await createTestContainer(
+      config: StorageConfiguration(keepSignatures: false),
+    );
     ref = container.read(refProvider);
     storage =
-        container.read(storageNotifierProvider.notifier)
-            as DummyStorageNotifier;
+        container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
   });
 
   tearDown(() async {
-    await storage.cancel();
     await storage.clear();
     container.dispose();
   });

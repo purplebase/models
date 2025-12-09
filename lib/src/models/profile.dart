@@ -142,7 +142,10 @@ class Profile extends ReplaceableModel<Profile> {
   static Future<Profile?> fromNip05(String address, Ref ref) async {
     try {
       // Decode NIP-05 to get the pubkey
-      final pubkey = await Utils.decodeNip05(address);
+      final pubkey = await Utils.decodeNip05(
+        address,
+        client: ref.read(httpClientProvider),
+      );
 
       // Query storage for the profile with this pubkey
       final storage = ref.read(storageNotifierProvider.notifier);
@@ -163,6 +166,7 @@ class Profile extends ReplaceableModel<Profile> {
     required int amountSats,
     String? comment,
     Map<String, dynamic>? zapRequest,
+    http.Client? client,
   }) async {
     if (lud16 == null) return null;
 
@@ -175,17 +179,16 @@ class Profile extends ReplaceableModel<Profile> {
       final domain = parts[1];
 
       // Step 1: Get LNURL-pay endpoint from .well-known/lnurlp/
-      final client = HttpClient();
+      final httpClient = client ?? http.Client();
       try {
         // Request LNURL-pay info
-        final lnurlRequest = await client.getUrl(
+        final lnurlResponse = await httpClient.get(
           Uri.parse('https://$domain/.well-known/lnurlp/$username'),
         );
-        final lnurlResponse = await lnurlRequest.close();
 
         if (lnurlResponse.statusCode != 200) return null;
 
-        final lnurlBody = await lnurlResponse.transform(utf8.decoder).join();
+        final lnurlBody = utf8.decode(lnurlResponse.bodyBytes);
         final lnurlData = jsonDecode(lnurlBody) as Map<String, dynamic>;
 
         // Validate LNURL-pay response
@@ -255,26 +258,23 @@ class Profile extends ReplaceableModel<Profile> {
           callback,
         ).replace(queryParameters: callbackParams);
 
-        final invoiceRequest = await client.getUrl(callbackUri);
-        // Add proper headers
-        invoiceRequest.headers.set('Accept', 'application/json');
-        invoiceRequest.headers.set('User-Agent', 'Nostr-Dart-Client/1.0');
-
-        final invoiceResponse = await invoiceRequest.close();
+        final invoiceResponse = await httpClient.get(
+          callbackUri,
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Nostr-Dart-Client/1.0',
+          },
+        );
 
         if (invoiceResponse.statusCode != 200) {
           // Get error details for debugging
-          final errorBody = await invoiceResponse
-              .transform(utf8.decoder)
-              .join();
+          final errorBody = utf8.decode(invoiceResponse.bodyBytes);
           throw Exception(
             'LNURL callback failed (${invoiceResponse.statusCode}): $errorBody',
           );
         }
 
-        final invoiceBody = await invoiceResponse
-            .transform(utf8.decoder)
-            .join();
+        final invoiceBody = utf8.decode(invoiceResponse.bodyBytes);
         final invoiceData = jsonDecode(invoiceBody) as Map<String, dynamic>;
 
         // Check for errors
@@ -283,7 +283,7 @@ class Profile extends ReplaceableModel<Profile> {
         // Return the BOLT11 invoice
         return invoiceData['pr'] as String?;
       } finally {
-        client.close();
+        if (client == null) httpClient.close();
       }
     } catch (e) {
       // Return null if any step fails

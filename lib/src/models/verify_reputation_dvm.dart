@@ -19,10 +19,10 @@ class VerifyReputationRequest extends RegularModel<VerifyReputationRequest> {
 
   /// Execute verification request and wait for response
   ///
-  /// [relayGroup] - The relay group to publish the request to
+  /// [relays] - The relay target (URL or identifier) to publish the request to
   /// Returns the first DVM response (success or error)
-  Future<Model<dynamic>?> run(String relayGroup) async {
-    final source = RemoteSource(group: relayGroup);
+  Future<Model<dynamic>?> run(String relays) async {
+    final source = RemoteSource(relays: relays);
     // Just publish, do not save
     await storage.publish({this}, source: source);
     final responses = await storage.query(

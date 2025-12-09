@@ -2,7 +2,9 @@ part of models;
 
 /// Storage interface that notifies upon updates
 abstract class StorageNotifier extends StateNotifier<StorageState> {
-  StorageNotifier() : super(StorageLoading([]));
+  StorageNotifier(this.ref) : super(StorageLoading([]));
+
+  final Ref ref;
   late StorageConfiguration config;
 
   bool isInitialized = false;
@@ -54,7 +56,6 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       constructor: ChatMessage.fromMap,
       partialConstructor: PartialChatMessage.fromMap,
     );
-    Model.register(kind: 11, constructor: RelayInfo.fromMap);
     Model.register(
       kind: 16,
       constructor: GenericRepost.fromMap,
@@ -149,11 +150,18 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       partialConstructor: PartialBlossomAuthorization.fromMap,
     );
 
-    // NIP-65: Relay List Metadata
+    // Relay Lists (1xxxx kinds)
+    // NIP-65: Social relay list
     Model.register(
       kind: 10002,
-      constructor: RelayListMetadata.fromMap,
-      partialConstructor: PartialRelayListMetadata.fromMap,
+      constructor: SocialRelayList.fromMap,
+      partialConstructor: PartialSocialRelayList.fromMap,
+    );
+    // App catalog relay list
+    Model.register(
+      kind: 10067,
+      constructor: AppCatalogRelayList.fromMap,
+      partialConstructor: PartialAppCatalogRelayList.fromMap,
     );
 
     // NIP-51: User Lists (Replaceable)
@@ -256,6 +264,57 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     );
 
     this.config = config;
+  }
+
+  /// Resolve relay URLs from label with signed RelayList precedence.
+  ///
+  /// Resolution order:
+  /// 1. null → empty set (TODO: outbox lookup)
+  /// 2. Starts with ws:// or wss:// → ad-hoc relay URL
+  /// 3. Label → query active signer's signed RelayList by kind, fallback to config.defaultRelays
+  ///
+  /// Reactive: When a signed RelayList is updated, subsequent calls will use new relays.
+  Future<Set<String>> resolveRelays(String? relays) async {
+    if (relays == null) {
+      // TODO: Implement outbox lookup (NIP-65)
+      // Will query follows' SocialRelayList (10002) events to discover relays
+      return {};
+    }
+
+    // Ad-hoc relay URL
+    if (relays.startsWith('ws://') || relays.startsWith('wss://')) {
+      final normalized = StorageConfiguration._normalizeRelayUrl(relays);
+      return normalized != null ? {normalized} : {};
+    }
+
+    // Label lookup - get kind from registry
+    final kind = RelayList.labels[relays];
+    if (kind != null) {
+      return await _resolveByKind(kind, relays);
+    }
+
+    // Unknown label - check defaults for forward compatibility
+    return config.defaultRelays[relays] ?? {};
+  }
+
+  /// Resolve relays by querying for a specific RelayList kind
+  Future<Set<String>> _resolveByKind(int kind, String label) async {
+    final activePubkey = ref.read(Signer.activePubkeyProvider);
+
+    if (activePubkey != null) {
+      // Query local storage for signed relay list of this kind
+      final results = await query(
+        RequestFilter(authors: {activePubkey}, kinds: {kind}).toRequest(),
+        source: LocalSource(),
+      );
+
+      if (results.isNotEmpty && results.first is RelayList) {
+        return (results.first as RelayList).relays;
+      }
+    }
+
+    // Fall back to defaults (by label)
+    return config.defaultRelays[label] ?? {};
   }
 
   /// Query storage asynchronously, always local

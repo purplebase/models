@@ -12,12 +12,12 @@ void main() {
 
     test('RemoteSource instances with same properties are equal', () {
       const source1 = RemoteSource(
-        group: 'social',
+        relays: 'social',
         stream: true,
         background: false,
       );
       const source2 = RemoteSource(
-        group: 'social',
+        relays: 'social',
         stream: true,
         background: false,
       );
@@ -33,12 +33,12 @@ void main() {
 
     test('LocalAndRemoteSource instances with same properties are equal', () {
       const source1 = LocalAndRemoteSource(
-        group: 'social',
+        relays: 'social',
         stream: true,
         background: true,
       );
       const source2 = LocalAndRemoteSource(
-        group: 'social',
+        relays: 'social',
         stream: true,
         background: true,
       );
@@ -50,12 +50,12 @@ void main() {
       'RemoteSource and LocalAndRemoteSource with same properties are not equal',
       () {
         const source1 = RemoteSource(
-          group: 'social',
+          relays: 'social',
           stream: true,
           background: true,
         );
         const source2 = LocalAndRemoteSource(
-          group: 'social',
+          relays: 'social',
           stream: true,
           background: true,
         );
@@ -64,9 +64,9 @@ void main() {
       },
     );
 
-    test('RemoteSource with different relayUrls are not equal', () {
-      const source1 = RemoteSource(relayUrls: {'wss://relay1.com'});
-      const source2 = RemoteSource(relayUrls: {'wss://relay2.com'});
+    test('RemoteSource with different relays are not equal', () {
+      const source1 = RemoteSource(relays: 'wss://relay1.com');
+      const source2 = RemoteSource(relays: 'wss://relay2.com');
       expect(source1, isNot(equals(source2)));
     });
   });
@@ -74,26 +74,26 @@ void main() {
   group('Source copyWith', () {
     test('RemoteSource copyWith creates equal instance when no changes', () {
       const original = RemoteSource(
-        group: 'social',
+        relays: 'social',
         stream: true,
         background: false,
       );
       final copied = original.copyWith();
       expect(copied, equals(original));
-      expect(copied.group, equals('social'));
+      expect(copied.relays, equals('social'));
       expect(copied.stream, equals(true));
       expect(copied.background, equals(false));
     });
 
     test('RemoteSource copyWith updates single property', () {
       const original = RemoteSource(
-        group: 'social',
+        relays: 'social',
         stream: true,
         background: false,
       );
       final modified = original.copyWith(background: true);
 
-      expect(modified.group, equals('social'));
+      expect(modified.relays, equals('social'));
       expect(modified.stream, equals(true));
       expect(modified.background, equals(true));
       expect(modified, isNot(equals(original)));
@@ -101,33 +101,28 @@ void main() {
 
     test('RemoteSource copyWith updates multiple properties', () {
       const original = RemoteSource(
-        group: 'social',
+        relays: 'social',
         stream: true,
         background: false,
       );
-      final modified = original.copyWith(group: 'apps', stream: false);
+      final modified = original.copyWith(relays: 'apps', stream: false);
 
-      expect(modified.group, equals('apps'));
+      expect(modified.relays, equals('apps'));
       expect(modified.stream, equals(false));
       expect(modified.background, equals(false)); // unchanged
     });
 
-    test('RemoteSource copyWith updates relayUrls', () {
-      const original = RemoteSource(relayUrls: {'wss://relay1.com'});
-      final modified = original.copyWith(
-        relayUrls: {'wss://relay1.com', 'wss://relay2.com'},
-      );
+    test('RemoteSource copyWith updates relays', () {
+      const original = RemoteSource(relays: 'wss://relay1.com');
+      final modified = original.copyWith(relays: 'wss://relay2.com');
 
-      expect(
-        modified.relayUrls,
-        equals({'wss://relay1.com', 'wss://relay2.com'}),
-      );
+      expect(modified.relays, equals('wss://relay2.com'));
       expect(modified, isNot(equals(original)));
     });
 
     test('LocalAndRemoteSource copyWith preserves type', () {
       const original = LocalAndRemoteSource(
-        group: 'social',
+        relays: 'social',
         stream: true,
         background: false,
       );
@@ -142,7 +137,7 @@ void main() {
       'LocalAndRemoteSource copyWith updates properties and preserves type',
       () {
         const original = LocalAndRemoteSource(
-          group: 'social',
+          relays: 'social',
           stream: true,
           background: false,
         );
@@ -150,7 +145,7 @@ void main() {
 
         expect(modified, isA<LocalAndRemoteSource>());
         expect(modified.background, equals(true));
-        expect(modified.group, equals('social'));
+        expect(modified.relays, equals('social'));
         expect(modified.stream, equals(true));
       },
     );
@@ -158,11 +153,11 @@ void main() {
     test('copyWith chain produces expected result', () {
       const original = RemoteSource();
       final result = original
-          .copyWith(group: 'social')
+          .copyWith(relays: 'social')
           .copyWith(stream: false)
           .copyWith(background: true);
 
-      expect(result.group, equals('social'));
+      expect(result.relays, equals('social'));
       expect(result.stream, equals(false));
       expect(result.background, equals(true));
     });
@@ -184,5 +179,27 @@ void main() {
         expect(localAndRemote, isNot(equals(local)));
       },
     );
+  });
+
+  group('RelayList label vs URL detection', () {
+    test('URL starting with wss:// is treated as ad-hoc relay', () {
+      const source = RemoteSource(relays: 'wss://relay.example.com');
+      expect(source.relays, startsWith('wss://'));
+    });
+
+    test('URL starting with ws:// is treated as ad-hoc relay', () {
+      const source = RemoteSource(relays: 'ws://relay.example.com');
+      expect(source.relays, startsWith('ws://'));
+    });
+
+    test('Non-URL string is treated as identifier', () {
+      const source = RemoteSource(relays: 'AppCatalog');
+      expect(source.relays, isNot(startsWith('ws')));
+    });
+
+    test('Null relays means outbox lookup (TODO)', () {
+      const source = RemoteSource();
+      expect(source.relays, isNull);
+    });
   });
 }

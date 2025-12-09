@@ -97,3 +97,26 @@ extension ProviderContainerExt on ProviderContainer {
 }
 
 final refProvider = Provider((ref) => ref);
+
+/// Creates a configured ProviderContainer for testing.
+///
+/// Each container has its own isolated in-memory storage,
+/// so tests can run in parallel.
+Future<ProviderContainer> createTestContainer({
+  StorageConfiguration? config,
+  List<Override>? overrides,
+}) async {
+  final container = ProviderContainer(overrides: overrides ?? []);
+  final storageConfig = config ??
+      StorageConfiguration(
+        defaultRelays: {
+          'default': {'wss://test.relay'},
+        },
+        streamingBufferWindow: Duration.zero,
+        keepMaxModels: 1000,
+      );
+
+  await container.read(initializationProvider(storageConfig).future);
+
+  return container;
+}

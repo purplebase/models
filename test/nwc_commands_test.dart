@@ -12,13 +12,12 @@ void main() {
   late Signer signer;
 
   setUp(() async {
-    container = ProviderContainer();
-    final config = StorageConfiguration(keepSignatures: false);
-    await container.read(initializationProvider(config).future);
+    container = await createTestContainer(
+      config: StorageConfiguration(keepSignatures: false),
+    );
     ref = container.read(refProvider);
     storage =
-        container.read(storageNotifierProvider.notifier)
-            as DummyStorageNotifier;
+        container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
 
     // Create and sign in a test signer
     final privateKey = Utils.generateRandomHex64();

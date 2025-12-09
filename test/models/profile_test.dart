@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
@@ -10,19 +12,37 @@ void main() {
   late ProviderContainer container;
   late Ref ref;
   late DummyStorageNotifier storage;
+  late MockClient mockClient;
 
   setUp(() async {
-    container = ProviderContainer();
-    final config = StorageConfiguration(keepSignatures: false);
-    await container.read(initializationProvider(config).future);
+    mockClient = MockClient((request) async {
+      if (request.url.path.contains('.well-known/nostr.json')) {
+        return http.Response(
+          jsonEncode({
+            'names': {
+              'test':
+                  'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+            },
+          }),
+          200,
+        );
+      }
+      if (request.url.path.contains('.well-known/lnurlp')) {
+        return http.Response('', 404);
+      }
+      return http.Response('', 404);
+    });
+
+    container = await createTestContainer(
+      config: StorageConfiguration(keepSignatures: false),
+      overrides: [httpClientProvider.overrideWithValue(mockClient)],
+    );
     ref = container.read(refProvider);
     storage =
-        container.read(storageNotifierProvider.notifier)
-            as DummyStorageNotifier;
+        container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
   });
 
   tearDown(() async {
-    await storage.cancel();
     await storage.clear();
     container.dispose();
   });
@@ -75,9 +95,10 @@ void main() {
 
       await storage.save({testProfile});
 
-      // Mock Utils.decodeNip05 by creating a test that would work
-      // Note: In a real test, you'd mock the HTTP call or use a test server
-      // For this test, we'll test the logic assuming the NIP-05 resolution works
+      // Verify NIP-05 resolution using the mock client injected via provider
+      final profile = await Profile.fromNip05('test@example.com', ref);
+      expect(profile, isNotNull);
+      expect(profile!.pubkey, testProfile.pubkey);
 
       // Test with non-existent profile
       final nonExistentProfile = await Profile.fromNip05(
@@ -101,7 +122,7 @@ void main() {
             'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
           );
 
-      final invoice = await profile.getLightningInvoice(amountSats: 1000);
+      final invoice = await profile.getLightningInvoice(amountSats: 1000, client: mockClient);
       expect(invoice, isNull);
     });
 
@@ -114,7 +135,7 @@ void main() {
             'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
           );
 
-      final invoice = await profile.getLightningInvoice(amountSats: 1000);
+      final invoice = await profile.getLightningInvoice(amountSats: 1000, client: mockClient);
       expect(invoice, isNull);
     });
 
@@ -128,8 +149,9 @@ void main() {
             'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
           );
 
-      final invoice = await profile.getLightningInvoice(amountSats: 1000);
-      // Should return null due to network failure (domain doesn't exist)
+      // The mock client returns 404 by default for unknown URLs
+      final invoice = await profile.getLightningInvoice(amountSats: 1000, client: mockClient);
+      // Should return null due to network failure (domain doesn't exist / 404)
       expect(invoice, isNull);
     });
   });

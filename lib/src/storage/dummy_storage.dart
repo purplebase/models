@@ -1,51 +1,125 @@
 part of models;
 
-/// Reactive storage with dummy data using internal relay backend
+/// Pure in-memory storage for testing with streaming simulation.
+///
+/// Fast, isolated, and supports parallel test execution.
+/// Simulates relay streaming by tracking subscriptions and pushing
+/// matching events when saved.
 class DummyStorageNotifier extends StorageNotifier {
-  final Ref ref;
-  late NostrRelay _relay;
+  final List<Map<String, dynamic>> _events = [];
 
-  DummyStorageNotifier(this.ref);
+  /// Active streaming subscriptions: subscriptionId -> Request
+  final Map<String, Request> _subscriptions = {};
 
-  final Map<RequestFilter, Timer> _streamingTimers = {};
-  final Set<String> _streamingRequestIds =
-      {}; // Track which requests are streaming
-  final Map<String, ProviderSubscription> _relaySubscriptions = {};
+  DummyStorageNotifier(super.ref);
 
   @override
   Future<void> initialize(StorageConfiguration config) async {
     if (isInitialized) return;
-
     await super.initialize(config);
-    _relay = ref.read(relayProvider);
     isInitialized = true;
   }
 
   @override
   Future<bool> save(Set<Model<dynamic>> models) async {
-    // Store using relay publish API
-    // Use model.toMap() to include storage-specific fields like _decrypted
-    final eventMaps = models.map((model) => model.toMap()).toList();
-    final results = _relay.publish(eventMaps);
+    if (models.isEmpty) return true;
 
-    // Check if all succeeded
-    final allSucceeded = results.every((result) => result.startsWith('OK:'));
+    final savedEvents = <Map<String, dynamic>>[];
 
-    // Handle NWC requests by generating dummy responses (run in background)
     for (final model in models) {
-      if (model.event.kind == 23194) {
-        _relay._handleNwcRequest(model.event.toMap());
+      final map = model.toMap();
+      map['sig'] ??= Utils.generateRandomHex64() + Utils.generateRandomHex64();
+      _addEvent(map);
+      savedEvents.add(map);
+    }
+
+    if (!mounted) return true;
+
+    // Collect all updates first to avoid concurrent modification
+    // when listeners modify _subscriptions
+    final updates = <InternalStorageData>[];
+
+    // Simulate streaming: notify subscriptions that match the saved events
+    for (final entry in _subscriptions.entries.toList()) {
+      final req = entry.value;
+
+      final matchingIds = <String>{};
+      for (final event in savedEvents) {
+        if (_eventMatchesRequest(event, req)) {
+          // Use addressable ID for replaceable events, event ID otherwise
+          final addressableId = _computeAddressableId(event);
+          matchingIds.add(addressableId ?? event['id'] as String);
+        }
+      }
+
+      if (matchingIds.isNotEmpty) {
+        updates.add(InternalStorageData(req: req, updatedIds: matchingIds));
       }
     }
 
-    // Intentionally ignore config.keepMaxModels - dummy implementation don't care
+    // Add general update for non-streaming queries
+    updates.add(
+      InternalStorageData(
+        req: null,
+        updatedIds: {for (final model in models) model.id},
+      ),
+    );
 
-    if (mounted && models.isNotEmpty) {
-      final updatedIds = {for (final e in models) e.id};
-      state = InternalStorageData(req: null, updatedIds: updatedIds);
+    // Emit all updates
+    for (final update in updates) {
+      if (!mounted) return true;
+      state = update;
     }
 
-    return allSucceeded;
+    return true;
+  }
+
+  void _addEvent(Map<String, dynamic> event) {
+    final kind = event['kind'] as int;
+    final pubkey = event['pubkey'] as String;
+
+    if (Utils.isEventReplaceable(kind)) {
+      // Remove older version of replaceable event
+      String? dTag;
+      if (kind >= 30000 && kind < 40000) {
+        final tags = event['tags'] as List?;
+        if (tags != null) {
+          for (final tag in tags) {
+            if (tag is List && tag.isNotEmpty && tag[0] == 'd') {
+              dTag = tag.length > 1 ? tag[1] as String : '';
+              break;
+            }
+          }
+        }
+      }
+
+      _events.removeWhere((existing) {
+        if (existing['kind'] != kind || existing['pubkey'] != pubkey) {
+          return false;
+        }
+        if (kind >= 30000 && kind < 40000) {
+          // Parameterized replaceable - match by d tag
+          String? existingDTag;
+          final existingTags = existing['tags'] as List?;
+          if (existingTags != null) {
+            for (final tag in existingTags) {
+              if (tag is List && tag.isNotEmpty && tag[0] == 'd') {
+                existingDTag = tag.length > 1 ? tag[1] as String : '';
+                break;
+              }
+            }
+          }
+          return existingDTag == dTag;
+        }
+        // Regular replaceable (0, 3, 10000-19999)
+        return true;
+      });
+    } else {
+      // Regular event - just remove duplicates
+      _events.removeWhere((e) => e['id'] == event['id']);
+    }
+
+    _events.add(Map<String, dynamic>.from(event));
   }
 
   @override
@@ -54,43 +128,19 @@ class DummyStorageNotifier extends StorageNotifier {
     RemoteSource source = const RemoteSource(),
   }) async {
     final response = PublishResponse();
-
-    if (models.isNotEmpty) {
-      // Prepare maps for publishing (strip metadata for relay compatibility)
-      final publishMaps = _prepareForPublish(models);
-
-      final relayUrls = config.getRelays(source: source);
-      for (final relayUrl in relayUrls) {
-        for (final map in publishMaps) {
-          final message =
-              'Fake publishing ${models.length} models to $relayUrl';
-          response.addEvent(
-            map['id'],
-            relayUrl: relayUrl,
-            accepted: true,
-            message: message,
-          );
-        }
+    final relayUrls = await resolveRelays(source.relays);
+    for (final relay in relayUrls) {
+      for (final model in models) {
+        response.addEvent(
+          model.id,
+          relayUrl: relay,
+          accepted: true,
+          message: 'Published via dummy storage',
+        );
       }
     }
+    await save(models);
     return response;
-  }
-
-  /// Prepare models for publishing by stripping internal metadata.
-  ///
-  /// Metadata is an internal implementation detail (used for caching derived data
-  /// like Zap amounts, etc.) and should not be published to relays.
-  ///
-  /// Note: Content is already encrypted during signing for encryptable models.
-  List<Map<String, dynamic>> _prepareForPublish(Set<Model<dynamic>> models) {
-    return models.map((model) {
-      final map = model.toMap();
-
-      // Strip metadata before publishing (internal implementation detail)
-      map.remove('metadata');
-
-      return map;
-    }).toList();
   }
 
   @override
@@ -99,484 +149,221 @@ class DummyStorageNotifier extends StorageNotifier {
     Source? source,
     String? subscriptionPrefix,
   }) async {
-    source ??= config.defaultQuerySource;
-
-    // Always start with local results from relay subscription
-    final results = querySync(req);
-
-    // For LocalSource, return only local results
-    if (source is LocalSource) {
-      return results;
+    // Register subscription for streaming if enabled
+    if (source is LocalAndRemoteSource && source.stream) {
+      _subscriptions[req.subscriptionId] = req;
     }
 
-    // For RemoteSource, handle both streaming and one-time queries
-    if (source is RemoteSource) {
-      // When stream=false, always wait for EOSE (ignore background flag)
-      // When stream=true, respect the background flag
-      final shouldWaitForEose = !source.stream || !source.background;
-
-      if (source.stream) {
-        // Mark this request as streaming (remove limits for future queries)
-        final requestId = req.toString();
-        _streamingRequestIds.add(requestId);
-
-        // Set up reactive listening to relay subscription changes
-        _setupRelaySubscriptionListener(
-          req,
-          subscriptionPrefix: subscriptionPrefix,
-        );
-
-        // Start streaming simulation for each filter
-        for (final filter in req.filters) {
-          _startStreamingForFilter(filter, source);
-        }
-      }
-
-      // Wait for EOSE if needed (either stream=false, or stream=true with background=false)
-      if (shouldWaitForEose) {
-        // Create relay request
-        final relayRequest = Request(
-          req.filters
-              .map(
-                (f) => RequestFilter(
-                  ids: f.ids,
-                  authors: f.authors,
-                  kinds: f.kinds,
-                  tags: f.tags,
-                  since: f.since,
-                  until: f.until,
-                  limit: f.limit,
-                  search: f.search,
-                ),
-              )
-              .toList(),
-          subscriptionPrefix: subscriptionPrefix,
-        );
-
-        // Get the subscription state provider
-        final subscriptionProvider = relaySubscriptionProvider(relayRequest);
-
-        // Wait for EOSE
-        await _waitForEose(subscriptionProvider);
-
-        // After EOSE, get the final results
-        final finalResults = querySync(req);
-
-        return finalResults;
-      }
-    }
-
-    return results;
-  }
-
-  /// Wait for EOSE (End of Stored Events) on a relay subscription
-  Future<void> _waitForEose(
-    StateNotifierProvider<RelaySubscriptionNotifier, RelaySubscriptionState>
-    subscriptionProvider,
-  ) async {
-    // Check if already at EOSE
-    final currentState = ref.read(subscriptionProvider);
-    if (currentState.isEose) {
-      return;
-    }
-
-    // Wait for EOSE with a completer
-    final completer = Completer<void>();
-
-    // Listen for state changes
-    final subscription = ref.listen(subscriptionProvider, (previous, current) {
-      if (current.isEose && !completer.isCompleted) {
-        completer.complete();
-      }
-    });
-
-    // Set a timeout to prevent hanging forever
-    final timeout = config.responseTimeout;
-
-    try {
-      await completer.future.timeout(timeout);
-    } catch (e) {
-      // Timeout or error - just continue with what we have
-    } finally {
-      subscription.close();
-    }
+    return querySync(req);
   }
 
   @override
   List<E> querySync<E extends Model<dynamic>>(Request<E> req) {
-    // Create a subscription to get events from relay
-    final relayRequest = Request(
-      req.filters
-          .map(
-            (f) => RequestFilter(
-              ids: f.ids,
-              authors: f.authors,
-              kinds: f.kinds,
-              tags: f.tags,
-              since: f.since,
-              until: f.until,
-              limit: f.limit,
-              search: f.search,
-            ),
-          )
-          .toList(),
-    );
+    return _materialize(req);
+  }
 
-    // Get subscription notifier (this creates the subscription)
-    final subscriptionNotifier = ref.read(
-      relaySubscriptionProvider(relayRequest),
-    );
-
-    // Get current events from the subscription
-    List<Map<String, dynamic>> relayEvents = subscriptionNotifier.events;
-
-    // If we have no events in subscription but relay has events,
-    // force a fresh query directly from relay storage
-    if (relayEvents.isEmpty && _relay.storage.eventCount > 0) {
-      relayEvents = _relay.storage.queryEvents(relayRequest.filters);
+  /// Check if an event matches a request's filters
+  bool _eventMatchesRequest(Map<String, dynamic> event, Request req) {
+    for (final filter in req.filters) {
+      if (_eventMatchesFilter(event, filter)) return true;
     }
+    return false;
+  }
 
-    final allResults = <E>[];
-    final subId = req.subscriptionId;
-    final isStreaming = _streamingRequestIds.contains(subId);
+  /// Check if an event matches a single filter
+  bool _eventMatchesFilter(Map<String, dynamic> event, RequestFilter filter) {
+    final kind = event['kind'] as int;
+    final pubkey = event['pubkey'] as String;
+    final eventId = event['id'] as String;
+
+    if (filter.ids.isNotEmpty) {
+      final addressableId = _computeAddressableId(event);
+      final matchesRawId = filter.ids.contains(eventId);
+      final matchesAddressable =
+          addressableId != null && filter.ids.contains(addressableId);
+      if (!matchesRawId && !matchesAddressable) {
+        return false;
+      }
+    }
+    if (filter.authors.isNotEmpty && !filter.authors.contains(pubkey)) {
+      return false;
+    }
+    if (filter.kinds.isNotEmpty && !filter.kinds.contains(kind)) {
+      return false;
+    }
+    if (filter.tags.isNotEmpty) {
+      final eventTags = event['tags'] as List?;
+      if (eventTags == null) return false;
+      for (final entry in filter.tags.entries) {
+        final tagKey = entry.key.startsWith('#')
+            ? entry.key.substring(1)
+            : entry.key;
+        final tagValues = entry.value;
+        final hasMatch = eventTags.any(
+          (t) =>
+              t is List &&
+              t.isNotEmpty &&
+              t[0] == tagKey &&
+              t.length > 1 &&
+              tagValues.contains(t[1]),
+        );
+        if (!hasMatch) return false;
+      }
+    }
+    if (filter.since != null) {
+      final createdAt = event['created_at'] as int;
+      if (createdAt < filter.since!.millisecondsSinceEpoch ~/ 1000) {
+        return false;
+      }
+    }
+    if (filter.until != null) {
+      final createdAt = event['created_at'] as int;
+      if (createdAt > filter.until!.millisecondsSinceEpoch ~/ 1000) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<E> _materialize<E extends Model<dynamic>>(Request<E> req) {
+    final results = <E>[];
 
     for (final filter in req.filters) {
-      // Handle replaceable IDs by converting them to regular filters
-      final replaceableIds = filter.ids.where((id) => id.contains(':')).toSet();
+      var filtered = _events.where(
+        (event) => _eventMatchesFilter(event, filter),
+      );
 
-      List<E> results = [];
-
-      // Convert relay events to models
-      final models = relayEvents
+      var models = filtered
           .map((event) {
             final constructor = Model.getConstructorForKind(event['kind']);
             if (constructor == null) return null;
-
-            // Apply transformMap before constructing the model
-            final transformedEvent = _applyTransformMap(event, ref);
-            return constructor(transformedEvent, ref) as Model;
+            final transformed = _applyTransformMap(event);
+            return constructor(transformed, ref) as Model;
           })
           .whereType<E>()
           .toList();
 
-      results.addAll(models);
-
-      // Handle replaceable IDs (these are addressable IDs, not event IDs)
-      if (replaceableIds.isNotEmpty) {
-        for (final addressableId in replaceableIds) {
-          // Parse addressable ID to get kind, pubkey, and d-tag
-          final parts = addressableId.split(':');
-          if (parts.length >= 3) {
-            final kind = int.tryParse(parts[0]);
-            final pubkey = parts[1];
-            final dTag = parts.length > 3 ? parts[3] : '';
-
-            if (kind != null) {
-              final replaceableRequest = Request([
-                RequestFilter(
-                  kinds: {kind},
-                  authors: {pubkey},
-                  tags: dTag.isNotEmpty
-                      ? {
-                          '#d': {dTag},
-                        }
-                      : null,
-                ),
-              ]);
-
-              // Query directly from relay storage for replaceable events
-              final events = _relay.storage.queryEvents(
-                replaceableRequest.filters,
-              );
-
-              // Convert to models
-              final models = events
-                  .map((event) {
-                    final constructor = Model.getConstructorForKind(
-                      event['kind'],
-                    );
-                    if (constructor == null) return null;
-
-                    // Apply transformMap before constructing the model
-                    final transformedEvent = _applyTransformMap(event, ref);
-                    return constructor(transformedEvent, ref) as Model;
-                  })
-                  .whereType<E>()
-                  .toList();
-
-              results.addAll(models);
-            }
-          }
-        }
-      }
-
-      // Apply custom where clause if present
       if (filter.where != null) {
-        results = results.where((m) => filter.where!(m)).toList();
+        models = models.where((m) => filter.where!(m)).toList();
       }
 
-      // Sort and apply limit per filter
-      if (results.isNotEmpty) {
-        // Sort by created_at descending, then by id ascending for ties (Nostr standard)
-        results.sort((a, b) {
-          final timeComparison = b.event.createdAt.compareTo(a.event.createdAt);
-          if (timeComparison != 0) return timeComparison;
-          return a.event.id.compareTo(b.event.id);
-        });
+      models.sort((a, b) {
+        final cmp = b.event.createdAt.compareTo(a.event.createdAt);
+        if (cmp != 0) return cmp;
+        return a.event.id.compareTo(b.event.id);
+      });
 
-        // Apply limit if specified and not streaming
-        if (!isStreaming &&
-            filter.limit != null &&
-            results.length > filter.limit!) {
-          results = results.take(filter.limit!).toList();
-        }
+      if (filter.limit != null && models.length > filter.limit!) {
+        models = models.take(filter.limit!).toList();
       }
 
-      allResults.addAll(results);
+      results.addAll(models);
     }
 
-    // Remove duplicates while preserving order
-    // For replaceable events, deduplicate by addressable ID and keep the newest
+    // Dedupe
     final seenIds = <String>{};
-    final seenAddressableIds = <String, E>{};
-    final finalResults = <E>[];
+    final seenReplaceable = <String, E>{};
+    final deduped = <E>[];
 
-    for (final model in allResults) {
+    for (final model in results) {
       if (model is ReplaceableModel) {
-        final addressableId = model.id;
-        final existing = seenAddressableIds[addressableId];
-
+        final addressable = model.id;
+        final existing = seenReplaceable[addressable];
         if (existing == null) {
-          // First time seeing this addressable ID
-          seenAddressableIds[addressableId] = model;
-          finalResults.add(model);
-        } else {
-          // We've seen this addressable ID before, keep the newer one
-          if (model.event.createdAt.isAfter(existing.event.createdAt) ||
-              (model.event.createdAt == existing.event.createdAt &&
-                  model.event.id.compareTo(existing.event.id) > 0)) {
-            // Replace the existing model with the newer one
-            final index = finalResults.indexOf(existing);
-            if (index != -1) {
-              finalResults[index] = model;
-            }
-            seenAddressableIds[addressableId] = model;
-          }
-          // If existing is newer, keep it and don't add the current model
+          seenReplaceable[addressable] = model;
+          deduped.add(model);
+        } else if (model.event.createdAt.isAfter(existing.event.createdAt) ||
+            (model.event.createdAt == existing.event.createdAt &&
+                model.event.id.compareTo(existing.event.id) > 0)) {
+          final index = deduped.indexOf(existing);
+          if (index != -1) deduped[index] = model;
+          seenReplaceable[addressable] = model;
         }
       } else {
-        // For non-replaceable events, use the regular event ID deduplication
-        if (!seenIds.contains(model.event.id)) {
-          seenIds.add(model.event.id);
-          finalResults.add(model);
-        } else {
-          // Already seen this event ID, skip it
+        if (seenIds.add(model.event.id)) {
+          deduped.add(model);
         }
       }
     }
 
-    return finalResults;
+    return deduped;
   }
 
-  /// Apply transformMap to an event before constructing a model
-  Map<String, dynamic> _applyTransformMap(Map<String, dynamic> event, Ref ref) {
-    // Apply signature stripping based on storage configuration
+  Map<String, dynamic> _applyTransformMap(Map<String, dynamic> event) {
     if (!config.keepSignatures) {
-      event['sig'] = null;
+      final copy = Map<String, dynamic>.from(event);
+      copy['sig'] = null;
+      return copy;
     }
     return event;
   }
 
-  /// Set up reactive listening to relay subscription for streaming queries
-  void _setupRelaySubscriptionListener<E extends Model<dynamic>>(
-    Request<E> req, {
-    String? subscriptionPrefix,
-  }) {
-    final requestKey = req.toString();
+  /// Compute the addressable ID for replaceable events (kind:pubkey:d-tag).
+  String? _computeAddressableId(Map<String, dynamic> event) {
+    final kind = event['kind'] as int;
+    if (!Utils.isEventReplaceable(kind)) return null;
 
-    // Avoid duplicate subscriptions
-    if (_relaySubscriptions.containsKey(requestKey)) {
-      return;
-    }
+    final pubkey = event['pubkey'] as String;
 
-    // Create relay request
-    final relayRequest = Request(
-      req.filters
-          .map(
-            (f) => RequestFilter(
-              ids: f.ids,
-              authors: f.authors,
-              kinds: f.kinds,
-              tags: f.tags,
-              since: f.since,
-              until: f.until,
-              limit: f.limit,
-              search: f.search,
-            ),
-          )
-          .toList(),
-      subscriptionPrefix: subscriptionPrefix,
-    );
-
-    // Listen to relay subscription changes
-    final subscription = ref.listen(relaySubscriptionProvider(relayRequest), (
-      previous,
-      current,
-    ) {
-      // Only notify if we have new events and are still mounted
-      if (mounted && current.events.isNotEmpty) {
-        // Check if any event IDs changed (not just count) to detect replaceable updates
-        final previousIds = previous?.events.map((e) => e['id'] as String).toSet() ?? {};
-        final currentIds = current.events.map((e) => e['id'] as String).toSet();
-        
-        // Notify if we have new events OR if event IDs changed (replaceable updates)
-        if (previous == null || 
-            current.events.length > previous.events.length ||
-            previousIds.difference(currentIds).isNotEmpty ||
-            currentIds.difference(previousIds).isNotEmpty) {
-          // Trigger a state update to notify listeners
-          state = InternalStorageData(req: null, updatedIds: currentIds);
+    if (kind >= 30000 && kind < 40000) {
+      // Parameterized replaceable - include d tag
+      String dTag = '';
+      final tags = event['tags'] as List?;
+      if (tags != null) {
+        for (final tag in tags) {
+          if (tag is List && tag.isNotEmpty && tag[0] == 'd') {
+            dTag = tag.length > 1 ? tag[1] as String : '';
+            break;
+          }
         }
       }
-    });
-
-    _relaySubscriptions[requestKey] = subscription;
-  }
-
-  /// Starts streaming simulation for a specific filter
-  void _startStreamingForFilter(RequestFilter filter, RemoteSource source) {
-    // Cancel existing streaming for this filter
-    _streamingTimers[filter]?.cancel();
-
-    // For tests (when streamingBufferWindow is Duration.zero),
-    // simulate streaming with immediate single model additions
-    if (config.streamingBufferWindow == Duration.zero) {
-      // Schedule small incremental additions for test predictability
-      _simulateTestStreaming(filter);
-      return;
+      return '$kind:$pubkey:$dTag';
     }
 
-    // Generate new events periodically that match the filter
-    _streamingTimers[filter] = Timer.periodic(config.streamingBufferWindow, (
-      timer,
-    ) async {
-      if (!mounted) {
-        timer.cancel();
-        _streamingTimers.remove(filter);
-        return;
-      }
-
-      final r = Random();
-      // 30% chance to generate a new event each interval
-      if (r.nextDouble() < 0.3) {
-        // Note: In real implementation, this would receive events from external sources
-        // For now, we don't generate fake streaming data - that should come from test utilities
-      }
-    });
-  }
-
-  /// Simulates streaming for tests by adding models with delays
-  void _simulateTestStreaming(RequestFilter filter) {
-    int count = 0;
-    final timer = Timer.periodic(Duration(milliseconds: 10), (timer) async {
-      if (!mounted) {
-        timer.cancel();
-        _streamingTimers.remove(filter);
-        return;
-      }
-      if (count >= 3) {
-        timer.cancel();
-        _streamingTimers.remove(filter);
-        return;
-      }
-      count++;
-      // Note: In real implementation, this would receive events from external sources
-      // For now, we don't generate fake streaming data - that should come from test utilities
-    });
-    _streamingTimers[filter] = timer;
+    // Regular replaceable (0, 3, 10000-19999)
+    return '$kind:$pubkey:';
   }
 
   @override
   Future<void> clear([Request? req]) async {
     if (req == null) {
-      // Cancel all streaming timers first
-      for (final timer in _streamingTimers.values) {
-        timer.cancel();
-      }
-      _streamingTimers.clear();
-      _streamingRequestIds.clear();
-
-      // Dispose all relay subscriptions
-      for (final subscription in _relaySubscriptions.values) {
-        subscription.close();
-      }
-      _relaySubscriptions.clear();
-
-      // Clear all events (this also invalidates relay subscription caches)
-      _relay.deleteEvents();
-
-      // Notify of state change
+      _events.clear();
+      _subscriptions.clear();
       if (mounted) {
-        state = InternalStorageData(req: null, updatedIds: <String>{});
+        state = InternalStorageData(req: null, updatedIds: {});
       }
       return;
     }
 
-    // Query matching events and remove them by ID
-    final matchingModels = querySync(req);
-    final eventIdsToDelete = matchingModels
-        .map((model) => model.event.id)
-        .toSet();
+    final matching = querySync(req);
+    if (matching.isEmpty) return;
 
-    if (eventIdsToDelete.isNotEmpty) {
-      _relay.deleteEvents(eventIdsToDelete);
+    final idsToRemove = matching.map((m) => m.event.id).toSet();
+    _events.removeWhere((e) => idsToRemove.contains(e['id']));
 
-      // Force refresh of all subscription caches by disposing and recreating them
-      final subscriptionsToRecreate = <String, Request>{};
-      for (final entry in _relaySubscriptions.entries) {
-        final requestKey = entry.key;
-        final subscription = entry.value;
-
-        // Find the original request for this subscription
-        // We need to extract it from the subscription state
-        // For now, we'll just dispose the subscription and let it be recreated on next query
-        subscription.close();
-        subscriptionsToRecreate[requestKey] = Request([RequestFilter()]);
-      }
-      _relaySubscriptions.clear();
-
-      // Clear streaming state for deleted events
-      final updatedIds = <String>{};
-      for (final id in eventIdsToDelete) {
-        updatedIds.add(id);
-      }
-
-      // Force a state update to trigger re-queries
-      if (mounted) {
-        state = InternalStorageData(req: null, updatedIds: updatedIds);
-      }
+    if (mounted) {
+      state = InternalStorageData(req: null, updatedIds: idsToRemove);
     }
   }
 
   @override
   Future<void> obliterate() async {
-    // Same as clear with no request - delete all events
     await clear();
   }
 
   @override
   Future<void> cancel([Request? req]) async {
-    if (req == null) {
-      for (final timer in _streamingTimers.values) {
-        timer.cancel();
-      }
-      _streamingTimers.clear();
-      return;
+    if (req != null) {
+      _subscriptions.remove(req.subscriptionId);
+    } else {
+      _subscriptions.clear();
     }
+  }
 
-    for (final filter in req.filters) {
-      _streamingTimers[filter]?.cancel();
-      _streamingTimers.remove(filter);
-    }
+  @override
+  void dispose() {
+    _events.clear();
+    _subscriptions.clear();
+    super.dispose();
   }
 }

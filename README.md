@@ -1,924 +1,216 @@
-# models 👯
+# models
 
-Fast local-first nostr framework designed to make developers (and vibe-coders) happy. Written in Dart.
+A local-first Nostr framework for Dart applications. Built on Riverpod for reactive state management.
 
-It provides:
- - Domain-specific models that wrap common nostr event kinds (with relationships between them)
- - A local-first model storage and relay interface, leveraging reactive Riverpod providers
- - Built-in Nostr relay server for testing and development
- - Complete NostrWalletConnect (NWC) implementation for Lightning payments
- - Comprehensive authentication and signer management
- - Event verification and cryptographic operations
- - Easy extensibility
+## Overview
 
-> 📚 **For practical recipes and examples, check out [Purplestack](https://github.com/purplebase/purplestack)**, an agentic development stack for building Nostr-enabled Flutter applications - the best way to use this package with ready-to-use app templates and patterns.
+This library provides domain-driven abstractions over the Nostr protocol, enabling developers to work with typed models (`Note`, `Profile`, `Reaction`) rather than raw JSON events. Key features:
 
-An offline-ready app with reactions/zaps in a few lines of code:
+- **Domain models** wrapping common Nostr event kinds with relationships between them
+- **Local-first storage** with background relay synchronization via Riverpod providers
+- **NIP-44 encryption** for direct messages and private data
+- **NostrWalletConnect (NIP-47)** for Lightning payments
+- **Signer management** supporting multiple authentication methods
+- **BIP-340 signature verification**
+
+For practical examples and application templates, see [Purplestack](https://github.com/purplebase/purplestack).
+
+### Quick Example
 
 ```dart
 Widget build(BuildContext context, WidgetRef ref) {
-  final value = ref.watch(
+  final state = ref.watch(
     query<Note>(
       limit: 10,
-      authors: {npub1, npub2, npub3, ...},
+      authors: {npub1, npub2, npub3},
       and: (note) => {note.author, note.reactions, note.zaps},
     ),
   );
-  // ...
-  Column(children: [
-    for (final note in value.models)
-      NoteCard(
-        userName: note.author.value!.nameOrNpub,
-        noteText: note.content,
-        timestamp: note.createdAt,
-        likes: note.reactions.length,
-        zaps: note.zaps.length,
-        zapAmount: note.zaps.toList().fold(0, (acc, e) => acc += e.amount),
-      )
-  ])
+
+  return switch (state) {
+    StorageLoading() => CircularProgressIndicator(),
+    StorageError(:final exception) => Text('Error: $exception'),
+    StorageData(:final models) => ListView(
+      children: [
+        for (final note in models)
+          NoteCard(
+            userName: note.author.value!.nameOrNpub,
+            noteText: note.content,
+            likes: note.reactions.length,
+            zapAmount: note.zaps.fold(0, (acc, z) => acc + z.amount),
+          )
+      ],
+    ),
+  };
+}
 ```
 
-Current implementations:
-  - Dummy: In-memory storage and relay, for testing and prototyping (default, included)
-  - [Purplebase](https://github.com/purplebase/purplebase): SQLite-powered storage and an efficient relay pool
-
-## Features ✨
-
- - **Domain models**: Instead of NIP-jargon, use type-safe classes with domain language to interact with nostr, many common nostr event kinds are available (or bring your own)
- - **Relationships**: Smoothly navigate local storage with model relationships
- - **Reactive querying**: Multiple query providers for different use cases with familiar nostr request filter API
- - **Built-in relay server**: In-memory Nostr relay suitable for development and testing
- - **NostrWalletConnect**: Complete NIP-47 implementation for Lightning wallet integration
- - **Signers & Authentication**: Construct new nostr events and sign them using Amber (Android) and other NIP-55 signers, with comprehensive authentication management
- - **Event verification**: Built-in BIP-340 signature verification with configurable verifiers
- - **Dummy implementation**: Plug-and-play implementation for testing/prototyping, easily generate dummy profiles, notes, and even a whole feed
- - **Raw events**: Access lower-level nostr event data (`event` property on all models)
- - and much more
-
-## Installation 🛠️
-
-Add the dependency to your `pubspec.yaml`:
+## Installation
 
 ```yaml
 dependencies:
   models:
-    git: # git until we put it on pub.dev
+    git:
       url: https://github.com/purplebase/models
       ref: main
 ```
 
-Then run `dart pub get` or `flutter pub get`.
+## Core Concepts
 
-## Table of Contents 📜
+### Models and Partial Models
 
-- [Core Concepts 🧠](#core-concepts-)
-  - [Models & Partial Models](#models--partial-models)
-  - [Relationships](#relationships)
-  - [Querying & Providers](#querying--providers)
-  - [Storage & Relays](#storage--relays)
-  - [Source Behavior](#source-behavior)
-- [Authentication & Signers 🔐](#authentication--signers-)
-  - [Signer Providers](#signer-providers)
-  - [Authentication Management](#authentication-management)
-- [Built-in Relay Server 🖥️](#built-in-relay-server-)
-- [NostrWalletConnect 💰](#nostrwalletconnect-)
-- [API Reference 📚](#api-reference-)
-  - [Query Providers](#query-providers)
-  - [Storage Configuration](#storage-configuration)
-  - [Query Filters](#query-filters)
-  - [Advanced Filtering with `where`](#advanced-filtering-with-where)
-  - [Utilities](#utilities)
-  - [Event Verification](#event-verification)
-  - [Error Handling](#error-handling)
-- [Design Notes 📝](#design-notes-)
-- [Contributing 🙏](#contributing-)
-- [License 📄](#license-)
-
-## NIP Implementation Status 📋
-
-- [x] **NIP-01: Basic protocol flow description**
-- [x] **NIP-02: Follow List**
-- [x] **NIP-04: Encrypted Direct Message**
-- [x] **NIP-05: Mapping Nostr keys to DNS-based internet identifiers**
-- [x] **NIP-09: Event Deletion Request**
-- [x] **NIP-10: Text Notes and Threads**
-- [x] **NIP-11: Relay Information Document**
-- [x] **NIP-18: Reposts**
-- [x] **NIP-19: bech32-encoded entities**
-- [x] **NIP-21: `nostr:` URI scheme**
-- [x] **NIP-22: Comment**
-- [x] **NIP-23: Long-form Content**
-- [x] **NIP-25: Reactions**
-- [x] **NIP-28: Public Chat**
-- [x] **NIP-29: Relay-based Groups**
-- [x] **NIP-39: External Identities in Profiles**
-- [x] **NIP-42: Authentication of clients to relays**
-- [x] **NIP-44: Encrypted Payloads (Versioned)**
-- [x] **NIP-47: Nostr Wallet Connect** - Complete implementation with connection management, commands, and secure storage
-- [x] **NIP-51: Lists**
-- [x] **NIP-55: Android Signer Application**
-- [x] **NIP-57: Lightning Zaps**
-- [x] **NIP-65: Relay List Metadata**
-- [x] **NIP-71: Video Events**
-- [x] **NIP-72: Moderated Communities (Reddit Style)**
-- [x] **NIP-78: Arbitrary custom app data**
-- [x] **NIP-82: Application metadata, releases, assets** _(draft)_
-- [x] **NIP-90: Data Vending Machine**
-- [x] **NIP-94: File Metadata**
-- [x] **NIP-A0: Voice Messages**
-
-## Registered Event Kinds 📋
-
-This table lists all Nostr event kinds currently registered in this library to help developers avoid conflicts when implementing custom models:
-
-| Kind | Model Class | NIP | Description | Type |
-|------|-------------|-----|-------------|------|
-| 0 | `Profile` | NIP-01 | User Metadata | Replaceable |
-| 1 | `Note` | NIP-01 | Short Text Note | Regular |
-| 3 | `ContactList` | NIP-02 | Follow List | Replaceable |
-| 4 | `DirectMessage` | NIP-04 | Encrypted Direct Message | Regular |
-| 5 | `EventDeletionRequest` | NIP-09 | Event Deletion Request | Regular |
-| 6 | `Repost` | NIP-18 | Repost | Regular |
-| 7 | `Reaction` | NIP-25 | Reaction | Regular |
-| 9 | `ChatMessage` | NIP-28 | Chat Message | Regular |
-| 11 | `RelayInfo` | NIP-11 | Relay Information Document | Regular |
-| 16 | `GenericRepost` | NIP-18 | Generic Repost | Regular |
-| 20 | `Picture` | NIP-68 | Picture Event | Regular |
-| 21 | `Video` | NIP-71 | Video Event | Regular |
-| 22 | `ShortFormPortraitVideo` | NIP-71 | Short-form Portrait Video Event | Regular |
-| 1063 | `FileMetadata` | NIP-94 | File Metadata | Regular |
-| 1111 | `Comment` | NIP-22 | Comment | Regular |
-| 1222 | `VoiceMessage` | NIP-A0 | Voice Message | Regular |
-| 1244 | `VoiceMessageComment` | NIP-A0 | Voice Message Comment | Regular |
-| 1984 | `Report` | NIP-56 | Content Report | Regular |
-| 3063 | `SoftwareAsset` | NIP-82 | Software Asset | Regular |
-| 5312 | `VerifyReputationRequest` | NIP-90 | DVM Request | Regular |
-| 6312 | `VerifyReputationResponse` | NIP-90 | DVM Response | Regular |
-| 7000 | `DVMError` | NIP-90 | DVM Error | Regular |
-| 9734 | `ZapRequest` | NIP-57 | Zap Request | Regular |
-| 9735 | `Zap` | NIP-57 | Zap Receipt | Regular |
-| 9802 | `Highlight` | NIP-84 | Highlight | Regular |
-| 10000 | `MuteList` | NIP-51 | Mute List | Replaceable |
-| 10001 | `PinList` | NIP-51 | Pin List | Replaceable |
-| 10002 | `RelayListMetadata` | NIP-65 | Relay List Metadata | Replaceable |
-| 10222 | `Community` | NIP-72 | Community Definition | Replaceable |
-| 13194 | `NwcInfo` | NIP-47 | NWC Wallet Info | Regular |
-| 23194 | `NwcRequest` | NIP-47 | NWC Request | Regular |
-| 23195 | `NwcResponse` | NIP-47 | NWC Response | Regular |
-| 23196 | `NwcNotification` | NIP-47 | NWC Notification | Regular |
-| 24133 | `BunkerAuthorization` | NIP-46 | Bunker Authorization | Ephemeral |
-| 24242 | `BlossomAuthorization` | Blossom | Blossom Authorization | Ephemeral |
-| 30000 | `FollowSets` | NIP-51 | Follow Sets | Parameterizable |
-| 30003 | `BookmarkSet` | NIP-51 | Bookmark Set (Notes/Articles) | Parameterizable |
-| 30023 | `Article` | NIP-23 | Long-form Content | Parameterizable |
-| 30063 | `Release` | NIP-82 | Software Release | Parameterizable |
-| 30078 | `CustomData` | NIP-78 | Application Data | Parameterizable |
-| 30222 | `TargetedPublication` | NIP-72 | Targeted Publication | Parameterizable |
-| 30267 | `AppPack` | NIP-51 | App Pack (Named App Collection) | Parameterizable |
-| 31922 | `DateBasedCalendarEvent` | NIP-52 | Date-Based Calendar Event | Parameterizable |
-| 31923 | `TimeBasedCalendarEvent` | NIP-52 | Time-Based Calendar Event | Parameterizable |
-| 31924 | `Calendar` | NIP-52 | Calendar Collection | Parameterizable |
-| 31925 | `CalendarEventRSVP` | NIP-52 | Calendar Event RSVP | Parameterizable |
-| 32267 | `App` | NIP-89 | Application Metadata | Parameterizable |
-
-> **Note**: When implementing custom models, choose unused kind numbers to avoid conflicts. Regular events use kinds 1000-9999, Replaceable events use 10000-19999, and Parameterizable Replaceable events use 30000-39999 per NIP-01 conventions.
-
-## Core Concepts 🧠
-
-### Models & Partial Models
-
-Models represent signed, immutable nostr events with domain-specific properties. Each model has a corresponding `PartialModel` for creation and signing.
+Models are immutable, signed Nostr events with domain-specific properties. `PartialModel` instances are mutable and unsigned, used for event creation.
 
 ```dart
-// Immutable, signed model
-final note = Note.fromMap(eventData, ref);
-print(note.content); // Access domain properties
+// Create and sign a new note
+final partial = PartialNote('Hello, Nostr!');
+final note = await partial.signWith(signer);
+await note.save();
 
-// Mutable, unsigned partial model for creation
-final partialNote = PartialNote('Hello, nostr!');
-final signedNote = await partialNote.signWith(signer);
+// Convert existing model back to partial for editing
+final editableNote = existingNote.toPartial<PartialNote>();
+editableNote.content = 'Updated content';
+final updated = await editableNote.signWith(signer);
 ```
-
-**Converting Models to Partial Models:**
-
-Models can be converted back to editable partial models using the `toPartial()` method:
-
-```dart
-// Load an existing note by ID from local storage
-final note = (await ref.storage.query(
-  RequestFilter<Note>(ids: {noteId}).toRequest(),
-  source: LocalSource(),
-)).first;
-
-// Convert to partial for editing
-final partialNote = note.toPartial<PartialNote>();
-
-// Modify and re-sign
-partialNote.content = 'Updated content';
-final updatedNote = await partialNote.signWith(signer);
-```
-
-**Important Notes:**
-- All public APIs work with "models" (all of which can access the underlying nostr event representation via `model.event`)
-- All notifier events are already emitted sorted by `created_at` by the framework - no need to sort again
 
 ### Relationships
 
-Models automatically establish relationships with other models:
+Models establish typed relationships with other models:
 
 ```dart
-// One-to-one relationship (BelongsTo<Profile>)
+// BelongsTo: single related model
 final author = note.author.value;
 
-// One-to-many relationships (HasMany<Reaction>, HasMany<Zap>)
+// HasMany: collection of related models
 final reactions = note.reactions.toList();
 final zaps = note.zaps.toList();
 ```
 
-#### Dynamic Nested Relationships
-
-The `and` parameter supports dynamic nested relationships that are automatically discovered as related models arrive. This enables powerful patterns for loading deeply connected data:
+Relationships support nested loading via the `and` parameter:
 
 ```dart
-// Load apps with their releases and file metadata
-final appsState = ref.watch(
+final state = ref.watch(
   query<App>(
     limit: 20,
     and: (app) => {
       app.latestRelease,
-      // Nested: load metadata when release arrives
       if (app.latestRelease.value != null)
         app.latestRelease.value!.latestMetadata,
     },
   ),
 );
+```
 
-// Load notes with author profiles and their contact lists
-final notesState = ref.watch(
+### Querying
+
+Three query providers cover different use cases:
+
+**`query<E>()`** - Typed queries with full type safety:
+
+```dart
+final notes = ref.watch(
   query<Note>(
+    authors: {pubkey1, pubkey2},
     limit: 50,
-    and: (note) => {
-      note.author,
-      // Nested: load contact list when author arrives
-      if (note.author.value != null)
-        note.author.value!.contactList,
-    },
-  ),
-);
-```
-
-**How it works:**
-1. When primary models (e.g., Apps) first arrive, the `and` function evaluates and discovers direct relationships
-2. As each relationship resolves (e.g., Release arrives), the `and` function re-evaluates on primary models
-3. New conditional branches become available (e.g., `if (app.latestRelease.value != null)`), discovering nested relationships
-4. This continues recursively for any depth, with automatic deduplication preventing redundant queries
-
-**Key features:**
-- **Automatic cascading**: Relationships discovered at any nesting level
-- **Conditional loading**: Use `if` checks to load relationships only when available
-- **Efficient**: Deduplication ensures each relationship is queried only once
-- **Event-driven**: Re-evaluation only happens when relationship data arrives
-- **No infinite loops**: Built-in safeguards prevent circular reference issues
-
-### Querying & Providers
-
-The framework provides multiple reactive query providers for different use cases:
-
-#### Typed Query Provider (`query<E>`)
-
-Query specific model types with full type safety:
-
-```dart
-final notesState = ref.watch(
-  query<Note>(
-    authors: {userPubkey},
-    limit: 20,
     since: DateTime.now().subtract(Duration(days: 7)),
-    and: (note) => {note.author, note.reactions, note.zaps}, // Load relationships
+    tags: {'#t': {'nostr', 'dart'}},
+    and: (note) => {note.author, note.reactions},
   ),
 );
-
-// Access typed models
-switch (notesState) {
-  case StorageLoading():
-    return CircularProgressIndicator();
-  case StorageError():
-    return Text('Error loading notes');
-  case StorageData(:final models):
-    return ListView.builder(
-      itemCount: models.length,
-      itemBuilder: (context, index) => NoteCard(models[index]),
-    );
-}
 ```
 
-#### Generic Query Provider (`queryKinds`)
-
-Query events across multiple kinds without type constraints:
+**`queryKinds()`** - Multi-kind queries without type constraints:
 
 ```dart
-final multiKindState = ref.watch(
+final mixed = ref.watch(
   queryKinds(
     kinds: {1, 6}, // Notes and reposts
-    authors: {userPubkey},
+    authors: {pubkey},
     limit: 20,
-    since: DateTime.now().subtract(Duration(days: 7)),
   ),
 );
-
-// Access models and handle loading/error states
-switch (multiKindState) {
-  case StorageLoading():
-    return CircularProgressIndicator();
-  case StorageError():
-    return Text('Error loading events');
-  case StorageData(:final models):
-    return ListView.builder(
-      itemCount: models.length,
-      itemBuilder: (context, index) => EventCard(models[index]),
-    );
-}
 ```
 
-#### Single Model Provider (`model<E>`)
-
-Watch a specific model instance for updates:
+**`model<E>()`** - Watch a specific model instance:
 
 ```dart
 final noteState = ref.watch(
-  model<Note>(
-    existingNote,
-    and: (note) => {note.author, note.reactions, note.zaps},
-  ),
-);
-
-// The provider automatically updates when the model changes
-final note = noteState.models.firstOrNull;
-if (note != null) {
-  return NoteDetailCard(note);
-}
-```
-
-### Storage & Relays
-
-Storage provides a unified interface for local persistence and relay communication:
-
-```dart
-// Save locally
-await note.save();
-
-// Publish to relays
-await note.publish(source: RemoteSource(group: 'social'));
-
-// Query from local storage only
-final localNotes = await ref.storage.query(
-  RequestFilter<Note>(authors: {pubkey}).toRequest(),
-  source: LocalSource(),
-);
-
-// Query from relays only
-final remoteNotes = await ref.storage.query(
-  RequestFilter<Note>(authors: {pubkey}).toRequest(),
-  source: RemoteSource(),
-);
-
-// Query locally and from relays in the background
-final remoteNotes = await ref.storage.query(
-  RequestFilter<Note>(authors: {pubkey}).toRequest(),
-  source: LocalAndRemoteSource(background: true),
+  model<Note>(existingNote, and: (n) => {n.author, n.reactions}),
 );
 ```
 
-Note that `background: false` means waiting for EOSE. The streaming phase is always in the background.
+### Source Control
 
-### Private Data & Encrypted Models
-
-The framework supports encrypted content for private data (bookmarks, app lists, direct messages, etc.) with a **simple encryption strategy**:
-
-**How It Works:**
-- Content is **plaintext before signing** (in `PartialModel`)
-- Content is **encrypted during signing** (in `prepareForSigning()` hook)
-- After signing, content is **always encrypted** (locally and on relays)
-- No metadata caching, no special handling at network boundary
-- To read encrypted content, explicitly decrypt using the signer
-
-**Example Usage:**
+The `Source` parameter determines where data comes from:
 
 ```dart
-// Create private app list
-final partial = PartialAppPack.withEncryptedApps(
-  name: 'Dev Tools',
-  identifier: 'dev',
-  apps: ['32267:pubkey:vscode', '32267:pubkey:terminal'],
-);
-
-// Before signing: plaintext access works
-print(partial.privateAppIds); // ['32267:pubkey:vscode', '32267:pubkey:terminal']
-
-// Sign: encrypts content
-final appPack = await partial.signWith(signer);
-
-// After signing: content is encrypted
-print(appPack.content); // "AQBxY3..." (encrypted)
-
-// To read: must explicitly decrypt
-final decrypted = await signer.nip44Decrypt(appPack.content, signer.pubkey);
-final apps = jsonDecode(decrypted) as List;
-print(apps); // ['32267:pubkey:vscode', '32267:pubkey:terminal']
-
-// Private bookmarks work the same way
-final partialBookmarks = PartialBookmarkSet.withEncryptedBookmarks(
-  name: 'Read Later',
-  identifier: 'reading',
-  bookmarks: [['e', eventId], ['a', addressableId]],
-);
-final bookmarks = await partialBookmarks.signWith(signer);
-// Content is now encrypted
-```
-
-**Supported Models:**
-- `AppPack` - Private app collections
-- `BookmarkSet` - Private bookmarks
-- `DirectMessage` - Encrypted direct messages (NIP-04/44)
-- `NwcRequest/Response/Notification` - Wallet commands (NIP-47)
-- `FollowSets` - Private follow sets
-- `MuteList` - Private mute list
-- `PinList` - Private pin list
-
-See `lib/src/core/encryptable.dart` for implementation details.
-
-### Source Behavior
-
-The `Source` parameter controls where data comes from and how queries behave:
-
-**LocalSource**: Only query local storage, never contact relays
-```dart
+// Local storage only
 source: LocalSource()
-```
 
-**RemoteSource**: Only query relays, never use local storage
-```dart
+// Relays only - by label
 source: RemoteSource(
-  group: 'social',        // Use specific relay group (defaults to 'default')
-  relayUrls: {            // Custom relay URLs (overrides group)
-    'wss://custom1.relay.io',
-    'wss://custom2.relay.io',
-  },
-  stream: true,           // Enable streaming (default)
-  background: false,      // Wait for EOSE before returning
+  relays: 'AppCatalog',  // Looks up RelayList by label
+  stream: true,
+  background: false, // Wait for EOSE before returning
 )
-```
 
-**LocalAndRemoteSource**: Query both local storage and relays
-```dart
+// Relays only - ad-hoc URL
+source: RemoteSource(
+  relays: 'wss://relay.damus.io',  // Direct relay URL
+)
+
+// Both local and remote
 source: LocalAndRemoteSource(
-  group: 'social',        // Use specific relay group (defaults to 'default')
-  relayUrls: {            // Custom relay URLs (overrides group)
-    'wss://priority.relay.io',
-  },
-  stream: true,           // Enable streaming (default)
-  background: true,       // Don't wait for EOSE to return
+  relays: 'AppCatalog',  // Uses the AppCatalog relay set
+  stream: true,
+  background: true, // Return immediately, fetch in background
 )
 ```
 
-**Relay Selection Priority**:
-1. **`relayUrls`** - When provided, these specific relay URLs are used
-2. **`group`** - Falls back to the relay group defined in `StorageConfiguration`
-3. **`defaultRelayGroup`** - Uses the default group when neither is specified
-
-This provides flexibility between:
-- **Initialization-time groups**: Define stable relay collections in `StorageConfiguration.relayGroups`
-- **Runtime flexibility**: Override with specific `relayUrls` for individual queries
+Default relays are configured in `StorageConfiguration`:
 
 ```dart
-// Use predefined relay groups (configured at initialization)
-final socialNotes = ref.watch(
-  query<Note>(
-    authors: {pubkey},
-    source: RemoteSource(group: 'social'),
-  ),
-);
-
-// Override with custom relays at runtime
-final privateNotes = ref.watch(
-  query<Note>(
-    authors: {pubkey},
-    source: RemoteSource(
-      relayUrls: {'wss://my-private-relay.com'},
-    ),
-  ),
-);
-
-// Combine local storage with custom relays
-final hybridQuery = ref.watch(
-  query<Note>(
-    authors: {pubkey},
-    source: LocalAndRemoteSource(
-      relayUrls: {'wss://fast-relay.io', 'wss://backup-relay.io'},
-      background: true,
-    ),
-  ),
-);
+StorageConfiguration(
+  defaultRelays: {
+    'social': {'wss://relay.damus.io', 'wss://relay.primal.net'},
+    'AppCatalog': {'wss://relay.zapstore.dev'},
+  },
+)
 ```
 
-**Relationship Source Control**:
+The `relays` parameter accepts:
+- **Relay URL** (starts with `ws://` or `wss://`): Used directly as ad-hoc relay
+- **Label**: Looks up a `RelayList` by label (e.g., 'AppCatalog' → kind 10067)
+- **null**: TODO - will implement outbox lookup (NIP-65)
 
-By default, relationship queries (via the `and` parameter) inherit the source configuration from the main query. However, you can specify a separate source for relationships using the `andSource` parameter:
+Relationships can use a different source than the main query:
 
 ```dart
-// Main query doesn't stream, but relationships do
-final notesState = ref.watch(
+ref.watch(
   query<Note>(
     authors: {pubkey},
-    limit: 50,
     source: RemoteSource(stream: false),      // One-time fetch for notes
-    andSource: RemoteSource(stream: true),    // But keep author profiles streaming
-    and: (note) => {note.author},
-  ),
-);
-
-// Main query uses one relay group, relationships use another
-final appsState = ref.watch(
-  query<App>(
-    limit: 20,
-    source: RemoteSource(group: 'apps'),
-    andSource: RemoteSource(group: 'social'),  // Fetch profiles from social relays
-    and: (app) => {app.author},
-  ),
-);
-
-// Main query is local-only, but fetch relationships from relays
-final cachedNotes = ref.watch(
-  query<Note>(
-    authors: {pubkey},
-    source: LocalSource(),                           // Only use cached notes
-    andSource: LocalAndRemoteSource(background: true), // But fetch fresh author data
+    andSource: RemoteSource(stream: true),    // Keep profiles streaming
     and: (note) => {note.author},
   ),
 );
 ```
 
-If `andSource` is not provided, relationships inherit all properties from the main `source`.
+### Post-Query Filtering with `where`
 
-**Query Behavior**:
-- All queries return local results first
-- **`stream: true`** - Keep subscription open for new events
-  - `background: true` - Return immediately with local results, fetch remote in background
-  - `background: false` - Wait for EOSE before returning, then continue streaming
-- **`stream: false`** - One-time fetch (always waits for EOSE, ignores `background` flag)
-- The streaming phase never blocks regardless of `background` setting
-
-**Common Patterns**:
-```dart
-// Real-time feed with immediate response
-source: LocalAndRemoteSource(stream: true, background: true)
-
-// Wait for initial data then stream updates
-source: RemoteSource(stream: true, background: false)
-
-// One-time fetch (no ongoing updates)
-source: RemoteSource(stream: false)  // background flag is ignored
-```
-
-**Subscription Prefixes for Debugging**:
-
-You can optionally provide a `subscriptionPrefix` to make subscription IDs more readable for debugging. This helps identify which part of your app created a subscription when inspecting relay traffic or logs:
+The `where` parameter enables client-side filtering after Nostr filters have been applied:
 
 ```dart
-// Without prefix: subscription ID is "sub-123456"
-final notesState = ref.watch(query<Note>(authors: {pubkey}));
-
-// With prefix: subscription ID is "app-detail-123456"
-final appState = ref.watch(
-  query<App>(
-    ids: {appId},
-    subscriptionPrefix: 'app-detail',
-  ),
-);
-
-// Works with queryKinds too
-final multiKindState = ref.watch(
-  queryKinds(
-    kinds: {1, 6},
-    authors: {pubkey},
-    subscriptionPrefix: 'feed',
-  ),
-);
-
-// And with model()
-final singleAppState = ref.watch(
-  model(myApp, subscriptionPrefix: 'watch-app'),
-);
-
-// Also works with direct storage.query calls
-final events = await storage.query(
-  Request.fromIds([id1, id2], subscriptionPrefix: 'bulk-fetch'),
-  subscriptionPrefix: 'bulk-fetch',
-);
-```
-
-This is purely for debugging convenience and doesn't affect functionality. The prefix is automatically appended with a random number to ensure uniqueness.
-
-## Authentication & Signers 🔐
-
-### Signer Providers
-
-The framework provides comprehensive signer and authentication management through reactive providers:
-
-#### Active Signer Management
-
-```dart
-// Get the currently active signer
-final activeSigner = ref.watch(Signer.activeSignerProvider);
-if (activeSigner != null) {
-  final signedEvents = await activeSigner.sign([partialNote]);
-}
-
-// Get the active user's pubkey
-final activePubkey = ref.watch(Signer.activePubkeyProvider);
-
-// Get the active user's profile
-final activeProfile = ref.watch(
-  Signer.activeProfileProvider(LocalAndRemoteSource()),
-);
-```
-
-#### Multi-User Support
-
-```dart
-// Get all signed-in pubkeys
-final signedInPubkeys = ref.watch(Signer.signedInPubkeysProvider);
-
-// Get a specific signer by pubkey
-final specificSigner = ref.watch(Signer.signerProvider(pubkey));
-
-// Check if a user is signed in
-final isSignedIn = signedInPubkeys.contains(somePubkey);
-```
-
-### Authentication Management
-
-```dart
-// Sign in a user (makes them active by default)
-await signer.signIn(setAsActive: true);
-
-// Sign in without making active
-await signer.signIn(setAsActive: false);
-
-// Sign in without registering (for external signers that handle their own registration)
-await signer.signIn(setAsActive: true, registerSigner: false);
-
-// Set as active signer
-signer.setAsActivePubkey();
-
-// Sign out user
-await signer.signOut();
-
-// Remove from active (but keep signed in)
-signer.removeAsActivePubkey();
-
-// Check sign-in status
-final isSignedIn = signer.isSignedIn;
-```
-
-## Built-in Relay Server 🖥️
-
-The framework includes an in-memory Nostr relay intended for development and testing:
-
-### Running the Relay
-
-```bash
-# Run with default settings (port 8080, all interfaces)
-dart run models:dart_relay
-
-# Custom port and host
-dart run models:dart_relay --port 7777 --host localhost
-
-# See all options
-dart run models:dart_relay --help
-```
-
-### Programmatic Usage
-
-```dart
-final container = ProviderContainer();
-
-// Provide a ref to the relay
-final refProvider = Provider((ref) => ref);
-
-final relay = NostrRelay(
-  port: 8080,
-  host: '0.0.0.0',
-  ref: container.read(refProvider),
-);
-
-// Start the relay
-await relay.start();
-print('Relay running on ws://localhost:8080');
-
-// Stop the relay
-await relay.stop();
-```
-
-### Relay Features
-
-- **WebSocket support**: Full Nostr protocol implementation
-- **Memory storage**: Fast in-memory event storage
-- **Real-time subscriptions**: Live event streaming
-- **NIP compliance**: Supports core Nostr NIPs
-- **Dev-focused**: Designed for development and testing environments
-
-## NostrWalletConnect 💰
-
-Complete implementation of NIP-47 for Lightning wallet integration:
-
-```dart
-// Pay a Lightning invoice using high-level API
-await signer.pay('lnbc...', amount: 1000);
-```
-
-## Recipes 🍳
-
-See examples and patterns in Purplestack.
-
-## API Reference 📚
-
-### Query Providers
-
-The framework provides three main query providers for different use cases:
-
-#### `query<E>()` - Typed Queries
-- **Returns**: `AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>`
-- **Purpose**: Query specific model types with full type safety
-- **Models accessible as**: `state.models (List<E>)`
-
-#### `queryKinds()` - Multi-Kind Queries  
-- **Returns**: `AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>`
-- **Purpose**: Query events across multiple kinds without type constraints
-- **Models accessible as**: `state.models (List<Model<dynamic>>)`
-
-#### `model<E>()` - Single Model Watching
-- **Returns**: `AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>`
-- **Purpose**: Watch a specific model instance for updates
-- **Model accessible as**: `state.models.firstOrNull`
-
-#### Provider Usage Patterns
-
-```dart
-// Watch with error handling
-final notesState = ref.watch(query<Note>(authors: {pubkey}));
-switch (notesState) {
-  case StorageLoading():
-    return CircularProgressIndicator();
-  case StorageError(:final exception):
-    return ErrorWidget(exception.toString());
-  case StorageData(:final models):
-    return NotesList(models);
-}
-
-// Listen for changes
-ref.listen(query<Note>(authors: {pubkey}), (previous, next) {
-  if (next is StorageData && previous is StorageLoading) {
-    print('Notes loaded: ${next.models.length}');
-  }
-});
-
-// One-time read
-final currentState = ref.read(query<Note>(authors: {pubkey}));
-```
-
-### Storage Configuration
-
-Configure storage behavior and relay connections.
-
-```dart
-final config = StorageConfiguration(
-  // Database path (null for in-memory)
-  databasePath: '/path/to/database.sqlite',
-  
-  // Whether to keep signatures in local storage
-  keepSignatures: false,
-  
-  // Whether to skip BIP-340 verification
-  skipVerification: false,
-  
-  // Relay groups
-  relayGroups: {
-    'popular': {
-      'wss://relay.damus.io',
-      'wss://relay.primal.net',
-    },
-    'private': {
-      'wss://my-private-relay.com',
-    },
-  },
-  
-  // Default relay group
-  defaultRelayGroup: 'popular',
-  
-  // Default source for queries when not specified
-  defaultQuerySource: LocalAndRemoteSource(stream: false),
-  
-  // Connection timeouts
-  idleTimeout: Duration(minutes: 5),
-  responseTimeout: Duration(seconds: 6),
-  
-  // Streaming configuration
-  streamingBufferWindow: Duration(seconds: 2),
-  
-  // Storage limits
-  keepMaxModels: 20000,
-);
-```
-
-### Query Filters
-
-Build complex queries with multiple conditions.
-
-```dart
-// Basic filters
-final basicQuery = query<Note>(
-  authors: {pubkey1, pubkey2},
-  limit: 50,
-  since: DateTime.now().subtract(Duration(days: 7)),
-);
-
-// Tag-based filters
-final tagQuery = query<Note>(
-  tags: {
-    '#t': {'nostr', 'flutter'},
-    '#e': {noteId},
-  },
-);
-
-// Search queries
-final searchQuery = query<Note>(
-  search: 'hello world',
-  limit: 20,
-);
-
-// Complex filters with relationships
-final complexQuery = query<Note>(
-  authors: {pubkey},
-  since: DateTime.now().subtract(Duration(hours: 24)),
-  and: (note) => {
-    note.author,
-    note.reactions,
-    note.zaps,
-  },
-);
-
-// Custom post-query filtering with where
-final filteredQuery = query<Note>(
-  authors: {pubkey1, pubkey2, pubkey3},
-  where: (note) => note.author.value?.pubkey == pubkey1,
-  // Only keeps notes where author is pubkey1
-);
-```
-
-### Advanced Filtering with `where`
-
-The `where` parameter provides **post-query filtering in Dart** after the initial Nostr filters have been applied. This allows you to filter on properties and conditions that can't be expressed in standard Nostr filters.
-
-#### When to Use `where`
-
-Use `where` when you need to filter on:
-- **Computed properties**: Properties derived from multiple fields
-- **Relationship data**: Filter based on related model properties  
-- **Complex conditions**: Business logic that requires multiple checks
-- **Type-specific fields**: Properties that only exist on certain model types
-
-#### How It Works
-
-```dart
-typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
-```
-
-The `where` function receives each model that passed the Nostr filters and returns `true` to keep it or `false` to discard it.
-
-**Execution Order:**
-1. **Nostr Filters Applied**: Standard filters (`authors`, `kinds`, `tags`, etc.) query storage/relays
-2. **Models Constructed**: Matching events are converted to typed models
-3. **Where Function Applied**: Each model is passed through the `where` function
-4. **Results Returned**: Only models that returned `true` are included
-
-#### Usage Examples
-
-**Filter by relationship data:**
-```dart
-// Get notes only from authors with verified NIP-05
-final verifiedNotes = ref.watch(
+// Filter by relationship data
+final verified = ref.watch(
   query<Note>(
     authors: allAuthors,
     where: (note) => note.author.value?.nip05 != null,
-    and: (note) => {note.author}, // Load author data
+    and: (note) => {note.author},
   ),
 );
-```
 
-**Filter by computed properties:**
-```dart
-// Get high-value zaps only (>10,000 sats)
+// Filter by computed properties
 final bigZaps = ref.watch(
   query<Zap>(
     limit: 100,
@@ -927,268 +219,249 @@ final bigZaps = ref.watch(
 );
 ```
 
-**Complex business logic:**
+Always use Nostr filters to reduce the dataset before applying `where` for optimal performance.
+
+## Authentication and Signers
+
+### Signer Types
+
 ```dart
-// Get articles from last week with specific content patterns
-final filteredArticles = ref.watch(
-  query<Article>(
-    since: DateTime.now().subtract(Duration(days: 7)),
-    where: (article) {
-      // Multi-condition filtering
-      if (article.content.length < 500) return false;
-      if (!article.tags.any((t) => t == 'featured')) return false;
-      if (article.author.value?.pubkey == blockedPubkey) return false;
-      return true;
-    },
-    and: (article) => {article.author},
-  ),
+// BIP-340 private key signer (real signing)
+final signer = Bip340PrivateKeySigner(privateKeyHex, ref);
+await signer.signIn();
+
+// Dummy signer for testing
+final dummy = DummySigner(ref);
+await dummy.signIn();
+```
+
+### Signer Providers
+
+```dart
+// Active signer
+final signer = ref.watch(Signer.activeSignerProvider);
+
+// Active user's pubkey
+final pubkey = ref.watch(Signer.activePubkeyProvider);
+
+// Active user's profile
+final profile = ref.watch(Signer.activeProfileProvider(LocalAndRemoteSource()));
+
+// All signed-in pubkeys
+final pubkeys = ref.watch(Signer.signedInPubkeysProvider);
+
+// Specific signer by pubkey
+final specific = ref.watch(Signer.signerProvider(pubkey));
+```
+
+### Authentication Management
+
+```dart
+await signer.signIn(setAsActive: true);
+await signer.signOut();
+signer.setAsActivePubkey();
+signer.removeAsActivePubkey();
+```
+
+## Encryption
+
+Content is plaintext before signing and encrypted during the signing process. After signing, content remains encrypted locally and on relays.
+
+```dart
+// Create with plaintext
+final partial = PartialAppPack.withEncryptedApps(
+  name: 'Dev Tools',
+  identifier: 'dev',
+  apps: ['32267:pubkey:vscode'],
+);
+
+// Sign encrypts the content
+final appPack = await partial.signWith(signer);
+
+// To read, explicitly decrypt
+final decrypted = await signer.nip44Decrypt(appPack.content, signer.pubkey);
+```
+
+Models supporting encryption:
+- `DirectMessage` (NIP-44)
+- `AppPack`, `BookmarkSet`, `FollowSets`, `MuteList`, `PinList`
+- `NwcRequest`, `NwcResponse`, `NwcNotification` (NIP-47)
+
+## NostrWalletConnect
+
+Complete NIP-47 implementation for Lightning payments:
+
+```dart
+await signer.pay('lnbc...', amount: 1000);
+```
+
+## Storage Configuration
+
+```dart
+final config = StorageConfiguration(
+  databasePath: '/path/to/database.sqlite',
+  keepSignatures: false,
+  skipVerification: false,
+  defaultRelays: {
+    'default': {'wss://relay.damus.io', 'wss://nos.lol'},
+  },
+  defaultQuerySource: LocalAndRemoteSource(stream: false),
+  idleTimeout: Duration(minutes: 5),
+  responseTimeout: Duration(seconds: 6),
+  streamingBufferWindow: Duration(seconds: 2),
+  keepMaxModels: 20000,
 );
 ```
 
-**Filter on properties unique to the model type:**
+## Storage Implementations
+
+- **DummyStorageNotifier**: In-memory storage for testing and prototyping (included)
+- **[Purplebase](https://github.com/purplebase/purplebase)**: SQLite-powered storage with relay pool
+
+## Utilities
+
 ```dart
-// Get communities with specific features
-final communities = ref.watch(
-  query<Community>(
-    where: (community) {
-      return community.contentSections.isNotEmpty &&
-             community.relayUrls.length >= 2;
-    },
-  ),
-);
-```
-
-#### Performance Considerations
-
-- **Nostr Filters First**: Always use standard Nostr filters (`authors`, `kinds`, `tags`, etc.) to reduce the dataset before applying `where`
-- **Load Relationships**: If filtering on relationship data, use `and` to ensure related models are loaded
-- **Keep It Simple**: Complex `where` functions run on every result; keep them efficient
-- **Local vs Remote**: `where` filtering happens client-side, so minimize the result set with good Nostr filters
-
-**Good Practice:**
-```dart
-// ✅ GOOD: Nostr filters reduce dataset, where refines it
-query<Note>(
-  authors: {pubkey1, pubkey2, pubkey3},  // Small set of authors
-  where: (note) => note.content.contains('nostr'),
-)
-```
-
-**Avoid:**
-```dart
-// ❌ AVOID: No Nostr filters means filtering entire database
-query<Note>(
-  where: (note) => note.author.value?.pubkey == targetPubkey,
-  // Better to use: authors: {targetPubkey}
-)
-```
-
-### Utilities
-
-The `Utils` class provides essential nostr-related utilities.
-
-**Key Management:**
-```dart
-// Generate cryptographically secure random hex
+// Key management
 final randomHex = Utils.generateRandomHex64();
-
-// Derive public key from private key
 final pubkey = Utils.derivePublicKey(privateKey);
-```
 
-**NIP-19 Encoding/Decoding:**
-```dart
-// Encode simple entities
+// NIP-19 encoding/decoding
 final npub = Utils.encodeShareableFromString(pubkey, type: 'npub');
-final nsec = Utils.encodeShareableFromString(privateKey, type: 'nsec');
-final note = Utils.encodeShareableFromString(eventId, type: 'note');
+final decoded = Utils.decodeShareableToString(npub);
 
-// Decode simple entities
-final decodedPubkey = Utils.decodeShareableToString(npub);
-final decodedPrivateKey = Utils.decodeShareableToString(nsec); // nsec is always decoded as a string
-final decodedEventId = Utils.decodeShareableToString(note);
-```
-
-**Complex Shareable Identifiers:**
-```dart
-// Encode complex identifiers with metadata
-final profileInput = ProfileInput(
-  pubkey: pubkey,
-  relays: ['wss://relay.damus.io'],
-  author: author,
-  kind: 0,
+// Complex shareable identifiers
+final nprofile = Utils.encodeShareableIdentifier(
+  ProfileInput(pubkey: pubkey, relays: ['wss://relay.damus.io']),
 );
-final nprofile = Utils.encodeShareableIdentifier(profileInput);
+final data = Utils.decodeShareableIdentifier(nprofile) as ProfileData;
 
-final eventInput = EventInput(
-  eventId: eventId,
-  relays: ['wss://relay.damus.io'],
-  author: author,
-  kind: 1,
-);
-final nevent = Utils.encodeShareableIdentifier(eventInput);
-
-final addressInput = AddressInput(
-  identifier: 'my-article',
-  relays: ['wss://relay.damus.io'],
-  author: author,
-  kind: 30023,
-);
-final naddr = Utils.encodeShareableIdentifier(addressInput);
-
-// Decode complex identifiers
-final profileData = Utils.decodeShareableIdentifier(nprofile) as ProfileData;
-final eventData = Utils.decodeShareableIdentifier(nevent) as EventData;
-final addressData = Utils.decodeShareableIdentifier(naddr) as AddressData;
-```
-
-**NIP-05 Resolution:**
-```dart
-// Resolve NIP-05 identifier to public key
+// NIP-05 resolution
 final pubkey = await Utils.decodeNip05('alice@example.com');
 ```
 
-**Event Utilities:**
-```dart
-// Generate event ID for partial event
-final eventId = Utils.getEventId(partialEvent, pubkey);
-
-// Check if event kind is replaceable
-final isReplaceable = Utils.isEventReplaceable(kind);
-```
-
-### Event Verification
-
-The verifier system validates BIP-340 signatures on nostr events.
-
-**Basic Verification:**
+## Verification
 
 ```dart
-// Get the verifier from the provider
 final verifier = ref.read(verifierProvider);
-
-// Verify an event signature
 final isValid = verifier.verify(eventMap);
-if (!isValid) {
-  print('Event has invalid signature');
-}
 ```
 
-**Custom Verifier Implementation:**
+Verification can be disabled for performance:
 
 ```dart
-class CustomVerifier extends Verifier {
-  @override
-  bool verify(Map<String, dynamic> map) {
-    // Custom verification logic
-    if (map['sig'] == null || map['sig'] == '') {
-      return false;
-    }
-    
-    // Implement your verification logic here
-    return true; // or false based on verification result
-  }
-}
-
-// Override the verifier provider (proper way)
-ProviderScope(
-  overrides: [
-    verifierProvider.overrideWithValue(CustomVerifier()),
-  ],
-  child: MyApp(),
-)
+StorageConfiguration(skipVerification: true)
 ```
 
-**Verification Configuration:**
+## NIP Implementation Status
 
-```dart
-// Enable verification (default)
-final config = StorageConfiguration(
-  skipVerification: false,
-);
+| NIP | Description | Status |
+|-----|-------------|--------|
+| 01 | Basic protocol flow | Implemented |
+| 02 | Follow List | Implemented |
+| 04 | Encrypted Direct Message | Deprecated (use NIP-44) |
+| 05 | DNS identifiers | Implemented |
+| 09 | Event Deletion | Implemented |
+| 10 | Text Notes and Threads | Implemented |
+| 11 | Relay Information | Implemented |
+| 18 | Reposts | Implemented |
+| 19 | bech32 entities | Implemented |
+| 21 | `nostr:` URI scheme | Implemented |
+| 22 | Comment | Implemented |
+| 23 | Long-form Content | Implemented |
+| 25 | Reactions | Implemented |
+| 28 | Public Chat | Implemented |
+| 29 | Relay-based Groups | Implemented |
+| 39 | External Identities | Implemented |
+| 42 | Client Authentication | Implemented |
+| 44 | Encrypted Payloads | Implemented |
+| 47 | Wallet Connect | Implemented |
+| 51 | Lists | Implemented |
+| 55 | Android Signer | Implemented |
+| 57 | Lightning Zaps | Implemented |
+| 65 | Relay List Metadata | Implemented |
+| 71 | Video Events | Implemented |
+| 72 | Communities | Implemented |
+| 78 | App Data | Implemented |
+| 82 | Application Metadata | Implemented (draft) |
+| 90 | Data Vending Machine | Implemented |
+| 94 | File Metadata | Implemented |
+| A0 | Voice Messages | Implemented |
 
-// Disable verification for performance
-final config = StorageConfiguration(
-  skipVerification: true,
-);
-```
+## Registered Event Kinds
 
-**Verification in Storage Operations:**
+| Kind | Model | Type |
+|------|-------|------|
+| 0 | `Profile` | Replaceable |
+| 1 | `Note` | Regular |
+| 3 | `ContactList` | Replaceable |
+| 4 | `DirectMessage` | Regular |
+| 5 | `EventDeletionRequest` | Regular |
+| 6 | `Repost` | Regular |
+| 7 | `Reaction` | Regular |
+| 9 | `ChatMessage` | Regular |
+| 16 | `GenericRepost` | Regular |
+| 20 | `Picture` | Regular |
+| 21 | `Video` | Regular |
+| 22 | `ShortFormPortraitVideo` | Regular |
+| 1063 | `FileMetadata` | Regular |
+| 1111 | `Comment` | Regular |
+| 1222 | `VoiceMessage` | Regular |
+| 1244 | `VoiceMessageComment` | Regular |
+| 1984 | `Report` | Regular |
+| 3063 | `SoftwareAsset` | Regular |
+| 5312 | `VerifyReputationRequest` | Regular |
+| 6312 | `VerifyReputationResponse` | Regular |
+| 7000 | `DVMError` | Regular |
+| 9734 | `ZapRequest` | Regular |
+| 9735 | `Zap` | Regular |
+| 9802 | `Highlight` | Regular |
+| 10000 | `MuteList` | Replaceable |
+| 10001 | `PinList` | Replaceable |
+| 10002 | `SocialRelayList` | Replaceable |
+| 10067 | `AppCatalogRelayList` | Replaceable |
+| 10222 | `Community` | Replaceable |
+| 13194 | `NwcInfo` | Regular |
+| 23194 | `NwcRequest` | Regular |
+| 23195 | `NwcResponse` | Regular |
+| 23196 | `NwcNotification` | Regular |
+| 24133 | `BunkerAuthorization` | Ephemeral |
+| 24242 | `BlossomAuthorization` | Ephemeral |
+| 30000 | `FollowSets` | Parameterizable |
+| 30003 | `BookmarkSet` | Parameterizable |
+| 30023 | `Article` | Parameterizable |
+| 30063 | `Release` | Parameterizable |
+| 30078 | `CustomData` | Parameterizable |
+| 30222 | `TargetedPublication` | Parameterizable |
+| 30267 | `AppPack` | Parameterizable |
+| 31922 | `DateBasedCalendarEvent` | Parameterizable |
+| 31923 | `TimeBasedCalendarEvent` | Parameterizable |
+| 31924 | `Calendar` | Parameterizable |
+| 31925 | `CalendarEventRSVP` | Parameterizable |
+| 32267 | `App` | Parameterizable |
 
-```dart
-// Manual verification example
-final verifier = ref.read(verifierProvider);
-final isValid = verifier.verify(signedEvent.toMap());
-```
+When implementing custom models, choose unused kind numbers. Per NIP-01 conventions: regular events use 1000-9999, replaceable use 10000-19999, parameterizable replaceable use 30000-39999.
 
-Note: Verification is provided via `verifierProvider`. Storage implementations may choose how to use it.
+## Design Notes
 
-### Error Handling
+- Built on Riverpod providers (`storageNotifierProvider`, `query`, etc.)
+- The `Storage` interface optimizes for local use: stores replaceable event IDs, manages eviction, tracks origin relays
+- Queries primarily interact with local storage; remote relay requests are triggered by default and results are saved locally
+- Relay groups can be configured for publishing to different relay sets
 
-Handle storage errors and network failures gracefully.
+### Storage vs Relay
 
-```dart
-// Watch for storage errors
-ref.listen(storageNotifierProvider, (_, state) {
-  if (state is StorageError) {
-    print('Storage error: ${state.exception}');
-    // Show error UI or retry logic
-  }
-});
+Storage differs from a relay in several ways:
 
-// Handle query errors
-final queryState = ref.watch(
-  query<Note>(authors: {pubkey}),
-);
+- Stores replaceable event IDs as the main ID for querying
+- Optionally discards signatures after validation (not meant for rebroadcasting)
+- Tracks origin relays and connection timestamps for time-based querying
+- Provides efficient interfaces for mass deletion
+- Can store decrypted content, cache images, etc.
 
-switch (queryState) {
-  case StorageError():
-    return ErrorWidget(
-      message: queryState.exception.toString(),
-      onRetry: () {
-        // Trigger a new query
-        ref.invalidate(query<Note>(authors: {pubkey}));
-      },
-    );
-  case StorageLoading():
-    return LoadingWidget();
-  case StorageData(:final models):
-    return NotesList(notes: models);
-}
+## Contributing
 
-// Handle network failures
-try {
-  await ref.storage.save({model});
-} catch (e) {
-  // Save locally only if remote fails
-  await ref.storage.save({model});
-  print('Remote save failed, saved locally: $e');
-}
-```
+Contributions are welcome. Please open an issue to discuss proposed changes before starting work on a pull request.
 
-## Design Notes 📝
-
-- Built on Riverpod providers (`storageNotifierProvider`, `query`, etc.).
-- The `Storage` interface acts similarly to a relay but is optimized for local use (e.g., storing replaceable event IDs, potentially storing decrypted data, managing eviction).
-- Queries (`ref.watch(query<...>(...))`) primarily interact with the local `Storage`.
-- By default, queries also trigger requests to configured remote relays. Results are saved to `Storage`, automatically updating watchers.
-- The system tracks query timestamps (`since`) to optimize subsequent fetches from relays.
-- Relay groups can be configured and used for publishing
-
-### Storage vs relay
-
-A storage is very close to a relay but has some key differences, it:
-
- - Stores replaceable event IDs as the main ID for querying
- - Discards event signatures after validation, so not meant for rebroadcasting
- - Tracks origin relays for events, as well as connection timestamps for subsequent time-based querying
- - Has more efficient interfaces for mass deleting data
- - Can store decrypted DMs or cashu tokens, cache profile images, etc
-
-## Contributing 📩
-
-Contributions are welcome. However, please open an issue to discuss your proposed changes *before* starting work on a pull request.
-
-## License 📄
+## License
 
 MIT

@@ -9,9 +9,9 @@ void main() {
   late Ref ref;
 
   setUp(() async {
-    container = ProviderContainer();
-    final config = StorageConfiguration(keepSignatures: false);
-    await container.read(initializationProvider(config).future);
+    container = await createTestContainer(
+      config: StorageConfiguration(keepSignatures: false),
+    );
     ref = container.read(refProvider);
   });
 

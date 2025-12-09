@@ -65,7 +65,7 @@ abstract class NwcCommand<T> {
           '#p': {connectionSigner.pubkey}, // Response directed to us
           '#e': {signedRequest.id}, // Response to our specific request
         },
-        source: RemoteSource(relayUrls: {connection.relay}),
+        source: RemoteSource(relays: connection.relay),
       ),
       (_, state) {
         if (state case StorageData(:final models)
@@ -80,7 +80,7 @@ abstract class NwcCommand<T> {
     // Publish to the connection's relay
     final publishResponse = await ref.storage.publish({
       signedRequest,
-    }, source: RemoteSource(relayUrls: {connection.relay}));
+    }, source: RemoteSource(relays: connection.relay));
 
     // Check if publish was successful
     final publishSuccessful = publishResponse.results.values.any(

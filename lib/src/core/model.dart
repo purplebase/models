@@ -406,5 +406,7 @@ typedef ModelConstructor<E extends Model<dynamic>> =
 typedef PartialModelConstructor<E extends Model<E>> =
     PartialModel<E> Function(Map<String, dynamic>);
 
-// Removed: GeneratePartialModel annotation is no longer used
-// Partial model mixins are now manually maintained in models.g.dart
+// ======================================================================
+// Relay Collection Mixins
+// ======================================================================
+

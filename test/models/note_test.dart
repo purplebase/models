@@ -8,9 +8,9 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
-    container = ProviderContainer();
-    final config = StorageConfiguration(keepSignatures: false);
-    await container.read(initializationProvider(config).future);
+    container = await createTestContainer(
+      config: StorageConfiguration(keepSignatures: false),
+    );
   });
 
   tearDown(() async {

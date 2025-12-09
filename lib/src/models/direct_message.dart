@@ -31,7 +31,7 @@ class DirectMessage extends RegularModel<DirectMessage>
   }
 
   @override
-  bool get useNip04 => true; // Support NIP-04 for backward compatibility
+  bool get useNip04 => false; // Only NIP-44 is supported
 }
 
 /// Generated partial model mixin for DirectMessage
@@ -76,21 +76,16 @@ class PartialDirectMessage extends RegularPartialModel<DirectMessage>
   ///
   /// [content] - The plain text message content
   /// [receiver] - The recipient's public key or npub
-  /// [useNip44] - Whether to use NIP-44 encryption (more secure, default: true)
   PartialDirectMessage({
     required String content,
     required String receiver,
-    bool useNip44 = true,
   }) {
     this.receiver = receiver.decodeShareable();
-    _useNip44 = useNip44;
     setContent(content);
   }
 
-  bool _useNip44 = true;
-
   @override
-  bool get useNip04 => !_useNip44;
+  bool get useNip04 => false; // Only NIP-44 is supported
 
   @override
   String getEncryptionPubkey(Signer signer) {

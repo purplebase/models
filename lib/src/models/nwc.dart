@@ -158,7 +158,7 @@ class NwcResponse extends EphemeralModel<NwcResponse>
   }
 
   @override
-  bool get useNip04 => true; // NWC uses NIP-04
+  bool get useNip04 => false; // Only NIP-44 is supported
 }
 
 /// NWC Error information
@@ -247,7 +247,7 @@ class PartialNwcResponse extends EphemeralPartialModel<NwcResponse>
   }
 
   @override
-  bool get useNip04 => true; // NWC uses NIP-04
+  bool get useNip04 => false; // Only NIP-44 is supported
 
   /// Create a successful response
   PartialNwcResponse.success({
@@ -406,7 +406,7 @@ class NwcNotification extends EphemeralModel<NwcNotification>
   }
 
   @override
-  bool get useNip04 => true; // NWC uses NIP-04
+  bool get useNip04 => false; // Only NIP-44 is supported
 }
 
 /// Partial model for creating NwcNotification events
@@ -453,7 +453,7 @@ class PartialNwcNotification extends EphemeralPartialModel<NwcNotification>
   }
 
   @override
-  bool get useNip04 => true; // NWC uses NIP-04
+  bool get useNip04 => false; // Only NIP-44 is supported
 
   /// Create a payment received notification
   PartialNwcNotification.paymentReceived({
@@ -591,7 +591,7 @@ class NwcRequest extends EphemeralModel<NwcRequest>
   }
 
   @override
-  bool get useNip04 => true; // NWC uses NIP-04
+  bool get useNip04 => false; // Only NIP-44 is supported
 }
 
 /// Partial model for creating NwcRequest events
@@ -645,7 +645,7 @@ class PartialNwcRequest extends EphemeralPartialModel<NwcRequest>
   }
 
   @override
-  bool get useNip04 => true; // NWC uses NIP-04
+  bool get useNip04 => false; // Only NIP-44 is supported
 
   /// Create a request for pay_invoice command
   PartialNwcRequest.payInvoice({

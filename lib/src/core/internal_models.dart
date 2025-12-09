@@ -11,59 +11,81 @@ final class LocalSource extends Source {
   const LocalSource();
 }
 
+/// Source configuration for remote relay queries.
+///
+/// The [relays] parameter is a unified way to specify relay targets:
+/// - If `null` → TODO: future outbox lookup (NIP-65)
+/// - If starts with `ws://` or `wss://` → ad-hoc relay URL
+/// - Otherwise → label to look up [RelayList] by kind
+///
+/// Example usage:
+/// ```dart
+/// // Ad-hoc relay URL
+/// RemoteSource(relays: 'wss://relay.example.com')
+///
+/// // Look up RelayList by label
+/// RemoteSource(relays: 'AppCatalog')
+///
+/// // Default (will use outbox when implemented)
+/// RemoteSource()
+/// ```
 final class RemoteSource extends Source {
-  final String? group;
-  final Set<String> relayUrls;
+  /// Relay target: URL (wss://...) or RelayList label.
+  ///
+  /// - `null` → TODO: outbox lookup
+  /// - URL → ad-hoc relay
+  /// - Otherwise → RelayList label lookup
+  final String? relays;
+
+  /// Whether to keep streaming updates after initial load.
   final bool stream;
+
+  /// Whether to run this query in the background.
   final bool background;
+
   const RemoteSource({
-    this.group,
-    this.relayUrls = const {},
+    this.relays,
     this.stream = true,
     this.background = false,
   });
 
   RemoteSource copyWith({
-    String? group,
-    Set<String>? relayUrls,
+    String? relays,
     bool? stream,
     bool? background,
   }) {
     return RemoteSource(
-      group: group ?? this.group,
-      relayUrls: relayUrls ?? this.relayUrls,
+      relays: relays ?? this.relays,
       stream: stream ?? this.stream,
       background: background ?? this.background,
     );
   }
 
   @override
-  List<Object?> get props => [group, relayUrls, stream, background];
+  List<Object?> get props => [relays, stream, background];
 
   @override
   String toString() {
-    return 'RemoteSource: ${group ?? ''} [stream=$stream, background=$background]';
+    return 'RemoteSource: ${relays ?? 'outbox'} [stream=$stream, background=$background]';
   }
 }
 
+/// Source configuration that queries both local storage and remote relays.
 final class LocalAndRemoteSource extends RemoteSource {
   const LocalAndRemoteSource({
-    super.group,
-    super.relayUrls = const {},
+    super.relays,
     super.stream = true,
     super.background = false,
   });
 
   @override
   LocalAndRemoteSource copyWith({
-    String? group,
-    Set<String>? relayUrls,
+    String? relays,
     bool? stream,
     bool? background,
   }) {
     return LocalAndRemoteSource(
-      group: group ?? this.group,
-      relayUrls: relayUrls ?? this.relayUrls,
+      relays: relays ?? this.relays,
       stream: stream ?? this.stream,
       background: background ?? this.background,
     );

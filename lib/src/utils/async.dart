@@ -3,6 +3,11 @@ import 'dart:async';
 /// Runs an async function synchronously by executing it in a special zone
 /// that processes microtasks immediately.
 ///
+/// **NOTE**: This utility is ONLY used by the dummy implementation's dummySign()
+/// method. Production signers use proper async signing. This is safe because
+/// dummySign() prepareForSigning hooks in the dummy signer don't involve
+/// real I/O or Timers - they complete via microtasks.
+///
 /// **WARNING**: This is a testing utility and has significant limitations:
 /// - Only works for async operations that complete via microtasks
 /// - Does NOT work for Timers, IO operations, or truly async operations

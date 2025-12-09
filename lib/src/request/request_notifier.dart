@@ -26,8 +26,19 @@ class RequestNotifier<E extends Model<dynamic>>
     storage
         .query(req, source: source, subscriptionPrefix: prefix)
         .then((models) {
-          _emitNewModels(models);
-          _startSubscription();
+          // If background remote query is active and local results are empty,
+          // skip emitting empty state to prevent empty flash in UI
+          // Data will arrive via InternalStorageData and trigger _refreshModelsFromLocal
+          final isBackgroundRemote = source is LocalAndRemoteSource && 
+                                      (source as RemoteSource).background;
+          
+          if (isBackgroundRemote && models.isEmpty) {
+            // Stay in StorageLoading state, don't emit empty StorageData
+            _startSubscription();
+          } else {
+            _emitNewModels(models);
+            _startSubscription();
+          }
         })
         .catchError((e, stack) {
           if (mounted) {
@@ -133,10 +144,11 @@ class RequestNotifier<E extends Model<dynamic>>
 
     final remoteSource = source as RemoteSource;
 
-    // Preserve LocalAndRemoteSource type and inherit parameters from parent
-    // For RemoteSource, enable background for relationships
+    // Relationship queries must have background: true so that QueryResultMessage
+    // is sent when data arrives, triggering re-evaluation of the and: callback
+    // to discover nested relationships
     return source is LocalAndRemoteSource
-        ? remoteSource.copyWith()
+        ? remoteSource.copyWith(background: true)
         : remoteSource.copyWith(background: true);
   }
 

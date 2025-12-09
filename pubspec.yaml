@@ -18,11 +18,8 @@ dependencies:
   meta: ^1.16.0
   async: ^2.11.0
   pointycastle: ^3.9.1
-  nip44:
-    git:
-      url: https://github.com/paulmillr/nip44.git
-      ref: 3b40d453c772ad10b57b81762d5b56e80aa1facb
-      path: dart
+  elliptic: 0.3.11
+  cryptography: ^2.7.0
   shelf: ^1.4.2
   shelf_web_socket: ^3.0.0
   args: ^2.4.2

@@ -101,9 +101,11 @@ abstract class Signer {
   );
 
   /// NIP-04: Encrypt a message using AES-256-CBC with ECDH shared secret
+  /// @deprecated Use nip44Encrypt instead
   Future<String> nip04Encrypt(String message, String recipientPubkey);
 
   /// NIP-04: Decrypt a message using AES-256-CBC with ECDH shared secret
+  /// @deprecated Use nip44Decrypt instead
   Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey);
 
   /// NIP-44: Encrypt a message using ChaCha20 with HKDF and HMAC-SHA256
@@ -281,25 +283,6 @@ class Bip340PrivateKeySigner extends Signer {
   }
 
   @override
-  Future<String> nip04Encrypt(String message, String recipientPubkey) async {
-    if (!isSignedIn) {
-      throw StateError('Signer has not been signed in');
-    }
-    return _nip04Encrypt(message, recipientPubkey);
-  }
-
-  @override
-  Future<String> nip04Decrypt(
-    String encryptedMessage,
-    String senderPubkey,
-  ) async {
-    if (!isSignedIn) {
-      throw StateError('Signer has not been signed in');
-    }
-    return _nip04Decrypt(encryptedMessage, senderPubkey);
-  }
-
-  @override
   Future<String> nip44Encrypt(String message, String recipientPubkey) async {
     if (!isSignedIn) {
       throw StateError('Signer has not been signed in');
@@ -334,208 +317,14 @@ class Bip340PrivateKeySigner extends Signer {
     }
   }
 
-  /// NIP-04 encryption implementation
-  String _nip04Encrypt(String message, String recipientPubkey) {
-    try {
-      // Get shared secret using proper ECDH
-      final sharedSecret = _getSharedSecret(recipientPubkey);
-
-      // Generate random IV (16 bytes for AES-CBC)
-      final iv = _generateRandomBytes(16);
-
-      // Encrypt message using AES-256-CBC
-      final messageBytes = utf8.encode(message);
-      final encryptedBytes = _aesEncrypt(messageBytes, sharedSecret, iv);
-
-      // Format: base64(encrypted)?iv=base64(iv)
-      final encryptedBase64 = base64.encode(encryptedBytes);
-      final ivBase64 = base64.encode(iv);
-
-      return '$encryptedBase64?iv=$ivBase64';
-    } catch (e) {
-      throw Exception('NIP-04 encryption failed: $e');
-    }
+  @override
+  Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey) {
+    throw UnsupportedError('No NIP-04 support');
   }
 
-  /// NIP-04 decryption implementation
-  String _nip04Decrypt(String encryptedMessage, String senderPubkey) {
-    try {
-      // Handle multiple NIP-04 formats
-      Uint8List encryptedBytes;
-      Uint8List iv;
-
-      if (encryptedMessage.contains('?iv=')) {
-        // Standard format: base64(encrypted)?iv=base64(iv)
-        final parts = encryptedMessage.split('?iv=');
-        if (parts.length != 2) {
-          throw FormatException(
-            'Invalid NIP-04 encrypted message format with ?iv=',
-          );
-        }
-        encryptedBytes = Uint8List.fromList(base64.decode(parts[0]));
-        iv = Uint8List.fromList(base64.decode(parts[1]));
-      } else {
-        // Alternative format: try direct base64 decode and extract IV from end
-        try {
-          final allBytes = base64.decode(encryptedMessage);
-          if (allBytes.length < 16) {
-            throw FormatException('Encrypted message too short');
-          }
-          // Assume IV is the last 16 bytes
-          encryptedBytes = Uint8List.fromList(
-            allBytes.sublist(0, allBytes.length - 16),
-          );
-          iv = Uint8List.fromList(allBytes.sublist(allBytes.length - 16));
-        } catch (e) {
-          // Try extracting IV from beginning
-          final allBytes = base64.decode(encryptedMessage);
-          if (allBytes.length < 16) {
-            throw FormatException(
-              'Encrypted message too short for IV extraction',
-            );
-          }
-          // Assume IV is the first 16 bytes
-          iv = Uint8List.fromList(allBytes.sublist(0, 16));
-          encryptedBytes = Uint8List.fromList(allBytes.sublist(16));
-        }
-      }
-
-      // Get shared secret using ECDH
-      final sharedSecret = _getSharedSecret(senderPubkey);
-
-      // Decrypt message using AES-256-CBC
-      final decryptedBytes = _aesDecrypt(encryptedBytes, sharedSecret, iv);
-
-      return utf8.decode(decryptedBytes);
-    } catch (e) {
-      throw Exception('NIP-04 decryption failed: $e');
-    }
-  }
-
-  /// Get shared secret using ECDH with secp256k1 (NIP-04 compliant)
-  Uint8List _getSharedSecret(String otherPubkey) {
-    try {
-      // NIP-04 requires proper ECDH using secp256k1
-      // The shared secret is the X coordinate of the ECDH point (not hashed)
-
-      // Convert hex private key to BigInt
-      final privateKeyInt = BigInt.parse(_privateKey, radix: 16);
-
-      // Ensure pubkey has 02/03 prefix (compressed format)
-      String compressedPubkey = otherPubkey;
-      if (otherPubkey.length == 64) {
-        // Assume even Y coordinate if no prefix (add 02)
-        compressedPubkey = '02$otherPubkey';
-      }
-
-      // Create secp256k1 domain parameters
-      final domainParams = pc.ECDomainParameters('secp256k1');
-
-      // Parse the compressed public key
-      final pubkeyBytes = hex.decode(compressedPubkey);
-      final pubkeyPoint = domainParams.curve.decodePoint(pubkeyBytes)!;
-
-      // Perform ECDH: multiply public key by private key
-      final sharedPoint = pubkeyPoint * privateKeyInt;
-
-      // Get X coordinate as bytes (32 bytes, big-endian)
-      final xCoord = sharedPoint!.x!.toBigInteger()!;
-      final xBytes = _bigIntToBytes(xCoord, 32);
-
-      return xBytes;
-    } catch (e) {
-      throw Exception('ECDH key exchange failed: $e');
-    }
-  }
-
-  /// Convert BigInt to bytes with specified length
-  Uint8List _bigIntToBytes(BigInt value, int length) {
-    final bytes = Uint8List(length);
-    for (int i = 0; i < length; i++) {
-      bytes[length - 1 - i] = (value >> (8 * i)).toUnsigned(8).toInt();
-    }
-    return bytes;
-  }
-
-  /// Generate cryptographically secure random bytes
-  Uint8List _generateRandomBytes(int length) {
-    final random = Random.secure();
-    return Uint8List.fromList(
-      List.generate(length, (_) => random.nextInt(256)),
-    );
-  }
-
-  /// AES-256-CBC encryption using pointycastle
-  Uint8List _aesEncrypt(Uint8List data, Uint8List key, Uint8List iv) {
-    try {
-      // Create AES-256-CBC cipher
-      final cipher = pc.CBCBlockCipher(pc.AESEngine());
-
-      // Initialize with key and IV
-      final params = pc.ParametersWithIV(pc.KeyParameter(key), iv);
-      cipher.init(true, params); // true for encryption
-
-      // Pad data to 16-byte blocks using PKCS7
-      final paddedData = _pkcs7Pad(data, 16);
-
-      // Encrypt the data
-      final encrypted = Uint8List(paddedData.length);
-      for (int offset = 0; offset < paddedData.length; offset += 16) {
-        cipher.processBlock(paddedData, offset, encrypted, offset);
-      }
-
-      return encrypted;
-    } catch (e) {
-      throw Exception('AES encryption failed: $e');
-    }
-  }
-
-  /// AES-256-CBC decryption using pointycastle
-  Uint8List _aesDecrypt(Uint8List encryptedData, Uint8List key, Uint8List iv) {
-    try {
-      // Create AES-256-CBC cipher
-      final cipher = pc.CBCBlockCipher(pc.AESEngine());
-
-      // Initialize with key and IV
-      final params = pc.ParametersWithIV(pc.KeyParameter(key), iv);
-      cipher.init(false, params); // false for decryption
-
-      // Decrypt the data
-      final decrypted = Uint8List(encryptedData.length);
-      for (int offset = 0; offset < encryptedData.length; offset += 16) {
-        cipher.processBlock(encryptedData, offset, decrypted, offset);
-      }
-
-      // Remove PKCS7 padding
-      return _pkcs7Unpad(decrypted);
-    } catch (e) {
-      throw Exception('AES decryption failed: $e');
-    }
-  }
-
-  /// PKCS7 padding
-  Uint8List _pkcs7Pad(Uint8List data, int blockSize) {
-    final padding = blockSize - (data.length % blockSize);
-    final paddedData = Uint8List(data.length + padding);
-    paddedData.setRange(0, data.length, data);
-    for (int i = data.length; i < paddedData.length; i++) {
-      paddedData[i] = padding;
-    }
-    return paddedData;
-  }
-
-  /// PKCS7 unpadding
-  Uint8List _pkcs7Unpad(Uint8List paddedData) {
-    if (paddedData.isEmpty) return paddedData;
-    final padding = paddedData.last;
-    if (padding > paddedData.length || padding == 0) return paddedData;
-
-    // Verify padding is valid
-    for (int i = paddedData.length - padding; i < paddedData.length; i++) {
-      if (paddedData[i] != padding) return paddedData;
-    }
-
-    return paddedData.sublist(0, paddedData.length - padding);
+  @override
+  Future<String> nip04Encrypt(String message, String recipientPubkey) {
+    throw UnsupportedError('No NIP-04 support');
   }
 }
 
@@ -586,21 +375,6 @@ class DummySigner extends Signer {
   }
 
   @override
-  Future<String> nip04Encrypt(String message, String recipientPubkey) async {
-    // Dummy implementation - returns a placeholder encrypted message
-    return 'dummy_nip04_encrypted_${message.hashCode}_$recipientPubkey';
-  }
-
-  @override
-  Future<String> nip04Decrypt(
-    String encryptedMessage,
-    String senderPubkey,
-  ) async {
-    // Dummy implementation - returns a placeholder decrypted message
-    return 'dummy_nip04_decrypted_${encryptedMessage.hashCode}_$senderPubkey';
-  }
-
-  @override
   Future<String> nip44Encrypt(String message, String recipientPubkey) async {
     // Dummy implementation - returns a placeholder encrypted message
     return 'dummy_nip44_encrypted_${message.hashCode}_$recipientPubkey';
@@ -613,6 +387,16 @@ class DummySigner extends Signer {
   ) async {
     // Dummy implementation - returns a placeholder decrypted message
     return 'dummy_nip44_decrypted_${encryptedMessage.hashCode}_$senderPubkey';
+  }
+
+  @override
+  Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey) {
+    throw UnsupportedError('No NIP-04 support');
+  }
+
+  @override
+  Future<String> nip04Encrypt(String message, String recipientPubkey) {
+    throw UnsupportedError('No NIP-04 support');
   }
 }
 

@@ -7,10 +7,14 @@ void main() {
   late ProviderContainer container;
 
   setUpAll(() async {
-    container = ProviderContainer();
-    final config = StorageConfiguration(keepSignatures: false);
-    await container.read(initializationProvider(config).future);
+        container = await createTestContainer(
+      config: StorageConfiguration(keepSignatures: false),
+    );
   });
+
+  tearDownAll(() async {
+    container.dispose();
+      });
 
   group('Release', () {
     test('release', () {

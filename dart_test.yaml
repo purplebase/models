@@ -1,13 +1,13 @@
 # Test configuration for models package
-# Run tests serially to prevent singleton sharing issues
-concurrency: 1
+# Tests can run in parallel - each has isolated in-memory storage
+concurrency: 4
 
 # Test timeout
-timeout: 5s
+timeout: 30s
 
 # Platform configuration
 platforms:
   - vm
 
 # Reporter configuration
-reporter: compact 
+reporter: compact

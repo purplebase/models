@@ -1,505 +1,208 @@
-# Architecture Overview
+# Architecture
 
-This document provides a technical overview of the Models library - a fast, local-first Nostr framework for Dart applications.
+Technical overview of the internal design and extension points.
 
-## What is Models?
+## Design Principles
 
-Models is a Dart library that provides a high-level, domain-driven interface for working with the Nostr protocol. It abstracts away the complexity of raw Nostr events and provides type-safe, reactive access to social media data with built-in relationships and local storage.
+1. **Domain-First**: Typed objects instead of raw JSON events
+2. **Local-First**: Data stored locally, synchronized with relays in background
+3. **Reactive**: Built on Riverpod StateNotifier
+4. **Type-Safe**: Compile-time guarantees via Dart's type system
+5. **Extensible**: Custom event kinds, storage backends, and signers
 
-## Core Design Principles
+## Event System
 
-1. **Domain-First**: Work with `Note`, `Profile`, `Reaction` objects instead of raw JSON events
-2. **Local-First**: Data is stored locally and synchronized with relays in the background
-3. **Reactive**: Built on Riverpod for reactive state management
-4. **Type-Safe**: Full Dart type safety with compile-time guarantees
-5. **Extensible**: Easy to add new Nostr event kinds and customize behavior
+The library uses a two-phase event system separating creation from storage.
 
-## High-Level Architecture
+**PartialEvent**: Mutable, unsigned events for creation. Contains `kind`, `content`, `tags`, and `createdAt`.
 
-```mermaid
-graph TB
-    App[Flutter/Dart App] --> Models[Models Library]
-    
-    subgraph "Models Library"
-        Domain[Domain Models<br/>Note, Profile, Reaction, etc.]
-        Storage[Storage Layer<br/>Abstract Interface]
-        Signer[Signer System<br/>Event Signing]
-        Relay[Relay System<br/>WebSocket Communication]
-        Query[Query System<br/>Reactive Queries]
-    end
-    
-    subgraph "Storage Implementations"
-        Dummy[Dummy Storage<br/>In-Memory]
-        SQLite[SQLite Storage<br/>Persistent]
-    end
-    
-    subgraph "External Systems"
-        NostrRelays[Nostr Relays<br/>WebSocket]
-        LocalDB[(Local Database)]
-    end
-    
-    Models --> Storage
-    Storage --> Dummy
-    Storage --> SQLite
-    Storage --> LocalDB
-    Relay --> NostrRelays
-    
-    Domain -.-> Query
-    Query -.-> Storage
-    Signer -.-> Domain
+**ImmutableEvent**: Signed, immutable events from storage or relays. Adds `id`, `pubkey`, `signature`, and a `metadata` map for caching computed values.
+
+**EventBase**: Mixin providing tag manipulation utilities (`getFirstTagValue`, `getTags`, `hasTagValue`, `addressableId`) shared by both types.
+
+## Model Hierarchy
+
+Models are sealed classes with four concrete subtypes matching Nostr event categories:
+
+```
+Model<E> (sealed)
+├── RegularModel<E>           // Kind 1-9999 (non-replaceable)
+├── ReplaceableModel<E>       // Kind 0, 3, 10000-19999
+├── ParameterizableReplaceableModel<E>  // Kind 30000-39999
+└── EphemeralModel<E>         // Kind 20000-29999
 ```
 
-## Core Components
+Each model validates its kind matches the expected category at construction time.
 
-### 1. Event System
+### Addressable IDs
 
-The library uses a two-phase event system:
+Replaceable and parameterizable models use composite identifiers as primary keys:
 
-```mermaid
-graph LR
-    PartialEvent[PartialEvent<br/>Mutable, Unsigned] --> |sign| ImmutableEvent[ImmutableEvent<br/>Immutable, Signed]
-    
-    subgraph "Event Types"
-        Regular[Regular Events<br/>Kind 1, 7, etc.]
-        Replaceable[Replaceable Events<br/>Kind 0, 3, etc.]
-        Parameterized[Parameterized<br/>Kind 30000+]
-        Ephemeral[Ephemeral Events<br/>Kind 20000+]
-    end
-    
-    ImmutableEvent --> Regular
-    ImmutableEvent --> Replaceable
-    ImmutableEvent --> Parameterized
-    ImmutableEvent --> Ephemeral
+- **Replaceable**: `kind:pubkey` (e.g., `0:abc123...`)
+- **Parameterizable**: `kind:pubkey:d-tag` (e.g., `30023:abc123...:my-article`)
+
+## Relationship System
+
+Relationships are lazy-loaded query wrappers.
+
+**BelongsTo<E>**: Single related model (nullable). Caches result after first access.
+
+**HasMany<E>**: Collection implementing `Iterable<E>`. Caches list after first access.
+
+Both provide synchronous (`value`, `toList()`) and asynchronous (`valueAsync`, `toListAsync()`) accessors.
+
+### Relationship Discovery
+
+The `and` parameter in queries returns a `Set<Relationship>` which the system uses to:
+
+1. Extract `Request` objects from each relationship
+2. Execute those requests with the configured `andSource`
+3. Re-evaluate the function when primary models arrive (enabling nested relationships)
+
+## Query Execution Pipeline
+
+```
+RequestFilter<E> → Request<E> → Storage.query()
+                                      ↓
+                            ┌─────────┴─────────┐
+                            ↓                   ↓
+                      LocalSource          RemoteSource
+                            ↓                   ↓
+                      querySync()          relay.subscribe()
+                            ↓                   ↓
+                            └─────────┬─────────┘
+                                      ↓
+                              where filtering
+                                      ↓
+                              List<E> (final)
 ```
 
-**Key Classes:**
-- `PartialEvent<E>`: Mutable, unsigned events ready for signing
-- `ImmutableEvent<E>`: Signed, immutable events from storage/relays
-- `EventBase<E>`: Common interface with tag utilities
+The `where` filter executes client-side after model construction, enabling filtering on computed properties and relationship data.
 
-### 2. Domain Models
+## Storage Interface
 
-Models wrap events and provide domain-specific interfaces:
+The `StorageNotifier` abstract class defines:
 
-```mermaid
-graph TD
-    Model[Model&lt;E&gt;] --> |extends| RegularModel[RegularModel<br/>Notes, Reactions, etc.]
-    Model --> |extends| ReplaceableModel[ReplaceableModel<br/>Profiles, Contact Lists]
-    Model --> |extends| ParameterizableModel[ParameterizableReplaceableModel<br/>Articles, Apps, etc.]
-    Model --> |extends| EphemeralModel[EphemeralModel<br/>Auth events, etc.]
-    
-    subgraph "Example Models"
-        Note[Note<br/>kind: 1]
-        Profile[Profile<br/>kind: 0]
-        Reaction[Reaction<br/>kind: 7]
-        Article[Article<br/>kind: 30023]
-    end
-    
-    RegularModel --> Note
-    RegularModel --> Reaction
-    ReplaceableModel --> Profile
-    ParameterizableModel --> Article
-```
+- `querySync<E>()` - Synchronous local query
+- `query<E>()` - Async query with source control
+- `save()` - Persist models locally
+- `publish()` - Send to relays
+- `clear()` / `obliterate()` - Remove data
 
-**Key Features:**
-- **Type Safety**: Each model corresponds to a specific Nostr event kind
-- **Relationships**: Built-in `author`, `reactions`, `zaps` relationships
-- **Metadata Processing**: Lazy parsing of complex data (e.g., zap amounts)
-- **Storage Integration**: Direct `save()` and `publish()` methods
+### Model Registration
 
-### 3. Storage Layer
+Models are registered during storage initialization, mapping event kinds to constructor functions:
 
-The storage layer provides a unified interface for local and remote data:
-
-```mermaid
-graph TB
-    StorageNotifier[StorageNotifier<br/>Abstract Interface] --> |implements| DummyStorage[DummyStorage<br/>In-Memory]
-    StorageNotifier --> |implements| SQLiteStorage[SQLiteStorage<br/>Persistent]
-    
-    subgraph "Data Sources"
-        LocalSource[LocalSource<br/>Local DB Only]
-        RemoteSource[RemoteSource<br/>Relays Only]
-        LocalAndRemote[LocalAndRemoteSource<br/>Both]
-    end
-    
-    Query[Query System] --> StorageNotifier
-    StorageNotifier --> LocalSource
-    StorageNotifier --> RemoteSource
-    StorageNotifier --> LocalAndRemote
-    
-    subgraph "Storage Operations"
-        QueryOp[query&lt;T&gt;]
-        SaveOp[save]
-        PublishOp[publish]
-        ClearOp[clear]
-    end
-    
-    StorageNotifier --> QueryOp
-    StorageNotifier --> SaveOp
-    StorageNotifier --> PublishOp
-    StorageNotifier --> ClearOp
-```
-
-**Key Features:**
-- **Source Control**: Choose between local-only, remote-only, or hybrid queries
-- **Reactive**: Built on Riverpod StateNotifier for reactive updates
-- **Pluggable**: Easy to implement custom storage backends
-- **Streaming**: Background synchronization with configurable batching
-
-### 4. Signer System
-
-The signer system handles event creation and signing:
-
-```mermaid
-graph TB
-    Signer[Signer<br/>Abstract Base] --> |extends| PrivateKeySigner[Bip340PrivateKeySigner<br/>Local Private Key]
-    Signer --> |extends| DummySigner[DummySigner<br/>Testing/Development]
-    Signer --> |extends| ExternalSigner[External Signers<br/>Amber, etc.]
-    
-    subgraph "Signing Process"
-        PartialModel[PartialModel] --> |signWith| SignedModel[Model]
-        PartialModel --> |dummySign| DummyModel[Model]
-    end
-    
-    subgraph "Signer Management"
-        ActiveSigner[Active Signer Provider]
-        SignedInUsers[Signed In Users]
-        ActiveProfile[Active Profile Provider]
-    end
-    
-    Signer --> ActiveSigner
-    Signer --> SignedInUsers
-    Signer --> ActiveProfile
-```
-
-**Key Features:**
-- **Multiple Signers**: Support for different signing methods (local keys, Amber, Nostr Connect)
-- **User Management**: Track signed-in users and active profiles
-- **Encryption**: NIP-04 and NIP-44 encryption/decryption (content encrypted during signing)
-- **Reactive**: Riverpod providers for authentication state
-
-### 5. Relationship System
-
-Models can reference other models through relationships:
-
-```mermaid
-graph LR
-    Note[Note] --> |BelongsTo| Author[Profile]
-    Note --> |HasMany| Reactions["List&lt;Reaction&gt;"]
-    Note --> |HasMany| Zaps["List&lt;Zap&gt;"]
-    Note --> |BelongsTo| RootNote[Note]
-    Note --> |HasMany| Replies["List&lt;Note&gt;"]
-    
-    subgraph "Relationship Types"
-        BelongsTo[BelongsTo&lt;T&gt;<br/>Single Related Model]
-        HasMany[HasMany&lt;T&gt;<br/>Collection of Models]
-    end
-    
-    subgraph "Loading Strategies"
-        Sync[Synchronous<br/>querySync]
-        Async[Asynchronous<br/>valueAsync/toListAsync]
-        Reactive[Reactive<br/>Watch relationships]
-    end
-    
-    BelongsTo --> Sync
-    BelongsTo --> Async
-    HasMany --> Sync
-    HasMany --> Async
-    HasMany --> Reactive
-```
-
-**Key Features:**
-- **Lazy Loading**: Relationships are loaded on demand
-- **Type Safety**: Compile-time guarantees for relationship types
-- **Caching**: Efficient caching of relationship queries
-- **Reactive**: Can be watched for changes
-- **Source Control**: Relationships can use a different source than the main query via `andSource` parameter
-
-### 6. Query System
-
-Reactive queries provide a familiar interface similar to Nostr filters:
-
-```mermaid
-graph TB
-    QueryFunction[query&lt;T&gt;] --> RequestFilter[RequestFilter&lt;T&gt;]
-    
-    subgraph "Filter Options"
-        Authors[authors: Set&lt;String&gt;]
-        Kinds[kinds: Set&lt;int&gt;]
-        Tags[tags: Map&lt;String, Set&lt;String&gt;&gt;]
-        TimeRange[since/until: DateTime]
-        Limit[limit: int]
-        Search[search: String]
-    end
-    
-    subgraph "Advanced Options"
-        Where[where: Function]
-        And[and: Function<br/>Preload relationships]
-        Source[source: Source<br/>Main query source]
-        AndSource[andSource: Source<br/>Relationship query source]
-    end
-    
-    RequestFilter --> Authors
-    RequestFilter --> Kinds
-    RequestFilter --> Tags
-    RequestFilter --> TimeRange
-    RequestFilter --> Limit
-    RequestFilter --> Search
-    RequestFilter --> Where
-    RequestFilter --> And
-    RequestFilter --> Source
-    RequestFilter --> AndSource
-    
-    subgraph "State Management"
-        StorageLoading[StorageLoading]
-        StorageData[StorageData]
-        StorageError[StorageError]
-    end
-    
-    QueryFunction --> StorageLoading
-    QueryFunction --> StorageData
-    QueryFunction --> StorageError
-```
-
-**Usage Example:**
 ```dart
-final notesState = ref.watch(
-  query<Note>(
-    authors: {userPubkey},
-    limit: 20,
-    since: DateTime.now().subtract(Duration(days: 7)),
-    and: (note) => {note.author, note.reactions, note.zaps},
-  ),
-);
-
-// Advanced: Use different source for relationships
-final notesWithStreamingProfiles = ref.watch(
-  query<Note>(
-    authors: {userPubkey},
-    limit: 20,
-    source: RemoteSource(stream: false),     // One-time fetch for notes
-    andSource: RemoteSource(stream: true),   // Keep profiles streaming
-    and: (note) => {note.author},
-  ),
-);
-
-// Advanced: Post-query filtering with where
-final filteredNotes = ref.watch(
-  query<Note>(
-    authors: {pubkey1, pubkey2, pubkey3},
-    where: (note) => note.author.value?.nip05 != null,  // Only verified authors
-    and: (note) => {note.author},  // Load author data first
-  ),
+Model.register(
+  kind: 1,
+  constructor: Note.fromMap,
+  partialConstructor: PartialNote.fromMap,
 );
 ```
 
-### The `where` Parameter
+## Signing Process
 
-The `where` parameter enables client-side filtering of query results using custom Dart logic. Unlike standard Nostr filters that operate at the protocol level, `where` filtering happens **after** events have been retrieved and converted to models.
+### Encryptable Hook
 
-**Type Definition:**
-```dart
-typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
-```
+Models implementing `Encryptable` have content encrypted during signing via `prepareForSigning(signer)`. The flow:
 
-**Execution Pipeline:**
-```mermaid
-graph LR
-    NostrFilters[Nostr Filters<br/>authors, kinds, tags] --> Events[Events Retrieved<br/>From Storage/Relays]
-    Events --> Models[Models Constructed<br/>Type Conversion]
-    Models --> Where[Where Function<br/>Custom Dart Logic]
-    Where --> Results[Filtered Results]
-```
+1. `partialModel.signWith(signer)` called
+2. If `Encryptable`, encryption occurs (e.g., NIP-44)
+3. Event signed with BIP-340
+4. `ImmutableEvent` created and wrapped in `Model`
 
-**Use Cases:**
-1. **Relationship-based filtering**: Filter on properties of related models
-2. **Computed properties**: Filter on derived/calculated values
-3. **Complex business logic**: Multi-condition filtering not expressible in Nostr filters
-4. **Type-specific properties**: Filter on properties unique to model subclasses
+### Signer State Management
 
-**Implementation Details:**
-- Applied synchronously after model construction
-- Runs in the client process (not pushed to relays/storage)
-- Should be used in conjunction with Nostr filters for optimal performance
-- Type-safe: Receives models of type `E` specified in `query<E>`
-
-**Example Implementation:**
-```dart
-// In storage implementation
-if (filter.where != null) {
-  results = results.where((m) => filter.where!(m)).toList();
-}
-```
-
-## Data Flow
-
-### 1. Reading Data
-
-```mermaid
-sequenceDiagram
-    participant App
-    participant Query
-    participant Storage
-    participant LocalDB
-    participant Relay
-    
-    App->>Query: query<Note>(authors: {...})
-    Query->>Storage: query(request, source)
-    
-    alt LocalAndRemoteSource
-        Storage->>LocalDB: querySync()
-        LocalDB-->>Storage: Local results
-        Storage->>Relay: subscribe(filters)
-        Relay-->>Storage: Stream events
-        Storage-->>Query: Reactive updates
-    else LocalSource
-        Storage->>LocalDB: querySync()
-        LocalDB-->>Storage: Local results
-    else RemoteSource
-        Storage->>Relay: subscribe(filters)
-        Relay-->>Storage: Stream events
-    end
-    
-    Query-->>App: StorageState<Note>
-```
-
-### 2. Creating Data
-
-```mermaid
-sequenceDiagram
-    participant App
-    participant PartialNote
-    participant Signer
-    participant Storage
-    participant LocalDB
-    participant Relay
-    
-    App->>PartialNote: new PartialNote(content)
-    App->>Signer: partialNote.signWith(signer)
-    Signer->>Signer: sign(event)
-    Signer-->>App: Note (signed)
-    
-    App->>Storage: note.save()
-    Storage->>LocalDB: save(note)
-    LocalDB-->>Storage: success
-    
-    App->>Storage: note.publish()
-    Storage->>Relay: publish(note)
-    Relay-->>Storage: OK/NOTICE
-    Storage-->>App: PublishResponse
-```
-
-### 3. Reactive Updates
-
-```mermaid
-sequenceDiagram
-    participant Widget
-    participant Riverpod
-    participant Storage
-    participant LocalDB
-    participant Relay
-    
-    Widget->>Riverpod: ref.watch(query<Note>())
-    Riverpod->>Storage: subscribe to changes
-    
-    loop Background Sync
-        Relay->>Storage: new event
-        Storage->>LocalDB: save event
-        Storage->>Riverpod: notifyListeners()
-        Riverpod->>Widget: rebuild with new data
-    end
-```
-
-## Key Design Patterns
-
-### 1. Domain-Driven Design
-- **Models**: Rich domain objects with behavior
-- **Value Objects**: Immutable data structures (Events)
-- **Repositories**: Storage abstraction layer
-- **Services**: Signers, verifiers, utilities
-
-### 2. CQRS (Command Query Responsibility Segregation)
-- **Commands**: `save()`, `publish()`, `sign()`
-- **Queries**: `query<T>()`, relationship navigation
-- **Separate Models**: `PartialModel` for commands, `Model` for queries
-
-### 3. Event Sourcing
-- **Immutable Events**: All changes represented as events
-- **Append-Only**: Events are never modified, only added
-- **Replay**: Models can be reconstructed from events
-
-### 4. Reactive Programming
-- **Streams**: Continuous data flow from relays
-- **Observables**: Riverpod providers for state management
-- **Declarative**: UI declares what data it needs
+Signers use internal Riverpod state notifiers. Public providers (`signedInPubkeysProvider`, `activeSignerProvider`) derive from this internal state.
 
 ## Extension Points
 
-### 1. Custom Event Kinds
+### Custom Event Kinds
 
 ```dart
-@GeneratePartialModel()
 class CustomEvent extends RegularModel<CustomEvent> {
   CustomEvent.fromMap(super.map, super.ref) : super.fromMap();
-  
   String get customField => event.getFirstTagValue('custom') ?? '';
 }
 
-// Register in storage initialization
+class PartialCustomEvent extends PartialModel<CustomEvent> {
+  String customField = '';
+
+  @override
+  int get kind => 40000;
+
+  @override
+  List<List<String>> get tags => [['custom', customField]];
+}
+
+// Register during storage initialization
 Model.register(kind: 40000, constructor: CustomEvent.fromMap);
 ```
 
-### 2. Custom Storage Backend
+### Custom Storage Backend
 
 ```dart
 class CustomStorage extends StorageNotifier {
   @override
   Future<void> initialize(StorageConfiguration config) async {
-    super.initialize(config); // Register built-in types
+    await super.initialize(config); // Registers built-in types
     // Custom initialization
   }
-  
+
+  @override
+  List<E> querySync<E extends Model<dynamic>>(Request<E> req) {
+    // Query local database
+  }
+
   @override
   Future<List<E>> query<E extends Model<dynamic>>(
-    Request<E> req, {Source source = const LocalAndRemoteSource()}
+    Request<E> req, {Source? source}
   ) async {
-    // Custom query implementation
+    // Combine local and remote based on source
   }
-  
-  // Implement other abstract methods...
 }
 ```
 
-### 3. Custom Signer
+### Custom Signer
 
 ```dart
-class CustomSigner extends Signer {
+class HardwareWalletSigner extends Signer {
   @override
   Future<List<E>> sign<E extends Model<dynamic>>(
     List<PartialModel<Model<dynamic>>> partialModels
   ) async {
-    // Custom signing logic
+    return Future.wait(partialModels.map((partial) async {
+      if (partial is Encryptable) {
+        await partial.prepareForSigning(this);
+      }
+      final eventId = Utils.getEventId(partial.event, pubkey);
+      final signature = await _wallet.signSchnorr(eventId);
+      return Model.fromPartial<E>(partial, pubkey, eventId, signature, ref);
+    }));
   }
-  
-  // Implement encryption methods...
 }
 ```
 
 ## Performance Considerations
 
-1. **Lazy Loading**: Relationships are loaded on demand
-2. **Caching**: Local storage acts as a cache layer
-3. **Streaming**: Background sync with configurable batching
-4. **Memory Management**: Configurable limits on stored models
-5. **Signature Optimization**: Optional signature stripping for space
+- **Lazy Relationships**: Load on first access, not at construction
+- **Metadata Caching**: Expensive computations stored in `ImmutableEvent.metadata`
+- **Signature Stripping**: `keepSignatures: false` reduces storage size
+- **Query Deduplication**: Relationship queries deduplicated across re-evaluations
+- **Streaming Buffer**: `streamingBufferWindow` batches rapid relay events
+- **Model Eviction**: `keepMaxModels` prevents unbounded growth
 
-## Testing Strategy
+## Testing
 
-1. **Dummy Implementation**: Built-in in-memory storage for testing
-2. **Dummy Signer**: No-op signer for development
-3. **Fake Data**: Built-in faker integration for generating test data
-4. **Mocking**: Easy to mock storage and signer interfaces
+**DummyStorageNotifier**: In-memory implementation for unit tests.
 
----
+**DummySigner**: No-op signer for testing without cryptography. Use `partial.dummySign()` to create models with fake signatures.
 
-This architecture provides a solid foundation for building Nostr applications in Dart while maintaining flexibility for customization and extension. 
+**Test Data Generation**: Built-in faker integration:
+
+```dart
+final storage = container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
+await storage.generateFakeProfiles(count: 10);
+await storage.generateFakeFeed(authors: profiles.map((p) => p.pubkey).toSet());
+```

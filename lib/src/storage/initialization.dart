@@ -18,15 +18,22 @@ class StorageConfiguration extends Equatable {
   /// Whether to BIP-340 verify the events received from relays (default `false`)
   final bool skipVerification;
 
-  /// Define named collection of relays,
-  /// Example: `{popular: {'wss://relay.damus.io', 'wss://relay.primal.net'}}`
-  final Map<String, Set<String>> relayGroups;
+  /// Default relay URLs keyed by label.
+  ///
+  /// These are used as fallbacks when no signed [RelayList] exists for a label.
+  /// Once a user's signed RelayList is available, it takes precedence over defaults.
+  ///
+  /// Example:
+  /// ```dart
+  /// defaultRelays: {
+  ///   'default': {'wss://relay.damus.io', 'wss://nos.lol'},
+  ///   'AppCatalog': {'wss://relay.zapstore.dev'},
+  /// }
+  /// ```
+  final Map<String, Set<String>> defaultRelays;
 
   /// The default source for query when absent from query()
   final Source defaultQuerySource;
-
-  /// The default group to use when unspecified
-  final String defaultRelayGroup;
 
   /// After this inactivity duration, relays disconnect (default: 5 minutes)
   final Duration idleTimeout;
@@ -49,23 +56,22 @@ class StorageConfiguration extends Equatable {
     this.databasePath,
     this.keepSignatures = false,
     this.skipVerification = false,
-    Map<String, Set<String>> relayGroups = const {},
+    Map<String, Set<String>> defaultRelays = const {},
     this.defaultQuerySource = const LocalAndRemoteSource(stream: false),
-    this.defaultRelayGroup = 'default',
     this.idleTimeout = const Duration(minutes: 5),
     this.responseTimeout = const Duration(seconds: 15),
     this.eoseFirstFlushTimeout = const Duration(seconds: 4),
     this.streamingBufferWindow = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
-  }) : relayGroups = _normalizeRelayGroups(relayGroups);
+  }) : defaultRelays = _normalizeRelays(defaultRelays);
 
-  /// Normalize and sanitize relay URLs
-  static Map<String, Set<String>> _normalizeRelayGroups(
-    Map<String, Set<String>> groups,
+  /// Normalize relay URLs in all relay sets
+  static Map<String, Set<String>> _normalizeRelays(
+    Map<String, Set<String>> relays,
   ) {
     final normalized = <String, Set<String>>{};
 
-    for (final entry in groups.entries) {
+    for (final entry in relays.entries) {
       final normalizedUrls = <String>{};
 
       for (final url in entry.value) {
@@ -113,13 +119,31 @@ class StorageConfiguration extends Equatable {
     }
   }
 
-  /// Find relays via relayUrls (takes priority) or resolve to a group's relayUrls
+  /// Resolve relay URLs from a [RemoteSource].
+  ///
+  /// Resolution order:
+  /// 1. If `source.relays` is null → empty set (TODO: implement outbox lookup)
+  /// 2. If `source.relays` starts with `ws://` or `wss://` → ad-hoc relay URL
+  /// 3. Otherwise → look up by label in defaults
+  ///
+  /// Note: Signed [RelayList] lookup happens in the storage layer, not here.
+  /// This method only provides the default fallback.
   Set<String> getRelays({RemoteSource source = const RemoteSource()}) {
-    if (source.relayUrls.isNotEmpty) {
-      return source.relayUrls;
+    if (source.relays == null) {
+      // TODO: Implement outbox lookup (NIP-65)
+      return {};
     }
-    final group = source.group ?? defaultRelayGroup;
-    return relayGroups[group] ?? {};
+
+    final relays = source.relays!;
+
+    // Ad-hoc relay URL
+    if (relays.startsWith('ws://') || relays.startsWith('wss://')) {
+      final normalized = _normalizeRelayUrl(relays);
+      return normalized != null ? {normalized} : {};
+    }
+
+    // Look up by identifier in defaults
+    return defaultRelays[relays] ?? {};
   }
 
   @override
@@ -127,8 +151,7 @@ class StorageConfiguration extends Equatable {
     databasePath,
     keepSignatures,
     skipVerification,
-    relayGroups,
-    defaultRelayGroup,
+    defaultRelays,
     idleTimeout,
     responseTimeout,
     eoseFirstFlushTimeout,
