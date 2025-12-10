@@ -52,11 +52,8 @@ void main() {
       // Save the App first (primary model)
       await storage.save({app});
 
-      // Create a completer to track when we're done
-      final completer = Completer<void>();
-      var latestReleaseValue;
-      var latestMetadataValue;
-      var stateCount = 0;
+      Release? latestReleaseValue;
+      FileMetadata? latestMetadataValue;
 
       // Watch the app using the model() provider with and: callback
       // This is the pattern that exhibits the bug
@@ -75,13 +72,10 @@ void main() {
 
       // Listen to the provider
       final sub = container.listen(provider, (_, state) {
-        stateCount++;
         if (state is StorageData<App> && state.models.isNotEmpty) {
           final loadedApp = state.models.first;
           latestReleaseValue = loadedApp.latestRelease.value;
-          if (latestReleaseValue != null) {
-            latestMetadataValue = latestReleaseValue.latestMetadata.value;
-          }
+          latestMetadataValue = latestReleaseValue?.latestMetadata.value;
         }
       });
 
@@ -89,7 +83,7 @@ void main() {
       container.read(provider);
 
       // Wait a tick for initial state
-      await Future.delayed(Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       // At this point, Release hasn't been saved, so latestRelease.value should be null
       expect(latestReleaseValue, isNull,
@@ -99,7 +93,7 @@ void main() {
       await storage.save({release});
 
       // Wait for relationship to be discovered
-      await Future.delayed(Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // Now latestRelease.value should have the Release
       expect(latestReleaseValue, isNotNull,
@@ -114,7 +108,7 @@ void main() {
       await storage.save({fileMetadata});
 
       // Wait for nested relationship to be discovered
-      await Future.delayed(Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // BUG: latestMetadata.value is always null because the and: callback
       // was never re-evaluated after latestRelease was loaded
@@ -187,7 +181,7 @@ void main() {
 
       // Initial read
       container.read(provider);
-      await Future.delayed(Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       // Initial state: no release yet
       expect(latestReleaseValue, isNull,
@@ -195,7 +189,7 @@ void main() {
 
       // Simulate: Release arrives from remote and is saved to local storage
       await storage.save({release});
-      await Future.delayed(Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // Release should now be loaded
       expect(latestReleaseValue, isNotNull,
@@ -203,7 +197,7 @@ void main() {
 
       // Simulate: FileMetadata arrives from remote
       await storage.save({fileMetadata});
-      await Future.delayed(Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // THE BUG: This is where zapstore hangs - latestMetadata.value is null
       // because the and: callback was not re-evaluated after Release loaded

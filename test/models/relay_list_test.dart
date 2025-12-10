@@ -13,7 +13,8 @@ void main() {
       config: StorageConfiguration(keepSignatures: false),
     );
     storage =
-        container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
+        container.read(storageNotifierProvider.notifier)
+            as DummyStorageNotifier;
   });
 
   tearDown(() async {
@@ -90,9 +91,7 @@ void main() {
       await storage.save({relayList});
 
       final retrieved = await storage.query(
-        RequestFilter<SocialRelayList>(
-          authors: {nielPubkey},
-        ).toRequest(),
+        RequestFilter<SocialRelayList>(authors: {nielPubkey}).toRequest(),
       );
 
       expect(retrieved, hasLength(1));
@@ -103,10 +102,7 @@ void main() {
   group('AppCatalogRelayList (kind 10067)', () {
     test('basic relay list creation', () {
       final relayList = PartialAppCatalogRelayList(
-        relays: {
-          'wss://relay.zapstore.dev',
-          'wss://relay.nostr.band',
-        },
+        relays: {'wss://relay.zapstore.dev', 'wss://relay.nostr.band'},
       ).dummySign(nielPubkey);
 
       expect(relayList.relays, hasLength(2));
@@ -129,7 +125,10 @@ void main() {
 
       expect(relayList.event.kind, 10067);
       expect(relayList.event.content, '');
-      expect(relayList.event.getTagSetValues('r'), contains('wss://test.relay.com'));
+      expect(
+        relayList.event.getTagSetValues('r'),
+        contains('wss://test.relay.com'),
+      );
     });
 
     test('partial model add/remove relay', () {
@@ -159,9 +158,7 @@ void main() {
 
       // Query by kind
       final retrieved = await storage.query(
-        RequestFilter<AppCatalogRelayList>(
-          authors: {nielPubkey},
-        ).toRequest(),
+        RequestFilter<AppCatalogRelayList>(authors: {nielPubkey}).toRequest(),
       );
 
       expect(retrieved, hasLength(1));
@@ -182,6 +179,19 @@ void main() {
   });
 
   group('StorageConfiguration.defaultRelays with labels', () {
+    Future<Set<String>> resolveWithConfig(
+      StorageConfiguration config,
+      dynamic relays,
+    ) async {
+      final testContainer = await createTestContainer(config: config);
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
+      final resolved = await testStorage.resolveRelays(relays);
+      testContainer.dispose();
+      return resolved;
+    }
+
     test('defaultRelays are used as fallback', () async {
       final config = StorageConfiguration(
         defaultRelays: {
@@ -190,13 +200,11 @@ void main() {
       );
 
       // Query using label should resolve to default relays
-      final resolvedRelays = config.getRelays(
-        source: RemoteSource(relays: 'AppCatalog'),
-      );
+      final resolvedRelays = await resolveWithConfig(config, 'AppCatalog');
       expect(resolvedRelays, contains('wss://relay.zapstore.dev'));
     });
 
-    test('ad-hoc relay URL bypasses lookup', () {
+    test('ad-hoc relay URL bypasses lookup', () async {
       final config = StorageConfiguration(
         defaultRelays: {
           'AppCatalog': {'wss://relay.zapstore.dev'},
@@ -204,26 +212,25 @@ void main() {
       );
 
       // Ad-hoc URL should be used directly
-      final resolvedRelays = config.getRelays(
-        source: RemoteSource(relays: 'wss://custom.relay.com'),
+      final resolvedRelays = await resolveWithConfig(
+        config,
+        'wss://custom.relay.com',
       );
       expect(resolvedRelays, equals({'wss://custom.relay.com'}));
     });
 
-    test('unknown label returns empty set', () {
+    test('unknown label returns empty set', () async {
       final config = StorageConfiguration(
         defaultRelays: {
           'AppCatalog': {'wss://relay.zapstore.dev'},
         },
       );
 
-      final resolvedRelays = config.getRelays(
-        source: RemoteSource(relays: 'NonExistent'),
-      );
+      final resolvedRelays = await resolveWithConfig(config, 'NonExistent');
       expect(resolvedRelays, isEmpty);
     });
 
-    test('null relays returns empty set (TODO: outbox lookup)', () {
+    test('null relays returns empty set (TODO: outbox lookup)', () async {
       final config = StorageConfiguration(
         defaultRelays: {
           'AppCatalog': {'wss://relay.zapstore.dev'},
@@ -231,7 +238,7 @@ void main() {
       );
 
       // Null relays should return empty (future: outbox lookup)
-      final resolvedRelays = config.getRelays(source: RemoteSource());
+      final resolvedRelays = await resolveWithConfig(config, null);
       expect(resolvedRelays, isEmpty);
     });
   });
@@ -246,8 +253,9 @@ void main() {
           },
         ),
       );
-      final testStorage = testContainer.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
 
       final resolved = await testStorage.resolveRelays('AppCatalog');
 
@@ -267,8 +275,9 @@ void main() {
           },
         ),
       );
-      final testStorage = testContainer.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
       final testRef = testContainer.read(refProvider);
 
       // Create and sign in a test signer
@@ -308,8 +317,9 @@ void main() {
           },
         ),
       );
-      final testStorage = testContainer.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
       final testRef = testContainer.read(refProvider);
 
       // Create and sign in a test signer
@@ -339,8 +349,9 @@ void main() {
       final testContainer = await createTestContainer(
         config: StorageConfiguration(keepSignatures: false),
       );
-      final testStorage = testContainer.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
 
       final resolved = await testStorage.resolveRelays(null);
       expect(resolved, isEmpty);
@@ -352,8 +363,9 @@ void main() {
       final testContainer = await createTestContainer(
         config: StorageConfiguration(keepSignatures: false),
       );
-      final testStorage = testContainer.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
 
       final resolved = await testStorage.resolveRelays('UnknownLabel');
       expect(resolved, isEmpty);
@@ -370,8 +382,9 @@ void main() {
           },
         ),
       );
-      final testStorage = testContainer.read(storageNotifierProvider.notifier)
-          as DummyStorageNotifier;
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
       final testRef = testContainer.read(refProvider);
 
       // Create and sign in a test signer
@@ -390,10 +403,9 @@ void main() {
 
       // Publish a note using the 'AppCatalog' label
       final note = PartialNote('Test note').dummySign(testSigner.pubkey);
-      final response = await testStorage.publish(
-        {note},
-        source: RemoteSource(relays: 'AppCatalog'),
-      );
+      final response = await testStorage.publish({
+        note,
+      }, source: RemoteSource(relays: 'AppCatalog'));
 
       // Should have published to the signed relay, not the default
       expect(response.results, isNotEmpty);
@@ -408,4 +420,3 @@ void main() {
     });
   });
 }
-

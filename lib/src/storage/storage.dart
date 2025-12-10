@@ -274,27 +274,37 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   /// 3. Label → query active signer's signed RelayList by kind, fallback to config.defaultRelays
   ///
   /// Reactive: When a signed RelayList is updated, subsequent calls will use new relays.
-  Future<Set<String>> resolveRelays(String? relays) async {
+  Future<Set<String>> resolveRelays(dynamic relays) async {
     if (relays == null) {
       // TODO: Implement outbox lookup (NIP-65)
-      // Will query follows' SocialRelayList (10002) events to discover relays
-      return {};
+      return _normalizeRelayIterable(
+        config.defaultRelays['default'] ?? const {},
+      );
     }
 
+    // Iterable input (List/Set/etc.) of relay targets; normalize each.
+    if (relays is Iterable && relays is! String) {
+      return _normalizeRelayIterable(relays);
+    }
+
+    final relayValue = relays.toString();
+
     // Ad-hoc relay URL
-    if (relays.startsWith('ws://') || relays.startsWith('wss://')) {
-      final normalized = StorageConfiguration._normalizeRelayUrl(relays);
+    if (relayValue.startsWith('ws://') || relayValue.startsWith('wss://')) {
+      final normalized = _normalizeRelayUrl(relayValue);
       return normalized != null ? {normalized} : {};
     }
 
     // Label lookup - get kind from registry
-    final kind = RelayList.labels[relays];
+    final kind = RelayList.labels[relayValue];
     if (kind != null) {
-      return await _resolveByKind(kind, relays);
+      return await _resolveByKind(kind, relayValue);
     }
 
     // Unknown label - check defaults for forward compatibility
-    return config.defaultRelays[relays] ?? {};
+    return _normalizeRelayIterable(
+      config.defaultRelays[relayValue] ?? const {},
+    );
   }
 
   /// Resolve relays by querying for a specific RelayList kind
@@ -309,12 +319,12 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       );
 
       if (results.isNotEmpty && results.first is RelayList) {
-        return (results.first as RelayList).relays;
+        return _normalizeRelayIterable((results.first as RelayList).relays);
       }
     }
 
     // Fall back to defaults (by label)
-    return config.defaultRelays[label] ?? {};
+    return _normalizeRelayIterable(config.defaultRelays[label] ?? const {});
   }
 
   /// Query storage asynchronously, always local
@@ -379,4 +389,54 @@ final storageNotifierProvider =
 
 extension RefExt on Ref {
   StorageNotifier get storage => read(storageNotifierProvider.notifier);
+}
+
+/// Normalize a collection of relay targets (URLs/URIs/strings) into a set of
+/// sanitized relay URLs. Invalid entries are dropped.
+Set<String> _normalizeRelayIterable(Iterable relays) {
+  final normalized = <String>{};
+  for (final relay in relays) {
+    final normalizedUrl = _normalizeRelayUrl(relay.toString());
+    if (normalizedUrl != null) {
+      normalized.add(normalizedUrl);
+    }
+  }
+  return normalized;
+}
+
+/// Normalize and sanitize a single relay URL string.
+String? _normalizeRelayUrl(String url) {
+  // Remove if contains comma
+  if (url.contains(',')) return null;
+
+  try {
+    final uri = Uri.parse(url.trim());
+
+    // Default to wss if not ws or wss
+    final scheme = (uri.scheme == 'ws' || uri.scheme == 'wss')
+        ? uri.scheme
+        : 'wss';
+
+    // Drop default ports (ws:80, wss:443) to keep canonical form.
+    int? port = uri.hasPort ? uri.port : null;
+    if ((scheme == 'ws' && (port == null || port == 80)) ||
+        (scheme == 'wss' && (port == null || port == 443))) {
+      port = null;
+    }
+
+    // Keep consistent trailing slash logic - remove if present
+    final path = uri.path == '/' ? '' : uri.path;
+
+    return Uri(
+      scheme: scheme,
+      host: uri.host,
+      port: port,
+      path: path,
+      query: uri.query.isEmpty ? null : uri.query,
+      fragment: uri.fragment.isEmpty ? null : uri.fragment,
+    ).toString();
+  } catch (_) {
+    // Could not parse URI, remove from list
+    return null;
+  }
 }

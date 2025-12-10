@@ -436,7 +436,7 @@ void main() async {
   });
 
   group('storage configuration', () {
-    test('getRelays resolves ad-hoc URLs and identifiers', () async {
+    test('resolveRelays handles ad-hoc URLs and identifiers', () async {
       final config = StorageConfiguration(
         defaultRelays: {
           'primary': {'wss://primary1.relay.io', 'wss://primary2.relay.io'},
@@ -446,28 +446,77 @@ void main() async {
           },
         },
       );
+      final testContainer = await createTestContainer(config: config);
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
 
       // Test ad-hoc relay URL (starts with wss://)
       final sourceWithUrl = RemoteSource(relays: 'wss://custom.relay.io');
       expect(
-        config.getRelays(source: sourceWithUrl),
+        await testStorage.resolveRelays(sourceWithUrl.relays),
         equals({'wss://custom.relay.io'}),
       );
 
       // Test identifier lookup
       final sourceWithIdentifier = RemoteSource(relays: 'secondary');
       expect(
-        config.getRelays(source: sourceWithIdentifier),
+        await testStorage.resolveRelays(sourceWithIdentifier.relays),
         equals({'wss://secondary1.relay.io', 'wss://secondary2.relay.io'}),
       );
 
       // Test null relays (TODO: outbox lookup, currently returns empty)
       final sourceDefault = RemoteSource();
-      expect(config.getRelays(source: sourceDefault), equals(<String>{}));
+      expect(
+        await testStorage.resolveRelays(sourceDefault.relays),
+        equals(<String>{}),
+      );
 
       // Test non-existent identifier returns empty set
       final sourceNonExistent = RemoteSource(relays: 'nonexistent');
-      expect(config.getRelays(source: sourceNonExistent), equals(<String>{}));
+      expect(
+        await testStorage.resolveRelays(sourceNonExistent.relays),
+        equals(<String>{}),
+      );
+
+      testContainer.dispose();
+    });
+
+    test('resolveRelays normalizes iterable and URI inputs', () async {
+      final config = StorageConfiguration(
+        defaultRelays: {
+          'default': {'wss://fallback.relay'},
+        },
+      );
+      final testContainer = await createTestContainer(config: config);
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
+
+      // URI input
+      expect(
+        await testStorage.resolveRelays(Uri.parse('wss://uri.relay.io')),
+        equals({'wss://uri.relay.io'}),
+      );
+
+      // Iterable of mixed relay inputs
+      final iterableRelays = [
+        Uri.parse('wss://one.relay.io/'),
+        'ws://two.relay.io/',
+        'https://three.relay.io/path',
+        'invalid,comma', // Dropped by normalizer
+      ];
+
+      expect(
+        await testStorage.resolveRelays(iterableRelays),
+        equals({
+          'wss://one.relay.io',
+          'ws://two.relay.io',
+          'wss://three.relay.io/path',
+        }),
+      );
+
+      testContainer.dispose();
     });
   });
 
@@ -922,18 +971,17 @@ void main() async {
         await tester.expectModels(hasLength(2));
 
         // Verify that storage configuration correctly resolves ad-hoc URLs
-        final config = storage.config;
         final sourceWithUrl = RemoteSource(relays: 'wss://custom.relay.io');
         final sourceWithIdentifier = RemoteSource(relays: 'big-relays');
 
         // Ad-hoc URL should be returned as-is
         expect(
-          config.getRelays(source: sourceWithUrl),
+          await storage.resolveRelays(sourceWithUrl.relays),
           equals({'wss://custom.relay.io'}),
         );
         // Identifier should look up from defaultRelaySets
         expect(
-          config.getRelays(source: sourceWithIdentifier),
+          await storage.resolveRelays(sourceWithIdentifier.relays),
           equals({'wss://test.relay'}),
         );
       });
@@ -961,12 +1009,11 @@ void main() async {
           await tester.expectModels(hasLength(2));
 
           // Verify resolution
-          final config = storage.config;
           final source = LocalAndRemoteSource(
             relays: 'wss://priority.relay.io',
           );
           expect(
-            config.getRelays(source: source),
+            await storage.resolveRelays(source.relays),
             equals({'wss://priority.relay.io'}),
           );
         },

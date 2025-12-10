@@ -23,6 +23,9 @@ class StorageConfiguration extends Equatable {
   /// These are used as fallbacks when no signed [RelayList] exists for a label.
   /// Once a user's signed RelayList is available, it takes precedence over defaults.
   ///
+  /// Values are not normalized at configuration time; relay targets are
+  /// normalized when [StorageNotifier.resolveRelays] is invoked.
+  ///
   /// Example:
   /// ```dart
   /// defaultRelays: {
@@ -56,95 +59,14 @@ class StorageConfiguration extends Equatable {
     this.databasePath,
     this.keepSignatures = false,
     this.skipVerification = false,
-    Map<String, Set<String>> defaultRelays = const {},
+    this.defaultRelays = const {},
     this.defaultQuerySource = const LocalAndRemoteSource(stream: false),
     this.idleTimeout = const Duration(minutes: 5),
     this.responseTimeout = const Duration(seconds: 15),
     this.eoseFirstFlushTimeout = const Duration(seconds: 4),
     this.streamingBufferWindow = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
-  }) : defaultRelays = _normalizeRelays(defaultRelays);
-
-  /// Normalize relay URLs in all relay sets
-  static Map<String, Set<String>> _normalizeRelays(
-    Map<String, Set<String>> relays,
-  ) {
-    final normalized = <String, Set<String>>{};
-
-    for (final entry in relays.entries) {
-      final normalizedUrls = <String>{};
-
-      for (final url in entry.value) {
-        final normalizedUrl = _normalizeRelayUrl(url);
-        if (normalizedUrl != null) {
-          normalizedUrls.add(normalizedUrl);
-        }
-      }
-
-      if (normalizedUrls.isNotEmpty) {
-        normalized[entry.key] = normalizedUrls;
-      }
-    }
-
-    return normalized;
-  }
-
-  /// Normalize and sanitize a single relay URL
-  static String? _normalizeRelayUrl(String url) {
-    // Remove if contains comma
-    if (url.contains(',')) return null;
-
-    try {
-      final uri = Uri.parse(url.trim());
-
-      // Default to wss if not ws or wss
-      final scheme = (uri.scheme == 'ws' || uri.scheme == 'wss')
-          ? uri.scheme
-          : 'wss';
-
-      // Keep consistent trailing slash logic - remove if present
-      final path = uri.path == '/' ? '' : uri.path;
-
-      return Uri(
-        scheme: scheme,
-        host: uri.host,
-        port: uri.port,
-        path: path,
-        query: uri.query.isEmpty ? null : uri.query,
-        fragment: uri.fragment.isEmpty ? null : uri.fragment,
-      ).toString();
-    } catch (e) {
-      // Could not parse URI, remove from list
-      return null;
-    }
-  }
-
-  /// Resolve relay URLs from a [RemoteSource].
-  ///
-  /// Resolution order:
-  /// 1. If `source.relays` is null → empty set (TODO: implement outbox lookup)
-  /// 2. If `source.relays` starts with `ws://` or `wss://` → ad-hoc relay URL
-  /// 3. Otherwise → look up by label in defaults
-  ///
-  /// Note: Signed [RelayList] lookup happens in the storage layer, not here.
-  /// This method only provides the default fallback.
-  Set<String> getRelays({RemoteSource source = const RemoteSource()}) {
-    if (source.relays == null) {
-      // TODO: Implement outbox lookup (NIP-65)
-      return {};
-    }
-
-    final relays = source.relays!;
-
-    // Ad-hoc relay URL
-    if (relays.startsWith('ws://') || relays.startsWith('wss://')) {
-      final normalized = _normalizeRelayUrl(relays);
-      return normalized != null ? {normalized} : {};
-    }
-
-    // Look up by identifier in defaults
-    return defaultRelays[relays] ?? {};
-  }
+  });
 
   @override
   List<Object?> get props => [

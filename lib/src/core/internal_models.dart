@@ -32,10 +32,10 @@ final class LocalSource extends Source {
 final class RemoteSource extends Source {
   /// Relay target: URL (wss://...) or RelayList label.
   ///
-  /// - `null` → TODO: outbox lookup
-  /// - URL → ad-hoc relay
+  /// - `null` → outbox lookup (future)
+  /// - URL | List → ad-hoc relay(s)
   /// - Otherwise → RelayList label lookup
-  final String? relays;
+  final dynamic relays;
 
   /// Whether to keep streaming updates after initial load.
   final bool stream;
@@ -49,11 +49,7 @@ final class RemoteSource extends Source {
     this.background = false,
   });
 
-  RemoteSource copyWith({
-    String? relays,
-    bool? stream,
-    bool? background,
-  }) {
+  RemoteSource copyWith({dynamic relays, bool? stream, bool? background}) {
     return RemoteSource(
       relays: relays ?? this.relays,
       stream: stream ?? this.stream,
@@ -80,7 +76,7 @@ final class LocalAndRemoteSource extends RemoteSource {
 
   @override
   LocalAndRemoteSource copyWith({
-    String? relays,
+    dynamic relays,
     bool? stream,
     bool? background,
   }) {
