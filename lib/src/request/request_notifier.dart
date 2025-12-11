@@ -29,9 +29,10 @@ class RequestNotifier<E extends Model<dynamic>>
           // If background remote query is active and local results are empty,
           // skip emitting empty state to prevent empty flash in UI
           // Data will arrive via InternalStorageData and trigger _refreshModelsFromLocal
-          final isBackgroundRemote = source is LocalAndRemoteSource && 
-                                      (source as RemoteSource).background;
-          
+          final isBackgroundRemote =
+              source is LocalAndRemoteSource &&
+              (source as RemoteSource).background;
+
           if (isBackgroundRemote && models.isEmpty) {
             // Stay in StorageLoading state, don't emit empty StorageData
             _startSubscription();
@@ -54,7 +55,9 @@ class RequestNotifier<E extends Model<dynamic>>
 
       // Cancel all merged relationship requests (the actual subscriptions)
       await Future.wait(
-        mergedRelationshipRequests.map((mergedReq) => storage.cancel(mergedReq)),
+        mergedRelationshipRequests.map(
+          (mergedReq) => storage.cancel(mergedReq),
+        ),
       );
     });
   }
@@ -73,11 +76,12 @@ class RequestNotifier<E extends Model<dynamic>>
         } else {
           // Check if any updatedIds affect our models (for replaceable updates)
           final ourIds = state.models.map((m) => m.id).toSet();
-          final hasRelevantUpdate = updatedIds.any((id) => 
-            ourIds.contains(id) || // Addressable ID match
-            state.models.any((m) => m.event.id == id) // Event ID match
+          final hasRelevantUpdate = updatedIds.any(
+            (id) =>
+                ourIds.contains(id) || // Addressable ID match
+                state.models.any((m) => m.event.id == id), // Event ID match
           );
-          
+
           if (hasRelevantUpdate) {
             // Replaceable model was updated - refresh from storage
             await _refreshModelsFromLocal();
@@ -128,7 +132,11 @@ class RequestNotifier<E extends Model<dynamic>>
       mergedRelationshipRequests.add(mergedRelationshipRequest);
 
       // Use custom andSource if provided, otherwise derive from parent source
-      final relationshipSource = andSource ?? _deriveRelationshipSource();
+      var relationshipSource = andSource ?? _deriveRelationshipSource();
+      if (relationshipSource is RemoteSource &&
+          !relationshipSource.background) {
+        relationshipSource = relationshipSource.copyWith(background: true);
+      }
 
       storage.query(
         mergedRelationshipRequest,
@@ -154,10 +162,7 @@ class RequestNotifier<E extends Model<dynamic>>
 
   Future<void> _refreshModelsFromLocal() async {
     try {
-      final refreshedModels = await storage.query(
-        req,
-        source: LocalSource(),
-      );
+      final refreshedModels = await storage.query(req, source: LocalSource());
       _replaceAllModels(refreshedModels);
     } catch (e, stack) {
       state = StorageError(state.models, exception: e, stackTrace: stack);
