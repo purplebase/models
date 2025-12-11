@@ -273,18 +273,19 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   /// 2. Starts with ws:// or wss:// → ad-hoc relay URL
   /// 3. Label → query active signer's signed RelayList by kind, fallback to config.defaultRelays
   ///
+  /// Iterables are also supported: {'social', 'wss://relay.example.com'} will
+  /// resolve the 'social' label and include the ad-hoc URL.
+  ///
   /// Reactive: When a signed RelayList is updated, subsequent calls will use new relays.
   Future<Set<String>> resolveRelays(dynamic relays) async {
     if (relays == null) {
       // TODO: Implement outbox lookup (NIP-65)
-      return _normalizeRelayIterable(
-        config.defaultRelays['default'] ?? const {},
-      );
+      return _resolveRelayIterable(config.defaultRelays['default'] ?? const {});
     }
 
-    // Iterable input (List/Set/etc.) of relay targets; normalize each.
+    // Iterable input (List/Set/etc.) of relay targets; resolve each.
     if (relays is Iterable && relays is! String) {
-      return _normalizeRelayIterable(relays);
+      return _resolveRelayIterable(relays);
     }
 
     final relayValue = relays.toString();
@@ -302,9 +303,38 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     }
 
     // Unknown label - check defaults for forward compatibility
-    return _normalizeRelayIterable(
-      config.defaultRelays[relayValue] ?? const {},
-    );
+    return _resolveRelayIterable(config.defaultRelays[relayValue] ?? const {});
+  }
+
+  /// Resolve a collection of relay targets (URLs or labels) into relay URLs.
+  /// Each item is either:
+  /// - A URL (contains ://) → normalized directly
+  /// - A relay group label → looked up in config.defaultRelays
+  Set<String> _resolveRelayIterable(Iterable relays) {
+    final resolved = <String>{};
+    for (final relay in relays) {
+      final relayStr = relay.toString();
+
+      // Check if it's a URL (has scheme separator)
+      if (relayStr.contains('://')) {
+        final normalized = _normalizeRelayUrl(relayStr);
+        if (normalized != null) {
+          resolved.add(normalized);
+        }
+      } else {
+        // It's a label - look up in defaultRelays
+        final groupUrls = config.defaultRelays[relayStr];
+        if (groupUrls != null) {
+          for (final url in groupUrls) {
+            final normalized = _normalizeRelayUrl(url.toString());
+            if (normalized != null) {
+              resolved.add(normalized);
+            }
+          }
+        }
+      }
+    }
+    return resolved;
   }
 
   /// Resolve relays by querying for a specific RelayList kind
@@ -319,12 +349,12 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       );
 
       if (results.isNotEmpty && results.first is RelayList) {
-        return _normalizeRelayIterable((results.first as RelayList).relays);
+        return _resolveRelayIterable((results.first as RelayList).relays);
       }
     }
 
     // Fall back to defaults (by label)
-    return _normalizeRelayIterable(config.defaultRelays[label] ?? const {});
+    return _resolveRelayIterable(config.defaultRelays[label] ?? const {});
   }
 
   /// Query storage asynchronously, always local
@@ -391,20 +421,8 @@ extension RefExt on Ref {
   StorageNotifier get storage => read(storageNotifierProvider.notifier);
 }
 
-/// Normalize a collection of relay targets (URLs/URIs/strings) into a set of
-/// sanitized relay URLs. Invalid entries are dropped.
-Set<String> _normalizeRelayIterable(Iterable relays) {
-  final normalized = <String>{};
-  for (final relay in relays) {
-    final normalizedUrl = _normalizeRelayUrl(relay.toString());
-    if (normalizedUrl != null) {
-      normalized.add(normalizedUrl);
-    }
-  }
-  return normalized;
-}
-
 /// Normalize and sanitize a single relay URL string.
+/// Returns null for invalid URLs (no host, contains comma, parse errors).
 String? _normalizeRelayUrl(String url) {
   // Remove if contains comma
   if (url.contains(',')) return null;
@@ -412,7 +430,10 @@ String? _normalizeRelayUrl(String url) {
   try {
     final uri = Uri.parse(url.trim());
 
-    // Default to wss if not ws or wss
+    // Must have a valid host - reject bare strings like 'social'
+    if (uri.host.isEmpty) return null;
+
+    // Only accept ws:// or wss:// schemes
     final scheme = (uri.scheme == 'ws' || uri.scheme == 'wss')
         ? uri.scheme
         : 'wss';
