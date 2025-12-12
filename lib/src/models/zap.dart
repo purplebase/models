@@ -128,32 +128,20 @@ class ZapRequest extends RegularModel<ZapRequest> {
     return lightningInvoice;
   }
 
-  /// Pay this zap request using the signer's NWC connection
+  /// Pay this zap request using the provided NWC connection
   /// This should be called on a signed ZapRequest that contains all necessary information
   ///
+  /// [connectionUri] - NWC URI to use for payment
   /// [expiration] - Optional expiration time for the payment
   /// [timeout] - How long to wait for payment completion
   Future<PayInvoiceResult> pay({
+    required String connectionUri,
     DateTime? expiration,
     Duration timeout = const Duration(seconds: 30),
     bool refreshRecipientProfile = false,
   }) async {
-    // Get the signer for this zap request
-    final signer = ref.read(Signer.signerProvider(event.pubkey));
-    if (signer == null) {
-      throw Exception('No signer found for pubkey ${event.pubkey}');
-    }
-
-    // Get the NWC connection string from the signer
-    final nwcConnectionString = await signer.getNWCString();
-    if (nwcConnectionString == null) {
-      throw Exception(
-        'No NWC connection configured for signer. Use signer.setNWCString() first.',
-      );
-    }
-
     // Parse the connection string
-    final connection = NwcConnection.fromUri(nwcConnectionString);
+    final connection = NwcConnection.fromUri(connectionUri);
 
     // Check if connection has expired
     if (connection.isExpired) {
@@ -169,7 +157,7 @@ class ZapRequest extends RegularModel<ZapRequest> {
     final command = PayInvoiceCommand(invoice: lightningInvoice);
 
     return await command.execute(
-      connectionUri: nwcConnectionString,
+      connectionUri: connectionUri,
       ref: ref,
       expiration: expiration,
       timeout: timeout,
