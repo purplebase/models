@@ -22,20 +22,22 @@ class VerifyReputationRequest extends RegularModel<VerifyReputationRequest> {
   /// [relays] - The relay target (URL or identifier) to publish the request to
   /// Returns the first DVM response (success or error)
   Future<Model<dynamic>?> run(String relays) async {
-    final source = RemoteSource(relays: relays);
+    final source = RemoteSource(relays: relays, stream: true);
     // Just publish, do not save
     await storage.publish({this}, source: source);
-    final responses = await storage.query(
-      RequestFilter(
-        kinds: {6312, 7000},
-        tags: {
-          'e': {event.id},
-        },
-        limit: 1,
-      ).toRequest(),
-      source: source,
-    );
-    return responses.firstOrNull;
+    final req = RequestFilter(
+      kinds: {6312, 7000},
+      tags: {
+        'e': {event.id},
+      },
+      limit: 1,
+    ).toRequest();
+    try {
+      final responses = await storage.query(req, source: source);
+      return responses.firstOrNull;
+    } finally {
+      await storage.cancel(req);
+    }
   }
 }
 
