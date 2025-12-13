@@ -156,6 +156,10 @@ class PartialComment extends RegularPartialModel<Comment>
       event.createdAt = createdAt;
     }
 
+    // NIP-22: Parent defaults to root for top-level comments
+    parentModel ??= rootModel;
+    externalParentUri ??= externalRootUri;
+
     // Handle root content references
     // TODO [cache]: All calls to `value`/`toList` on relationships will break when removing sync db access
     if (rootModel is ReplaceableModel) {
