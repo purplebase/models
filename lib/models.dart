@@ -1,11 +1,12 @@
 library models;
 
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 // NIP-44 encryption implementation copied from https://github.com/paulmillr/nip44
 import 'src/nip44/nip44.dart' as nip44;
+import 'package:pointycastle/export.dart' as pc;
 import 'package:riverpod/riverpod.dart';
 import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
@@ -68,6 +69,8 @@ part 'src/models/voice_message.dart';
 part 'src/models/nwc.dart';
 part 'src/nwc/nwc_connection.dart';
 part 'src/nwc/nwc_commands.dart';
+
+part 'src/nip04/nip04.dart';
 
 part 'src/request/request_notifier.dart';
 part 'src/request/request.dart';

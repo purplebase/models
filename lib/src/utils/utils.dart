@@ -5,7 +5,7 @@ class Utils {
 
   /// Crytographically secure random number formatted as 64-character hex
   static String generateRandomHex64() {
-    final random = Random.secure();
+    final random = math.Random.secure();
     final values = Uint8List(32); // 32 bytes = 256 bits
 
     // Fill the byte array with random values

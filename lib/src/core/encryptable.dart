@@ -261,7 +261,13 @@ mixin EncryptablePartialModel<E extends Model<E>> on PartialModel<E> {
     final encPubkey = getEncryptionPubkey(signer);
 
     if (event.content.isNotEmpty && !_isAlreadyEncrypted(event.content)) {
-      event.content = await signer.nip44Encrypt(event.content, encPubkey);
+      if (useNip04) {
+        // Use NIP-04 encryption (older, but widely supported)
+        event.content = await signer.nip04Encrypt(event.content, encPubkey);
+      } else {
+        // Use NIP-44 encryption (newer, more secure)
+        event.content = await signer.nip44Encrypt(event.content, encPubkey);
+      }
     }
 
     await super.prepareForSigning(signer);
@@ -269,6 +275,11 @@ mixin EncryptablePartialModel<E extends Model<E>> on PartialModel<E> {
 
   /// Check if content is already encrypted (to avoid double-encryption)
   bool _isAlreadyEncrypted(String content) {
+    // NIP-04: format is base64?iv=base64
+    if (content.contains('?iv=')) {
+      return true;
+    }
+    
     // NIP-44: base64-encoded, typically long (>50 chars) and starts with 'A'
     // Check length to avoid false positives with short messages starting with 'A'
     if (content.length > 50 && content.startsWith('A')) {

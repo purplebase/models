@@ -15,7 +15,7 @@ part of models;
 /// final notes = await storage.query(request);
 /// ```
 class Request<E extends Model<dynamic>> with EquatableMixin {
-  static final _random = Random();
+  static final _random = math.Random();
 
   final List<RequestFilter<E>> filters;
 
@@ -331,7 +331,7 @@ Map<String, dynamic>? _merge(Map<String, dynamic> f1, Map<String, dynamic> f2) {
       return null;
     } else {
       // We only have limit as differing
-      final maxLimit = max(limit1, limit2);
+      final maxLimit = math.max(limit1, limit2);
       intValues['limit'] = maxLimit == double.infinity
           ? null
           : maxLimit.toInt();
@@ -351,9 +351,9 @@ Map<String, dynamic>? _merge(Map<String, dynamic> f1, Map<String, dynamic> f2) {
     }
 
     if (f1Since <= f2Until && f2Since <= f1Until) {
-      final sinceNum = min(f1Since, f2Since);
+      final sinceNum = math.min(f1Since, f2Since);
       intValues['since'] = sinceNum == 0 ? null : sinceNum.toInt();
-      final untilNum = max(f1Until, f2Until);
+      final untilNum = math.max(f1Until, f2Until);
       intValues['until'] = untilNum == double.infinity
           ? null
           : untilNum.toInt();

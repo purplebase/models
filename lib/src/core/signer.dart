@@ -246,13 +246,27 @@ class Bip340PrivateKeySigner extends Signer {
   }
 
   @override
-  Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey) {
-    throw UnsupportedError('No NIP-04 support');
+  Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey) async {
+    if (_pubkey == null) {
+      throw StateError('Signer has not been signed in');
+    }
+    try {
+      return Nip04.decrypt(encryptedMessage, _privateKey, senderPubkey);
+    } catch (e) {
+      throw Exception('NIP-04 decryption failed: $e');
+    }
   }
 
   @override
-  Future<String> nip04Encrypt(String message, String recipientPubkey) {
-    throw UnsupportedError('No NIP-04 support');
+  Future<String> nip04Encrypt(String message, String recipientPubkey) async {
+    if (_pubkey == null) {
+      throw StateError('Signer has not been signed in');
+    }
+    try {
+      return Nip04.encrypt(message, _privateKey, recipientPubkey);
+    } catch (e) {
+      throw Exception('NIP-04 encryption failed: $e');
+    }
   }
 }
 

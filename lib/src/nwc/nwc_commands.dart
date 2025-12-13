@@ -18,7 +18,7 @@ abstract class NwcCommand<T> {
     required Ref ref,
     DateTime? expiration,
     DateTime? createdAt,
-    Duration timeout = const Duration(seconds: 10),
+    Duration timeout = const Duration(seconds: 30),
   }) async {
     final connection = NwcConnection.fromUri(connectionUri);
     return await _executeRequest(
@@ -37,7 +37,7 @@ abstract class NwcCommand<T> {
     required Ref ref,
     DateTime? expiration,
     DateTime? createdAt,
-    Duration timeout = const Duration(seconds: 10),
+    Duration timeout = const Duration(seconds: 30),
   }) async {
     // Create a signer from the connection's secret (NIP-47 requirement)
     final connectionSigner = Bip340PrivateKeySigner(connection.secret, ref);
@@ -52,65 +52,106 @@ abstract class NwcCommand<T> {
       createdAt: createdAt,
     );
 
-    // Sign the request with the connection signer
+    // Sign the request with the connection signer (uses NIP-04 encryption)
     final signedRequest = await request.signWith(connectionSigner);
 
-    // Start listening for response
-    final completer = Completer<NwcResponse>();
+    // Wrap relay in a Set as expected by the query system
+    final relaySet = {connection.relay};
 
-    final sub = ref.listen(
-      query<NwcResponse>(
-        authors: {connection.walletPubkey},
-        tags: {
-          '#p': {connectionSigner.pubkey}, // Response directed to us
-          '#e': {signedRequest.id}, // Response to our specific request
-        },
-        source: RemoteSource(relays: connection.relay),
-      ),
-      (_, state) {
-        if (state case StorageData(:final models)
-            when models.isNotEmpty &&
-                models.first.requestEventId == signedRequest.id &&
-                !completer.isCompleted) {
-          completer.complete(models.first);
-        }
+    // Build the request for querying NWC responses
+    final responseRequest = RequestFilter<NwcResponse>(
+      authors: {connection.walletPubkey},
+      tags: {
+        '#p': {connectionSigner.pubkey}, // Response directed to us
+        '#e': {signedRequest.id}, // Response to our specific request
       },
-    );
+    ).toRequest();
 
-    // Publish to the connection's relay
-    final publishResponse = await ref.storage.publish({
-      signedRequest,
-    }, source: RemoteSource(relays: connection.relay));
+    final storageNotifier = ref.read(storageNotifierProvider.notifier);
+    final completer = Completer<NwcResponse>();
+    void Function()? cancelListener;
 
-    // Check if publish was successful
-    final publishSuccessful = publishResponse.results.values.any(
-      (states) => states.any((state) => state.accepted),
-    );
+    try {
+      // Set up listener FIRST to catch any responses
+      cancelListener = storageNotifier.addListener((state) {
+        if (completer.isCompleted) return;
 
-    if (!publishSuccessful) {
-      throw Exception('Failed to publish NWC request to relay');
+        // Check if this update might contain our response
+        if (state is InternalStorageData && state.updatedIds.isNotEmpty) {
+          // Query for matching response
+          final responses = storageNotifier.querySync<NwcResponse>(
+            responseRequest,
+          );
+
+          for (final r in responses) {
+            if (r.requestEventId == signedRequest.id &&
+                !completer.isCompleted) {
+              completer.complete(r);
+              return;
+            }
+          }
+        }
+      });
+
+      // Establish the streaming subscription
+      // Use stream: true, background: true so this returns immediately
+      // but keeps the subscription open to receive the wallet's response
+      await ref.storage.query(
+        responseRequest,
+        source: RemoteSource(relays: relaySet, stream: true, background: true),
+      );
+
+      // Publish to the connection's relay
+      final publishResponse = await ref.storage.publish({
+        signedRequest,
+      }, source: RemoteSource(relays: relaySet));
+
+      // Check if publish was successful
+      final publishSuccessful = publishResponse.results.values.any(
+        (states) => states.any((state) => state.accepted),
+      );
+
+      if (!publishSuccessful) {
+        throw Exception('Failed to publish NWC request to relay');
+      }
+
+      // Wait for the response with timeout
+      final response = await completer.future.timeout(timeout);
+
+      // Decrypt the response content - NWC uses NIP-04 encryption
+      final decryptedContentStr = await connectionSigner.nip04Decrypt(
+        response.content,
+        connection.walletPubkey,
+      );
+
+      final decryptedContent =
+          jsonDecode(decryptedContentStr) as Map<String, dynamic>;
+
+      if (!decryptedContent.containsKey('result_type')) {
+        throw Exception('NWC response missing required "result_type" field');
+      }
+
+      // Check for errors first
+      final errorData = decryptedContent['error'] as Map<String, dynamic>?;
+      if (errorData != null) {
+        final error = NwcError.fromMap(errorData);
+        throw NwcException(error);
+      }
+
+      // Extract and parse the result
+      final resultData = decryptedContent['result'] as Map<String, dynamic>?;
+      if (resultData == null) {
+        throw Exception('NWC response missing result data');
+      }
+
+      return parseResponse(resultData);
+    } finally {
+      // Clean up the listener
+      cancelListener?.call();
+
+      // Cancel the subscription
+      await ref.storage.cancel(responseRequest);
     }
-
-    final response = await completer.future.timeout(timeout);
-    sub.close();
-
-    // Get the response content (already plaintext)
-    final decryptedContent = response.getContentMap();
-
-    // Check for errors first
-    final errorData = decryptedContent['error'] as Map<String, dynamic>?;
-    if (errorData != null) {
-      final error = NwcError.fromMap(errorData);
-      throw NwcException(error);
-    }
-
-    // Extract and parse the result
-    final resultData = decryptedContent['result'] as Map<String, dynamic>?;
-    if (resultData == null) {
-      throw Exception('NWC response missing result data');
-    }
-
-    return parseResponse(resultData);
   }
 }
 
@@ -126,14 +167,14 @@ class NwcException implements Exception {
 
 /// Result type for pay_invoice command
 class PayInvoiceResult {
-  final String preimage;
+  final String? preimage;
   final int? feesPaid;
 
-  const PayInvoiceResult({required this.preimage, this.feesPaid});
+  const PayInvoiceResult({this.preimage, this.feesPaid});
 
   factory PayInvoiceResult.fromMap(Map<String, dynamic> map) {
     return PayInvoiceResult(
-      preimage: map['preimage'] as String,
+      preimage: map['preimage'] as String?,
       feesPaid: map['fees_paid'] as int?,
     );
   }
