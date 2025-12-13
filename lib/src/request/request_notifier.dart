@@ -10,7 +10,7 @@ class RequestNotifier<E extends Model<dynamic>>
   final Source source;
   final Source? andSource;
   final StorageNotifier storage;
-  final List<Request> relationshipRequests = [];
+  final Set<Request> relationshipRequests = {};
   final List<Request> mergedRelationshipRequests = [];
 
   RequestNotifier(this.ref, this.req, this.source, [this.andSource])
@@ -75,11 +75,11 @@ class RequestNotifier<E extends Model<dynamic>>
           await _refreshModelsFromLocal();
         } else {
           // Check if any updatedIds affect our models (for replaceable updates)
+          // Pre-compute both Sets for O(1) lookups instead of O(n) scans
           final ourIds = state.models.map((m) => m.id).toSet();
+          final ourEventIds = state.models.map((m) => m.event.id).toSet();
           final hasRelevantUpdate = updatedIds.any(
-            (id) =>
-                ourIds.contains(id) || // Addressable ID match
-                state.models.any((m) => m.event.id == id), // Event ID match
+            (id) => ourIds.contains(id) || ourEventIds.contains(id),
           );
 
           if (hasRelevantUpdate) {
@@ -101,7 +101,7 @@ class RequestNotifier<E extends Model<dynamic>>
     final andFns = req.filters.map((f) => f.and).nonNulls;
     return [
       for (final andFn in andFns)
-        for (final m in models) ...andFn(m),
+        for (final m in models) ...andFn(m).nonNulls,
     ];
   }
 
@@ -343,7 +343,7 @@ model<E extends Model<E>>(
 }
 
 typedef AndFunction<E extends Model<dynamic>> =
-    Set<Relationship<Model>> Function(E)?;
+    Set<Relationship<Model>?> Function(E)?;
 
 typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
 

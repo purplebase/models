@@ -123,13 +123,13 @@ void main() {
 
         expect(
           () async => await signer.nip04Encrypt(message, recipientPubkey),
-          throwsA(isA<UnsupportedError>()),
+          throwsA(isA<StateError>()),
         );
 
         expect(
           () async =>
               await signer.nip04Decrypt('encrypted_content', recipientPubkey),
-          throwsA(isA<UnsupportedError>()),
+          throwsA(isA<StateError>()),
         );
 
         expect(

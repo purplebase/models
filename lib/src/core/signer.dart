@@ -332,13 +332,18 @@ class DummySigner extends Signer {
   }
 
   @override
-  Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey) {
-    throw UnsupportedError('No NIP-04 support');
+  Future<String> nip04Decrypt(
+    String encryptedMessage,
+    String senderPubkey,
+  ) async {
+    // Dummy implementation - returns a placeholder decrypted message
+    return 'dummy_nip04_decrypted_${encryptedMessage.hashCode}_$senderPubkey';
   }
 
   @override
-  Future<String> nip04Encrypt(String message, String recipientPubkey) {
-    throw UnsupportedError('No NIP-04 support');
+  Future<String> nip04Encrypt(String message, String recipientPubkey) async {
+    // Dummy implementation - returns a placeholder encrypted message
+    return 'dummy_nip04_encrypted_${message.hashCode}_$recipientPubkey';
   }
 }
 
