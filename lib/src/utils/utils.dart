@@ -224,7 +224,7 @@ class Utils {
     return digest.toString();
   }
 
-  static isEventReplaceable(int kind) {
+  static bool isEventReplaceable(int kind) {
     return switch (kind) {
       >= 10000 && < 20000 || 0 || 3 || >= 30000 && < 40000 => true,
       _ => false,

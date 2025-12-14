@@ -68,24 +68,43 @@ final class RemoteSource extends Source {
 
 /// Source configuration that queries both local storage and remote relays.
 final class LocalAndRemoteSource extends RemoteSource {
+  /// Cache duration for author+kind queries on replaceable events.
+  ///
+  /// When set and the query is cacheable (author+kind only, replaceable kinds,
+  /// no tags/ids/search/until), fresh local data will be returned without
+  /// hitting remote relays if fetched within this duration.
+  ///
+  /// Note: When [cachedFor] is set, [stream] is forced to `false`.
+  final Duration? cachedFor;
+
   const LocalAndRemoteSource({
     super.relays,
     super.stream = true,
     super.background = false,
+    this.cachedFor,
   });
+
+  /// When [cachedFor] is set, streaming is disabled.
+  @override
+  bool get stream => cachedFor != null ? false : super.stream;
 
   @override
   LocalAndRemoteSource copyWith({
     dynamic relays,
     bool? stream,
     bool? background,
+    Duration? cachedFor,
   }) {
     return LocalAndRemoteSource(
       relays: relays ?? this.relays,
-      stream: stream ?? this.stream,
+      stream: stream ?? super.stream,
       background: background ?? this.background,
+      cachedFor: cachedFor ?? this.cachedFor,
     );
   }
+
+  @override
+  List<Object?> get props => [relays, stream, background, cachedFor];
 
   @override
   String toString() {
