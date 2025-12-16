@@ -94,11 +94,11 @@ abstract class NwcCommand<T> {
       });
 
       // Establish the streaming subscription
-      // Use stream: true, background: true so this returns immediately
-      // but keeps the subscription open to receive the wallet's response
+      // stream: true (default) returns immediately and keeps the subscription
+      // open to receive the wallet's response via callbacks
       await ref.storage.query(
         responseRequest,
-        source: RemoteSource(relays: relaySet, stream: true, background: true),
+        source: RemoteSource(relays: relaySet),
       );
 
       // Publish to the connection's relay

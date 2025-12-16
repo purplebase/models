@@ -14,20 +14,18 @@ void main() {
       const source1 = RemoteSource(
         relays: 'social',
         stream: true,
-        background: false,
       );
       const source2 = RemoteSource(
         relays: 'social',
         stream: true,
-        background: false,
       );
       expect(source1, equals(source2));
       expect(source1.hashCode, equals(source2.hashCode));
     });
 
-    test('RemoteSource instances with different properties are not equal', () {
-      const source1 = RemoteSource(stream: true, background: false);
-      const source2 = RemoteSource(stream: true, background: true);
+    test('RemoteSource instances with different stream are not equal', () {
+      const source1 = RemoteSource(stream: true);
+      const source2 = RemoteSource(stream: false);
       expect(source1, isNot(equals(source2)));
     });
 
@@ -35,12 +33,10 @@ void main() {
       const source1 = LocalAndRemoteSource(
         relays: 'social',
         stream: true,
-        background: true,
       );
       const source2 = LocalAndRemoteSource(
         relays: 'social',
         stream: true,
-        background: true,
       );
       expect(source1, equals(source2));
       expect(source1.hashCode, equals(source2.hashCode));
@@ -52,12 +48,10 @@ void main() {
         const source1 = RemoteSource(
           relays: 'social',
           stream: true,
-          background: true,
         );
         const source2 = LocalAndRemoteSource(
           relays: 'social',
           stream: true,
-          background: true,
         );
         // Different types, so should not be equal
         expect(source1, isNot(equals(source2)));
@@ -76,26 +70,22 @@ void main() {
       const original = RemoteSource(
         relays: 'social',
         stream: true,
-        background: false,
       );
       final copied = original.copyWith();
       expect(copied, equals(original));
       expect(copied.relays, equals('social'));
       expect(copied.stream, equals(true));
-      expect(copied.background, equals(false));
     });
 
-    test('RemoteSource copyWith updates single property', () {
+    test('RemoteSource copyWith updates stream property', () {
       const original = RemoteSource(
         relays: 'social',
         stream: true,
-        background: false,
       );
-      final modified = original.copyWith(background: true);
+      final modified = original.copyWith(stream: false);
 
       expect(modified.relays, equals('social'));
-      expect(modified.stream, equals(true));
-      expect(modified.background, equals(true));
+      expect(modified.stream, equals(false));
       expect(modified, isNot(equals(original)));
     });
 
@@ -103,13 +93,11 @@ void main() {
       const original = RemoteSource(
         relays: 'social',
         stream: true,
-        background: false,
       );
       final modified = original.copyWith(relays: 'apps', stream: false);
 
       expect(modified.relays, equals('apps'));
       expect(modified.stream, equals(false));
-      expect(modified.background, equals(false)); // unchanged
     });
 
     test('RemoteSource copyWith updates relays', () {
@@ -124,7 +112,6 @@ void main() {
       const original = LocalAndRemoteSource(
         relays: 'social',
         stream: true,
-        background: false,
       );
       final copied = original.copyWith();
 
@@ -139,14 +126,12 @@ void main() {
         const original = LocalAndRemoteSource(
           relays: 'social',
           stream: true,
-          background: false,
         );
-        final modified = original.copyWith(background: true);
+        final modified = original.copyWith(stream: false);
 
         expect(modified, isA<LocalAndRemoteSource>());
-        expect(modified.background, equals(true));
+        expect(modified.stream, equals(false));
         expect(modified.relays, equals('social'));
-        expect(modified.stream, equals(true));
       },
     );
 
@@ -154,12 +139,10 @@ void main() {
       const original = RemoteSource();
       final result = original
           .copyWith(relays: 'social')
-          .copyWith(stream: false)
-          .copyWith(background: true);
+          .copyWith(stream: false);
 
       expect(result.relays, equals('social'));
       expect(result.stream, equals(false));
-      expect(result.background, equals(true));
     });
   });
 
@@ -167,11 +150,8 @@ void main() {
     test(
       'different Source types are not equal even with same underlying data',
       () {
-        const remote = RemoteSource(stream: true, background: true);
-        const localAndRemote = LocalAndRemoteSource(
-          stream: true,
-          background: true,
-        );
+        const remote = RemoteSource(stream: true);
+        const localAndRemote = LocalAndRemoteSource(stream: true);
         const local = LocalSource();
 
         expect(remote, isNot(equals(localAndRemote)));
@@ -200,6 +180,40 @@ void main() {
     test('Null relays means outbox lookup (TODO)', () {
       const source = RemoteSource();
       expect(source.relays, isNull);
+    });
+  });
+
+  group('Stream behavior', () {
+    test('stream defaults to true', () {
+      const source = RemoteSource();
+      expect(source.stream, isTrue);
+    });
+
+    test('stream: true means fire-and-forget (events via callbacks)', () {
+      const source = RemoteSource(stream: true);
+      expect(source.stream, isTrue);
+    });
+
+    test('stream: false means blocking (waits for EOSE)', () {
+      const source = RemoteSource(stream: false);
+      expect(source.stream, isFalse);
+    });
+
+    test('LocalAndRemoteSource inherits stream behavior', () {
+      const streamingSource = LocalAndRemoteSource();
+      const blockingSource = LocalAndRemoteSource(stream: false);
+
+      expect(streamingSource.stream, isTrue);
+      expect(blockingSource.stream, isFalse);
+    });
+
+    test('cachedFor forces stream to false', () {
+      const source = LocalAndRemoteSource(
+        stream: true,
+        cachedFor: Duration(minutes: 5),
+      );
+      // Even though stream: true was passed, cachedFor overrides it
+      expect(source.stream, isFalse);
     });
   });
 }

@@ -23,22 +23,25 @@ class RequestNotifier<E extends Model<dynamic>>
         ? req.subscriptionId.split('-').first
         : null;
 
+    // Start subscription FIRST to avoid race condition where InternalStorageData
+    // arrives before the listener is registered. This ensures we don't miss any
+    // updates that happen during the query.
+    _startSubscription();
+
     storage
         .query(req, source: source, subscriptionPrefix: prefix)
         .then((models) {
-          // If background remote query is active and local results are empty,
+          // If streaming remote query is active and local results are empty,
           // skip emitting empty state to prevent empty flash in UI
           // Data will arrive via InternalStorageData and trigger _refreshModelsFromLocal
-          final isBackgroundRemote =
+          final isStreamingRemote =
               source is LocalAndRemoteSource &&
-              (source as RemoteSource).background;
+              (source as RemoteSource).stream;
 
-          if (isBackgroundRemote && models.isEmpty) {
-            // Stay in StorageLoading state, don't emit empty StorageData
-            _startSubscription();
+          if (isStreamingRemote && models.isEmpty) {
+            // Stay in StorageLoading state, subscription is already listening
           } else {
             _emitNewModels(models);
-            _startSubscription();
           }
         })
         .catchError((e, stack) {
@@ -74,6 +77,11 @@ class RequestNotifier<E extends Model<dynamic>>
             incomingReq.subscriptionId == req.subscriptionId) {
           await _refreshModelsFromLocal();
         } else {
+          // Ignore unrelated updates while still in initial loading state
+          // This prevents wrongly transitioning from Loading to empty Data
+          // Once we've transitioned to StorageData (even if empty), process normally
+          if (state is StorageLoading) return;
+
           // Check if any updatedIds affect our models (for replaceable updates)
           // Pre-compute both Sets for O(1) lookups instead of O(n) scans
           final ourIds = state.models.map((m) => m.id).toSet();
@@ -132,11 +140,10 @@ class RequestNotifier<E extends Model<dynamic>>
       mergedRelationshipRequests.add(mergedRelationshipRequest);
 
       // Use custom andSource if provided, otherwise derive from parent source
-      var relationshipSource = andSource ?? _deriveRelationshipSource();
-      if (relationshipSource is RemoteSource &&
-          !relationshipSource.background) {
-        relationshipSource = relationshipSource.copyWith(background: true);
-      }
+      // Relationship queries must use stream: true (fire-and-forget) so that
+      // data arrives via callbacks, triggering re-evaluation of the and: callback
+      // to discover nested relationships
+      final relationshipSource = andSource ?? _deriveRelationshipSource();
 
       storage.query(
         mergedRelationshipRequest,
@@ -152,12 +159,10 @@ class RequestNotifier<E extends Model<dynamic>>
 
     final remoteSource = source as RemoteSource;
 
-    // Relationship queries must have background: true so that QueryResultMessage
-    // is sent when data arrives, triggering re-evaluation of the and: callback
+    // Relationship queries use stream: true (fire-and-forget) so that
+    // data arrives via callbacks, triggering re-evaluation of the and: callback
     // to discover nested relationships
-    return source is LocalAndRemoteSource
-        ? remoteSource.copyWith(background: true)
-        : remoteSource.copyWith(background: true);
+    return remoteSource.copyWith(stream: true);
   }
 
   Future<void> _refreshModelsFromLocal() async {
@@ -260,7 +265,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   DateTime? since,
   DateTime? until,
   int? limit,
-  Source source = const LocalAndRemoteSource(background: true),
+  Source source = const LocalAndRemoteSource(),
   Source? andSource,
   String? subscriptionPrefix,
   AndFunction and,
@@ -297,7 +302,7 @@ query<E extends Model<E>>({
   DateTime? since,
   DateTime? until,
   int? limit,
-  Source source = const LocalAndRemoteSource(background: true),
+  Source source = const LocalAndRemoteSource(),
   Source? andSource,
   String? subscriptionPrefix,
   WhereFunction<E> where,
@@ -326,7 +331,7 @@ query<E extends Model<E>>({
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 model<E extends Model<E>>(
   E model, {
-  Source source = const LocalAndRemoteSource(background: true),
+  Source source = const LocalAndRemoteSource(),
   Source? andSource,
   String? subscriptionPrefix,
   AndFunction<E> and,

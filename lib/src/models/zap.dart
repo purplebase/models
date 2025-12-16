@@ -91,7 +91,7 @@ class ZapRequest extends RegularModel<ZapRequest> {
     final recipientProfiles = await storage.query(
       RequestFilter<Profile>(authors: {recipientPubkey}).toRequest(),
       source: refreshRecipientProfile
-          ? LocalAndRemoteSource(stream: false, background: false)
+          ? LocalAndRemoteSource(stream: false)
           : LocalSource(),
     );
 

@@ -97,7 +97,7 @@ void main() {
       // Create query provider
       final queryProvider = query<AppPack>(
         ids: {signedPack1.id},
-        source: const LocalAndRemoteSource(background: false),
+        source: const LocalAndRemoteSource(stream: false),
       );
 
       // Listen to changes

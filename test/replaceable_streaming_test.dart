@@ -39,7 +39,7 @@ void main() {
         // Set up query with streaming enabled
         final queryProvider = query<AppPack>(
           authors: {nielPubkey},
-          source: const LocalAndRemoteSource(stream: true, background: false),
+          source: const LocalAndRemoteSource(stream: true),
         );
 
         final tester = container.testerFor(queryProvider);

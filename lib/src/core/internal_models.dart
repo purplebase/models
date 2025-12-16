@@ -18,10 +18,17 @@ final class LocalSource extends Source {
 /// - If starts with `ws://` or `wss://` → ad-hoc relay URL
 /// - Otherwise → label to look up [RelayList] by kind
 ///
+/// The [stream] parameter controls query behavior:
+/// - `stream: true` (default) → Fire-and-forget, events arrive via callbacks
+/// - `stream: false` → Blocking, waits for EOSE before returning
+///
 /// Example usage:
 /// ```dart
-/// // Ad-hoc relay URL
+/// // Ad-hoc relay URL (streaming)
 /// RemoteSource(relays: 'wss://relay.example.com')
+///
+/// // One-shot blocking query
+/// RemoteSource(relays: 'wss://relay.example.com', stream: false)
 ///
 /// // Look up RelayList by label
 /// RemoteSource(relays: 'AppCatalog')
@@ -38,31 +45,26 @@ final class RemoteSource extends Source {
   final dynamic relays;
 
   /// Whether to keep streaming updates after initial load.
+  ///
+  /// - `true` (default): Fire-and-forget, events arrive via callbacks
+  /// - `false`: Blocking, waits for EOSE before returning
   final bool stream;
 
-  /// Whether to run this query in the background.
-  final bool background;
+  const RemoteSource({this.relays, this.stream = true});
 
-  const RemoteSource({
-    this.relays,
-    this.stream = true,
-    this.background = false,
-  });
-
-  RemoteSource copyWith({dynamic relays, bool? stream, bool? background}) {
+  RemoteSource copyWith({dynamic relays, bool? stream}) {
     return RemoteSource(
       relays: relays ?? this.relays,
       stream: stream ?? this.stream,
-      background: background ?? this.background,
     );
   }
 
   @override
-  List<Object?> get props => [relays, stream, background];
+  List<Object?> get props => [relays, stream];
 
   @override
   String toString() {
-    return 'RemoteSource: ${relays ?? 'outbox'} [stream=$stream, background=$background]';
+    return 'RemoteSource: ${relays ?? 'outbox'} [stream=$stream]';
   }
 }
 
@@ -80,7 +82,6 @@ final class LocalAndRemoteSource extends RemoteSource {
   const LocalAndRemoteSource({
     super.relays,
     super.stream = true,
-    super.background = false,
     this.cachedFor,
   });
 
@@ -92,19 +93,17 @@ final class LocalAndRemoteSource extends RemoteSource {
   LocalAndRemoteSource copyWith({
     dynamic relays,
     bool? stream,
-    bool? background,
     Duration? cachedFor,
   }) {
     return LocalAndRemoteSource(
       relays: relays ?? this.relays,
       stream: stream ?? super.stream,
-      background: background ?? this.background,
       cachedFor: cachedFor ?? this.cachedFor,
     );
   }
 
   @override
-  List<Object?> get props => [relays, stream, background, cachedFor];
+  List<Object?> get props => [relays, stream, cachedFor];
 
   @override
   String toString() {

@@ -910,7 +910,7 @@ void main() async {
         expect(tester.notifier.state, isA<StorageData>());
       });
 
-      test('should handle background remote queries', () async {
+      test('should handle streaming remote queries', () async {
         final pubkey1 = Utils.generateRandomHex64();
         final pubkey2 = Utils.generateRandomHex64();
 
@@ -923,7 +923,7 @@ void main() async {
         final tester = container.testerFor(
           query<Profile>(
             authors: {pubkey2, pubkey1},
-            source: RemoteSource(background: true),
+            source: RemoteSource(stream: true),
           ),
         );
 
