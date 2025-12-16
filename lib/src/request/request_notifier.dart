@@ -35,8 +35,7 @@ class RequestNotifier<E extends Model<dynamic>>
           // skip emitting empty state to prevent empty flash in UI
           // Data will arrive via InternalStorageData and trigger _refreshModelsFromLocal
           final isStreamingRemote =
-              source is LocalAndRemoteSource &&
-              (source as RemoteSource).stream;
+              source is LocalAndRemoteSource && (source as RemoteSource).stream;
 
           if (isStreamingRemote && models.isEmpty) {
             // Stay in StorageLoading state, subscription is already listening
@@ -94,9 +93,22 @@ class RequestNotifier<E extends Model<dynamic>>
             // Replaceable model was updated - refresh from storage
             await _refreshModelsFromLocal();
           } else {
-            // Unrelated update (probably a relationship)
-            _processNewRelationships(state.models);
-            state = StorageData(state.models);
+            // Check if this update is from one of our relationship requests
+            // If so, refresh models to pick up the new relationship data
+            // and re-evaluate the and: callback for nested relationships
+            final isRelationshipUpdate = mergedRelationshipRequests.any(
+              (r) => r.subscriptionId == incomingReq.subscriptionId,
+            );
+
+            if (isRelationshipUpdate) {
+              // Relationship data arrived - refresh models from local storage
+              // This ensures nested relationships are properly discovered
+              await _refreshModelsFromLocal();
+            } else {
+              // Truly unrelated update - just process any new relationships
+              _processNewRelationships(state.models);
+              state = StorageData(state.models);
+            }
           }
         }
       }
@@ -134,35 +146,36 @@ class RequestNotifier<E extends Model<dynamic>>
       newRelationshipRequests.expand((r) => r.filters).toList(),
     ).toRequest(subscriptionPrefix: prefix);
 
+    // Determine the source to use for relationship queries
+    // Use custom andSource if provided, otherwise use the parent source
+    final relationshipSource = andSource ?? source;
+
+    // Only query if we have filters and a remote source to query
     if (mergedRelationshipRequest.filters.isNotEmpty &&
-        source is RemoteSource) {
+        relationshipSource is RemoteSource) {
       // Store the merged request for proper cleanup on dispose
       mergedRelationshipRequests.add(mergedRelationshipRequest);
 
-      // Use custom andSource if provided, otherwise derive from parent source
-      // Relationship queries must use stream: true (fire-and-forget) so that
-      // data arrives via callbacks, triggering re-evaluation of the and: callback
-      // to discover nested relationships
-      final relationshipSource = andSource ?? _deriveRelationshipSource();
+      final isStreaming = relationshipSource.stream;
 
-      storage.query(
+      // Fire the relationship query
+      final queryFuture = storage.query(
         mergedRelationshipRequest,
         source: relationshipSource,
         subscriptionPrefix: prefix,
       );
+
+      // For non-streaming queries (stream: false), we must explicitly refresh
+      // after the query completes because there's no subscription to push updates.
+      // For streaming queries, updates arrive via InternalStorageData callbacks.
+      if (!isStreaming) {
+        queryFuture.then((_) {
+          if (mounted) {
+            _refreshModelsFromLocal();
+          }
+        });
+      }
     }
-  }
-
-  /// Derive relationship source from parent source when andSource is not provided
-  Source _deriveRelationshipSource() {
-    if (source is! RemoteSource) return source;
-
-    final remoteSource = source as RemoteSource;
-
-    // Relationship queries use stream: true (fire-and-forget) so that
-    // data arrives via callbacks, triggering re-evaluation of the and: callback
-    // to discover nested relationships
-    return remoteSource.copyWith(stream: true);
   }
 
   Future<void> _refreshModelsFromLocal() async {
