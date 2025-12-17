@@ -24,6 +24,8 @@ class DummyStorageNotifier extends StorageNotifier {
   Future<bool> save(Set<Model<dynamic>> models) async {
     if (models.isEmpty) return true;
 
+    invalidateQueryCache();
+
     final savedEvents = <Map<String, dynamic>>[];
 
     for (final model in models) {
@@ -326,6 +328,8 @@ class DummyStorageNotifier extends StorageNotifier {
 
   @override
   Future<void> clear([Request? req]) async {
+    invalidateQueryCache();
+
     if (req == null) {
       _events.clear();
       _subscriptions.clear();

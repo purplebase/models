@@ -9,6 +9,16 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
 
   bool isInitialized = false;
 
+  /// Cache version counter for relationship query caching.
+  /// Increments on any storage mutation, invalidating cached query results.
+  int _cacheVersion = 0;
+  int get cacheVersion => _cacheVersion;
+
+  /// Call this in subclass mutation methods (save, clear, etc.)
+  /// to invalidate relationship query caches.
+  @protected
+  void invalidateQueryCache() => _cacheVersion++;
+
   /// Storage initialization, sets up [config] and registers types,
   /// `super` MUST be called
   @mustCallSuper

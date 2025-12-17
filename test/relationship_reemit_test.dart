@@ -165,7 +165,6 @@ void main() {
 
         await storage.save({app});
 
-        var emissionCount = 0;
         Release? latestReleaseValue;
 
         // EXACT zapstore pattern
@@ -180,7 +179,6 @@ void main() {
 
         final sub = container.listen(provider, (_, state) {
           if (state is StorageData<App> && state.models.isNotEmpty) {
-            emissionCount++;
             latestReleaseValue = state.models.first.latestRelease.value;
           }
         });

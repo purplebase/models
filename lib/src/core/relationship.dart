@@ -6,13 +6,29 @@ sealed class Relationship<E extends Model<dynamic>> {
   final Ref ref;
   final StorageNotifier storage;
 
+  /// Cached query result to avoid repeated SQLite queries within same storage state.
+  List<E>? _cachedModels;
+  int? _cachedAtVersion;
+
   Relationship(this.ref, this.req)
       : storage = ref.read(storageNotifierProvider.notifier);
 
   // TODO [cache]: if _cache[req] exists and is null
   // (it is created when the big rel query is fired to relays)
   bool get isLoading => false;
-  List<E> get _models => req == null ? [] : storage.querySync(req!);
+
+  List<E> get _models {
+    if (req == null) return [];
+
+    final currentVersion = storage.cacheVersion;
+    if (_cachedModels != null && _cachedAtVersion == currentVersion) {
+      return _cachedModels!;
+    }
+
+    _cachedModels = storage.querySync(req!);
+    _cachedAtVersion = currentVersion;
+    return _cachedModels!;
+  }
 }
 
 /// A relationship with one value
