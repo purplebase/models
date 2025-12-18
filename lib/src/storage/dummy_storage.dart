@@ -236,6 +236,11 @@ class DummyStorageNotifier extends StorageNotifier {
         (event) => _eventMatchesFilter(event, filter),
       );
 
+      // Apply schemaFilter before model construction
+      if (filter.schemaFilter != null) {
+        filtered = filtered.where(filter.schemaFilter!);
+      }
+
       var models = filtered
           .map((event) {
             final constructor = Model.getConstructorForKind(event['kind']);

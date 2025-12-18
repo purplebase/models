@@ -310,6 +310,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   String? subscriptionPrefix,
   AndFunction and,
   WhereFunction where,
+  SchemaFilter? schemaFilter,
 }) {
   final filter = RequestFilter(
     ids: ids,
@@ -322,6 +323,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
     limit: limit,
     where: where,
     and: and,
+    schemaFilter: schemaFilter,
   );
   return _requestNotifierProvider(
     filter,
@@ -347,6 +349,7 @@ query<E extends Model<E>>({
   String? subscriptionPrefix,
   WhereFunction<E> where,
   AndFunction<E> and,
+  SchemaFilter? schemaFilter,
 }) {
   final filter = RequestFilter<E>(
     ids: ids,
@@ -358,6 +361,7 @@ query<E extends Model<E>>({
     limit: limit,
     where: _castWhere(where),
     and: _castAnd(and),
+    schemaFilter: schemaFilter,
   );
   return _requestNotifierProvider<E>(
     filter,

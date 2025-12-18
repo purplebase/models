@@ -1,8 +1,8 @@
 part of models;
 
-/// Filter function to discard events before they reach storage.
+/// Filter function to discard events before model construction.
 /// Return `true` to keep the event, `false` to discard it.
-typedef EventFilter = bool Function(Map<String, dynamic> event);
+typedef SchemaFilter = bool Function(Map<String, dynamic> event);
 
 sealed class Source extends Equatable {
   const Source();
@@ -54,23 +54,15 @@ final class RemoteSource extends Source {
   /// - `false`: Blocking, waits for EOSE before returning
   final bool stream;
 
-  /// Optional filter to discard events before they reach storage.
-  ///
-  /// Return `true` to keep the event, `false` to discard it.
-  /// Events that don't pass the filter are silently dropped.
-  final EventFilter? eventFilter;
-
-  const RemoteSource({this.relays, this.stream = true, this.eventFilter});
+  const RemoteSource({this.relays, this.stream = true});
 
   RemoteSource copyWith({
     dynamic relays,
     bool? stream,
-    EventFilter? eventFilter,
   }) {
     return RemoteSource(
       relays: relays ?? this.relays,
       stream: stream ?? this.stream,
-      eventFilter: eventFilter ?? this.eventFilter,
     );
   }
 
@@ -97,7 +89,6 @@ final class LocalAndRemoteSource extends RemoteSource {
   const LocalAndRemoteSource({
     super.relays,
     super.stream = true,
-    super.eventFilter,
     this.cachedFor,
   });
 
@@ -109,19 +100,17 @@ final class LocalAndRemoteSource extends RemoteSource {
   LocalAndRemoteSource copyWith({
     dynamic relays,
     bool? stream,
-    EventFilter? eventFilter,
     Duration? cachedFor,
   }) {
     return LocalAndRemoteSource(
       relays: relays ?? this.relays,
       stream: stream ?? super.stream,
-      eventFilter: eventFilter ?? this.eventFilter,
       cachedFor: cachedFor ?? this.cachedFor,
     );
   }
 
   @override
-  List<Object?> get props => [relays, stream, eventFilter, cachedFor];
+  List<Object?> get props => [relays, stream, cachedFor];
 
   @override
   String toString() {

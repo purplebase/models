@@ -33,7 +33,7 @@ class Request<E extends Model<dynamic>> with EquatableMixin {
     if (<Model<dynamic>>[] is List<T>) {
       return 'sub';
     }
-    
+
     // Extract model name from type and convert to lowercase
     final typeName = T.toString().toLowerCase();
     return 'sub-$typeName';
@@ -98,6 +98,11 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   /// Watch relationships
   final AndFunction and; // Important: do not pass <E>
 
+  /// Filter events by raw schema before model construction.
+  /// Applied to both local and remote data sources.
+  /// Return `true` to keep the event, `false` to discard it.
+  final SchemaFilter? schemaFilter;
+
   RequestFilter({
     Set<String>? ids,
     Set<int>? kinds,
@@ -109,6 +114,7 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
     this.search,
     this.where,
     this.and,
+    this.schemaFilter,
   }) : ids = ids ?? const {},
        authors = authors ?? const {},
        kinds =
@@ -190,6 +196,7 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
       limit: limit ?? this.limit,
       where: where,
       and: and,
+      schemaFilter: schemaFilter,
     );
   }
 
