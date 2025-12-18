@@ -11,14 +11,8 @@ void main() {
     });
 
     test('RemoteSource instances with same properties are equal', () {
-      const source1 = RemoteSource(
-        relays: 'social',
-        stream: true,
-      );
-      const source2 = RemoteSource(
-        relays: 'social',
-        stream: true,
-      );
+      const source1 = RemoteSource(relays: 'social', stream: true);
+      const source2 = RemoteSource(relays: 'social', stream: true);
       expect(source1, equals(source2));
       expect(source1.hashCode, equals(source2.hashCode));
     });
@@ -30,14 +24,8 @@ void main() {
     });
 
     test('LocalAndRemoteSource instances with same properties are equal', () {
-      const source1 = LocalAndRemoteSource(
-        relays: 'social',
-        stream: true,
-      );
-      const source2 = LocalAndRemoteSource(
-        relays: 'social',
-        stream: true,
-      );
+      const source1 = LocalAndRemoteSource(relays: 'social', stream: true);
+      const source2 = LocalAndRemoteSource(relays: 'social', stream: true);
       expect(source1, equals(source2));
       expect(source1.hashCode, equals(source2.hashCode));
     });
@@ -45,14 +33,8 @@ void main() {
     test(
       'RemoteSource and LocalAndRemoteSource with same properties are not equal',
       () {
-        const source1 = RemoteSource(
-          relays: 'social',
-          stream: true,
-        );
-        const source2 = LocalAndRemoteSource(
-          relays: 'social',
-          stream: true,
-        );
+        const source1 = RemoteSource(relays: 'social', stream: true);
+        const source2 = LocalAndRemoteSource(relays: 'social', stream: true);
         // Different types, so should not be equal
         expect(source1, isNot(equals(source2)));
       },
@@ -67,10 +49,7 @@ void main() {
 
   group('Source copyWith', () {
     test('RemoteSource copyWith creates equal instance when no changes', () {
-      const original = RemoteSource(
-        relays: 'social',
-        stream: true,
-      );
+      const original = RemoteSource(relays: 'social', stream: true);
       final copied = original.copyWith();
       expect(copied, equals(original));
       expect(copied.relays, equals('social'));
@@ -78,10 +57,7 @@ void main() {
     });
 
     test('RemoteSource copyWith updates stream property', () {
-      const original = RemoteSource(
-        relays: 'social',
-        stream: true,
-      );
+      const original = RemoteSource(relays: 'social', stream: true);
       final modified = original.copyWith(stream: false);
 
       expect(modified.relays, equals('social'));
@@ -90,10 +66,7 @@ void main() {
     });
 
     test('RemoteSource copyWith updates multiple properties', () {
-      const original = RemoteSource(
-        relays: 'social',
-        stream: true,
-      );
+      const original = RemoteSource(relays: 'social', stream: true);
       final modified = original.copyWith(relays: 'apps', stream: false);
 
       expect(modified.relays, equals('apps'));
@@ -109,10 +82,7 @@ void main() {
     });
 
     test('LocalAndRemoteSource copyWith preserves type', () {
-      const original = LocalAndRemoteSource(
-        relays: 'social',
-        stream: true,
-      );
+      const original = LocalAndRemoteSource(relays: 'social', stream: true);
       final copied = original.copyWith();
 
       // Should still be LocalAndRemoteSource
@@ -123,10 +93,7 @@ void main() {
     test(
       'LocalAndRemoteSource copyWith updates properties and preserves type',
       () {
-        const original = LocalAndRemoteSource(
-          relays: 'social',
-          stream: true,
-        );
+        const original = LocalAndRemoteSource(relays: 'social', stream: true);
         final modified = original.copyWith(stream: false);
 
         expect(modified, isA<LocalAndRemoteSource>());
@@ -214,117 +181,6 @@ void main() {
       );
       // Even though stream: true was passed, cachedFor overrides it
       expect(source.stream, isFalse);
-    });
-  });
-
-  group('EventFilter', () {
-    test('eventFilter defaults to null', () {
-      const source = RemoteSource();
-      expect(source.eventFilter, isNull);
-    });
-
-    test('eventFilter can be set on RemoteSource', () {
-      bool filter(Map<String, dynamic> event) => true;
-      final source = RemoteSource(eventFilter: filter);
-      expect(source.eventFilter, equals(filter));
-    });
-
-    test('eventFilter can be set on LocalAndRemoteSource', () {
-      bool filter(Map<String, dynamic> event) => false;
-      final source = LocalAndRemoteSource(eventFilter: filter);
-      expect(source.eventFilter, equals(filter));
-    });
-
-    test('eventFilter is preserved in RemoteSource copyWith', () {
-      bool filter(Map<String, dynamic> event) => true;
-      final original = RemoteSource(eventFilter: filter);
-      final copied = original.copyWith();
-      expect(copied.eventFilter, equals(filter));
-    });
-
-    test('eventFilter can be updated in RemoteSource copyWith', () {
-      bool filter1(Map<String, dynamic> event) => true;
-      bool filter2(Map<String, dynamic> event) => false;
-      final original = RemoteSource(eventFilter: filter1);
-      final modified = original.copyWith(eventFilter: filter2);
-      expect(modified.eventFilter, equals(filter2));
-    });
-
-    test('eventFilter is preserved in LocalAndRemoteSource copyWith', () {
-      bool filter(Map<String, dynamic> event) => true;
-      final original = LocalAndRemoteSource(eventFilter: filter);
-      final copied = original.copyWith();
-      expect(copied.eventFilter, equals(filter));
-    });
-
-    test('eventFilter can be updated in LocalAndRemoteSource copyWith', () {
-      bool filter1(Map<String, dynamic> event) => true;
-      bool filter2(Map<String, dynamic> event) => false;
-      final original = LocalAndRemoteSource(eventFilter: filter1);
-      final modified = original.copyWith(eventFilter: filter2);
-      expect(modified.eventFilter, equals(filter2));
-    });
-
-    test('sources with same eventFilter reference are equal', () {
-      bool filter(Map<String, dynamic> event) => true;
-      final source1 = RemoteSource(eventFilter: filter);
-      final source2 = RemoteSource(eventFilter: filter);
-      // Same function reference = equal
-      expect(source1, equals(source2));
-    });
-
-    test('eventFilter is stored correctly and can be retrieved', () {
-      bool filter(Map<String, dynamic> event) => true;
-      final source = RemoteSource(eventFilter: filter);
-      expect(source.eventFilter, same(filter));
-    });
-
-    test('null eventFilter is preserved correctly', () {
-      const source = RemoteSource();
-      expect(source.eventFilter, isNull);
-    });
-
-    test('eventFilter function can filter by content', () {
-      final source = RemoteSource(
-        eventFilter: (event) {
-          final content = event['content'] as String?;
-          return content != null && content.length > 10;
-        },
-      );
-
-      final shortEvent = {'content': 'hi'};
-      final longEvent = {'content': 'this is a long message'};
-
-      expect(source.eventFilter!(shortEvent), isFalse);
-      expect(source.eventFilter!(longEvent), isTrue);
-    });
-
-    test('eventFilter function can filter by kind', () {
-      final source = RemoteSource(
-        eventFilter: (event) => event['kind'] == 1,
-      );
-
-      final noteEvent = {'kind': 1};
-      final profileEvent = {'kind': 0};
-
-      expect(source.eventFilter!(noteEvent), isTrue);
-      expect(source.eventFilter!(profileEvent), isFalse);
-    });
-
-    test('eventFilter function can filter by multiple fields', () {
-      final source = RemoteSource(
-        eventFilter: (event) =>
-            event['kind'] == 1 &&
-            (event['content'] as String?)?.contains('hello') == true,
-      );
-
-      final matchingEvent = {'kind': 1, 'content': 'hello world'};
-      final wrongKind = {'kind': 0, 'content': 'hello world'};
-      final wrongContent = {'kind': 1, 'content': 'goodbye world'};
-
-      expect(source.eventFilter!(matchingEvent), isTrue);
-      expect(source.eventFilter!(wrongKind), isFalse);
-      expect(source.eventFilter!(wrongContent), isFalse);
     });
   });
 }

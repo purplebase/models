@@ -70,9 +70,11 @@ RequestFilter<E> → Request<E> → Storage.query()
                             ↓                   ↓
                       querySync()          relay.subscribe()
                             ↓                   ↓
-                            │            eventFilter (discard)
-                            │                   ↓
                             └─────────┬─────────┘
+                                      ↓
+                              schemaFilter (discard)
+                                      ↓
+                              model construction
                                       ↓
                               where filtering
                                       ↓
@@ -81,30 +83,30 @@ RequestFilter<E> → Request<E> → Storage.query()
 
 The `where` filter executes client-side after model construction, enabling filtering on computed properties and relationship data.
 
-## Event Filtering
+## Schema Filtering
 
-`RemoteSource.eventFilter` allows discarding events at the earliest stage, before they reach storage:
+`RequestFilter.schemaFilter` allows discarding events before model construction, applied to both local and remote data:
 
 ```dart
 // Filter events by content length
-final source = RemoteSource(
-  relays: 'social',
-  eventFilter: (event) {
+query<Note>(
+  authors: {pubkey},
+  schemaFilter: (event) {
     final content = event['content'] as String?;
     return content != null && content.length > 10;
   },
 );
 
 // Filter by kind
-final source = RemoteSource(
-  relays: 'social',
-  eventFilter: (event) => event['kind'] == 1,
+query<Note>(
+  authors: {pubkey},
+  schemaFilter: (event) => event['kind'] == 1,
 );
 
 // Complex filtering (spam prevention)
-final source = RemoteSource(
-  relays: 'social',
-  eventFilter: (event) =>
+query<Note>(
+  authors: {pubkey},
+  schemaFilter: (event) =>
     event['kind'] == 1 &&
     !(event['content'] as String?)?.contains('spam') == true,
 );
@@ -112,16 +114,16 @@ final source = RemoteSource(
 
 **Key characteristics:**
 
-- **Early rejection**: Events filtered before buffering/storage, reducing I/O
+- **Early rejection**: Events filtered before model construction
 - **Raw event access**: Filter receives `Map<String, dynamic>` (not typed models)
 - **Null means pass-through**: No filter set = all events accepted
-- **Works with both modes**: Applies to `stream: true` and `stream: false` queries
-- **Per-subscription**: Each query can have its own filter logic
+- **Applies to all sources**: Works with LocalSource, RemoteSource, and LocalAndRemoteSource
+- **Per-query**: Each query can have its own filter logic
 
 **Use cases:**
 
 - Content moderation (keyword filtering, length requirements)
-- Kind-specific subscriptions with relay-agnostic queries
+- Kind-specific filtering beyond what relay filters support
 - Author filtering beyond what relay filters support
 - Deferred validation (check fields not in Nostr filter spec)
 

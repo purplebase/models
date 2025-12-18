@@ -150,8 +150,7 @@ source: LocalSource()
 // Relays only - by label
 source: RemoteSource(
   relays: 'AppCatalog',  // Looks up RelayList by label
-  stream: true,
-  background: false, // Wait for EOSE before returning
+  stream: true
 )
 
 // Relays only - ad-hoc URL
@@ -162,8 +161,7 @@ source: RemoteSource(
 // Both local and remote
 source: LocalAndRemoteSource(
   relays: 'AppCatalog',  // Uses the AppCatalog relay set
-  stream: true,
-  background: true, // Return immediately, fetch in background
+  stream: true
 )
 ```
 
