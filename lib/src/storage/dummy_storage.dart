@@ -152,7 +152,8 @@ class DummyStorageNotifier extends StorageNotifier {
     String? subscriptionPrefix,
   }) async {
     // Register subscription for streaming if enabled
-    if (source is LocalAndRemoteSource && source.stream) {
+    // This applies to both RemoteSource and LocalAndRemoteSource (which extends RemoteSource)
+    if (source is RemoteSource && source.stream) {
       _subscriptions[req.subscriptionId] = req;
     }
 

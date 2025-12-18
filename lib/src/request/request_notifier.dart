@@ -31,13 +31,16 @@ class RequestNotifier<E extends Model<dynamic>>
     storage
         .query(req, source: source, subscriptionPrefix: prefix)
         .then((models) {
-          // If streaming remote query is active and local results are empty,
+          // If streaming LocalAndRemoteSource is active and local results are empty,
           // skip emitting empty state to prevent empty flash in UI
-          // Data will arrive via InternalStorageData and trigger _refreshModelsFromLocal
-          final isStreamingRemote =
-              source is LocalAndRemoteSource && (source as RemoteSource).stream;
+          // Data will arrive via InternalStorageData and trigger _refreshModels
+          // Note: This only applies to LocalAndRemoteSource, not pure RemoteSource,
+          // because LocalAndRemoteSource queries local first and may be empty initially.
+          final isStreamingLocalAndRemote =
+              source is LocalAndRemoteSource &&
+              (source as LocalAndRemoteSource).stream;
 
-          if (isStreamingRemote && models.isEmpty) {
+          if (isStreamingLocalAndRemote && models.isEmpty) {
             // Stay in StorageLoading state, subscription is already listening
           } else {
             _emitNewModels(models);
@@ -64,6 +67,11 @@ class RequestNotifier<E extends Model<dynamic>>
     });
   }
 
+  /// Whether this source includes local storage data.
+  /// LocalSource and LocalAndRemoteSource include local; RemoteSource does not.
+  bool get _sourceIncludesLocal =>
+      source is LocalSource || source is LocalAndRemoteSource;
+
   void _startSubscription() {
     final sub = ref.listen(storageNotifierProvider, (_, storageState) async {
       if (!mounted) return;
@@ -72,14 +80,26 @@ class RequestNotifier<E extends Model<dynamic>>
         req: final incomingReq,
         :final updatedIds,
       ) when updatedIds.isNotEmpty) {
-        if (incomingReq == null ||
-            incomingReq.subscriptionId == req.subscriptionId) {
-          await _refreshModelsFromLocal();
+        // Check if this update is from our specific subscription
+        final isOurSubscription =
+            incomingReq?.subscriptionId == req.subscriptionId;
+
+        // General updates (incomingReq == null) only matter for sources that
+        // include local storage. For RemoteSource, we only care about updates
+        // from our specific remote subscription.
+        final isGeneralUpdate = incomingReq == null;
+
+        if (isOurSubscription || (isGeneralUpdate && _sourceIncludesLocal)) {
+          await _refreshModels();
         } else {
           // Ignore unrelated updates while still in initial loading state
           // This prevents wrongly transitioning from Loading to empty Data
           // Once we've transitioned to StorageData (even if empty), process normally
           if (state is StorageLoading) return;
+
+          // For RemoteSource, skip processing unrelated updates entirely
+          // since we only care about data from our remote subscription
+          if (!_sourceIncludesLocal) return;
 
           // Check if any updatedIds affect our models (for replaceable updates)
           // Pre-compute both Sets for O(1) lookups instead of O(n) scans
@@ -91,19 +111,19 @@ class RequestNotifier<E extends Model<dynamic>>
 
           if (hasRelevantUpdate) {
             // Replaceable model was updated - refresh from storage
-            await _refreshModelsFromLocal();
+            await _refreshModels();
           } else {
             // Check if this update is from one of our relationship requests
             // If so, refresh models to pick up the new relationship data
             // and re-evaluate the and: callback for nested relationships
             final isRelationshipUpdate = mergedRelationshipRequests.any(
-              (r) => r.subscriptionId == incomingReq.subscriptionId,
+              (r) => r.subscriptionId == incomingReq?.subscriptionId,
             );
 
             if (isRelationshipUpdate) {
               // Relationship data arrived - refresh models from local storage
               // This ensures nested relationships are properly discovered
-              await _refreshModelsFromLocal();
+              await _refreshModels();
             } else {
               // Truly unrelated update - just process any new relationships
               _processNewRelationships(state.models);
@@ -171,16 +191,23 @@ class RequestNotifier<E extends Model<dynamic>>
       if (!isStreaming) {
         queryFuture.then((_) {
           if (mounted) {
-            _refreshModelsFromLocal();
+            _refreshModels();
           }
         });
       }
     }
   }
 
-  Future<void> _refreshModelsFromLocal() async {
+  /// Refresh models from storage using the appropriate source.
+  /// For sources that include local (LocalSource, LocalAndRemoteSource),
+  /// queries local storage. For RemoteSource, queries with the original source
+  /// to maintain remote-only semantics.
+  Future<void> _refreshModels() async {
     try {
-      final refreshedModels = await storage.query(req, source: LocalSource());
+      // Use LocalSource for refresh when the original source includes local,
+      // otherwise use the original source to maintain remote-only semantics
+      final refreshSource = _sourceIncludesLocal ? LocalSource() : source;
+      final refreshedModels = await storage.query(req, source: refreshSource);
       _replaceAllModels(refreshedModels);
     } catch (e, stack) {
       state = StorageError(state.models, exception: e, stackTrace: stack);
