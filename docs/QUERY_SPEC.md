@@ -17,6 +17,32 @@ Expected behavior for all permutations of the `query<E>()`, `queryKinds()`, and 
 `LocalAndRemoteSource(relays, stream, cachedFor)` queries both.
 
 
+## Query Provider vs storage.query
+
+The `query` provider and `storage.query` have different blocking semantics:
+
+### Query Provider (query<E>(), queryKinds(), model<E>())
+
+For `LocalAndRemoteSource`, **always returns local storage models immediately**,
+regardless of the `stream` parameter. The `stream` parameter only controls
+whether the remote subscription stays open after EOSE:
+
+- `stream: true` → keeps subscription open indefinitely for new events
+- `stream: false` → closes subscription after EOSE (one-time fetch)
+
+### storage.query
+
+When called directly with `stream: false`, **blocks until EOSE** before returning:
+
+```dart
+// This blocks until EOSE is received
+final models = await storage.query(req, source: LocalAndRemoteSource(stream: false));
+```
+
+Use `storage.query` directly when you need to ensure all remote data has been
+fetched before proceeding (e.g., during initialization or data sync).
+
+
 ## State Transitions
 
 ### Loading to Data
@@ -125,14 +151,26 @@ query<Note>(authors: {a}, source: LocalAndRemoteSource(stream: true))
 query<Note>(authors: {a}, source: LocalAndRemoteSource(stream: false))
 ```
 
-- waits for EOSE before returning
-- closes subscription after EOSE
+- returns immediately with local data (may be empty)
+- fetches from relays
+- closes subscription after EOSE (one-time fetch)
+
+Note: The `stream` parameter only affects the subscription lifecycle, not when
+local data is returned. Local storage models are always returned immediately
+via the `query` provider.
+
+For blocking behavior that waits for EOSE before returning, use `storage.query` directly:
+
+```dart
+final models = await storage.query(req, source: LocalAndRemoteSource(stream: false));
+// This blocks until EOSE is received
+```
 
 
 ### Empty Local No Flash
 
 ```dart
-query<Note>(authors: {a}, source: LocalAndRemoteSource(stream: true))
+query<Note>(authors: {a}, source: LocalAndRemoteSource())
 ```
 
 Given no Notes for `a` in local storage:
@@ -143,6 +181,9 @@ Given no Notes for `a` in local storage:
 Given Notes for `a` exist in local storage:
 
 - emits `StorageData` immediately with local models
+
+This behavior applies regardless of the `stream` parameter value. The `query`
+provider always returns local storage models immediately for `LocalAndRemoteSource`.
 
 
 ## Caching

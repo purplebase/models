@@ -28,31 +28,71 @@ class RequestNotifier<E extends Model<dynamic>>
     // updates that happen during the query.
     _startSubscription();
 
-    storage
-        .query(req, source: source, subscriptionPrefix: prefix)
-        .then((models) {
-          // If streaming LocalAndRemoteSource is active and local results are empty,
-          // skip emitting empty state to prevent empty flash in UI
-          // Data will arrive via InternalStorageData and trigger _refreshModels
-          // Note: This only applies to LocalAndRemoteSource, not pure RemoteSource,
-          // because LocalAndRemoteSource queries local first and may be empty initially.
-          final isStreamingLocalAndRemote =
-              source is LocalAndRemoteSource &&
-              (source as LocalAndRemoteSource).stream;
+    // For LocalAndRemoteSource: query local storage FIRST and emit immediately,
+    // then fire the remote query. This ensures the query provider returns local
+    // data immediately regardless of stream setting. The stream parameter only
+    // affects whether the remote subscription stays open after EOSE.
+    //
+    // For RemoteSource or LocalSource: query directly with the source.
+    if (source is LocalAndRemoteSource) {
+      final isStreaming = (source as LocalAndRemoteSource).stream;
 
-          if (isStreamingLocalAndRemote && models.isEmpty) {
-            // Stay in StorageLoading state, subscription is already listening
-          } else {
+      // Step 1: Query local storage immediately (non-blocking)
+      storage
+          .query(req, source: LocalSource())
+          .then((localModels) {
+            // Emit local results immediately if not empty
+            // If empty, stay in StorageLoading to avoid empty flash
+            if (localModels.isNotEmpty) {
+              _emitNewModels(localModels);
+            }
+
+            // Step 2: Fire remote query (may block for stream: false, but that's fine
+            // since we've already emitted local data)
+            return storage.query(
+              req,
+              source: source,
+              subscriptionPrefix: prefix,
+            );
+          })
+          .then((remoteModels) {
+            // Remote query completed
+            // For stream: false (one-time fetch), refresh to pick up any new data
+            // For stream: true, the subscription handles updates via InternalStorageData
+            if (mounted && !isStreaming) {
+              _refreshModels();
+            }
+          })
+          .catchError((e, stack) {
+            if (mounted) {
+              state = StorageError(
+                state.models,
+                exception: e,
+                stackTrace: stack,
+              );
+            } else {
+              print(e);
+            }
+          });
+    } else {
+      // LocalSource or RemoteSource: query directly
+      storage
+          .query(req, source: source, subscriptionPrefix: prefix)
+          .then((models) {
             _emitNewModels(models);
-          }
-        })
-        .catchError((e, stack) {
-          if (mounted) {
-            state = StorageError(state.models, exception: e, stackTrace: stack);
-          } else {
-            print(e);
-          }
-        });
+          })
+          .catchError((e, stack) {
+            if (mounted) {
+              state = StorageError(
+                state.models,
+                exception: e,
+                stackTrace: stack,
+              );
+            } else {
+              print(e);
+            }
+          });
+    }
 
     ref.onDispose(() async {
       // Cancel main request
