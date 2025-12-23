@@ -14,36 +14,18 @@ class DVMError extends RegularModel<DVMError> {
 ///
 /// This event requests reputation verification from Data Vending Machines (DVMs).
 /// DVMs process the request and return verification responses.
-class VerifyReputationRequest extends RegularModel<VerifyReputationRequest> {
+class VerifyReputationRequest extends RegularModel<VerifyReputationRequest>
+    with DVMRequest<VerifyReputationRequest> {
   VerifyReputationRequest.fromMap(super.map, super.ref) : super.fromMap();
 
-  /// Execute verification request and wait for response
-  ///
-  /// [relays] - The relay target (URL or identifier) to publish the request to
-  /// Returns the first DVM response (success or error)
-  Future<Model<dynamic>?> run(String relays) async {
-    final source = RemoteSource(relays: relays, stream: true);
-    // Just publish, do not save
-    await storage.publish({this}, source: source);
-    final req = RequestFilter(
-      kinds: {6312, 7000},
-      tags: {
-        'e': {event.id},
-      },
-      limit: 1,
-    ).toRequest();
-    try {
-      final responses = await storage.query(req, source: source);
-      return responses.firstOrNull;
-    } finally {
-      await storage.cancel(req);
-    }
-  }
+  @override
+  int get responseKind => 6312;
 }
 
 /// Create and sign new reputation verification requests.
 class PartialVerifyReputationRequest
-    extends RegularPartialModel<VerifyReputationRequest> {
+    extends RegularPartialModel<VerifyReputationRequest>
+    with DVMPartialRequest<VerifyReputationRequest> {
   PartialVerifyReputationRequest.fromMap(super.map) : super.fromMap();
 
   /// Creates a new reputation verification request
@@ -56,14 +38,10 @@ class PartialVerifyReputationRequest
     String? sort,
     int? limit,
   }) {
-    event.addTag('param', ['source', source]);
-    event.addTag('param', ['target', target]);
-    if (sort != null) {
-      event.addTag('param', ['sort', sort]);
-    }
-    if (limit != null) {
-      event.addTag('param', ['limit', limit.toString()]);
-    }
+    addParam('source', source);
+    addParam('target', target);
+    addOptionalParam('sort', sort);
+    addOptionalIntParam('limit', limit);
   }
 }
 

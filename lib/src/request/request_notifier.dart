@@ -129,7 +129,17 @@ class RequestNotifier<E extends Model<dynamic>>
         // from our specific remote subscription.
         final isGeneralUpdate = incomingReq == null;
 
-        if (isOurSubscription || (isGeneralUpdate && _sourceIncludesLocal)) {
+        if (isOurSubscription) {
+          // Our subscription received data - fetch it from local storage
+          // For RemoteSource: only fetch the specific updated models (remote-only semantics)
+          // For other sources: refresh all matching models from local storage
+          if (_sourceIncludesLocal) {
+            await _refreshModels();
+          } else {
+            await _fetchUpdatedModels(updatedIds);
+          }
+        } else if (isGeneralUpdate && _sourceIncludesLocal) {
+          // General update for sources that include local storage
           await _refreshModels();
         } else {
           // Ignore unrelated updates while still in initial loading state
@@ -238,17 +248,29 @@ class RequestNotifier<E extends Model<dynamic>>
     }
   }
 
-  /// Refresh models from storage using the appropriate source.
-  /// For sources that include local (LocalSource, LocalAndRemoteSource),
-  /// queries local storage. For RemoteSource, queries with the original source
-  /// to maintain remote-only semantics.
+  /// Refresh all matching models from local storage.
+  /// Used for sources that include local (LocalSource, LocalAndRemoteSource).
   Future<void> _refreshModels() async {
     try {
-      // Use LocalSource for refresh when the original source includes local,
-      // otherwise use the original source to maintain remote-only semantics
-      final refreshSource = _sourceIncludesLocal ? LocalSource() : source;
-      final refreshedModels = await storage.query(req, source: refreshSource);
+      final refreshedModels = await storage.query(req, source: LocalSource());
       _replaceAllModels(refreshedModels);
+    } catch (e, stack) {
+      state = StorageError(state.models, exception: e, stackTrace: stack);
+    }
+  }
+
+  /// Fetch only the specified models by ID from local storage.
+  /// Used for RemoteSource to maintain remote-only semantics - only returns
+  /// models that arrived via our subscription, not pre-existing local data.
+  Future<void> _fetchUpdatedModels(Set<String> updatedIds) async {
+    try {
+      // Query by the updated IDs, applying the original request's filters
+      // to ensure we only get models that match our subscription criteria
+      final idRequest = Request<E>(
+        req.filters.map((f) => f.copyWith(ids: updatedIds)).toList(),
+      );
+      final models = await storage.query(idRequest, source: LocalSource());
+      _emitNewModels(models);
     } catch (e, stack) {
       state = StorageError(state.models, exception: e, stackTrace: stack);
     }
