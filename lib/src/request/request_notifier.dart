@@ -79,7 +79,14 @@ class RequestNotifier<E extends Model<dynamic>>
       storage
           .query(req, source: source, subscriptionPrefix: prefix)
           .then((models) {
-            _emitNewModels(models);
+            // For streaming RemoteSource, don't emit initial results -
+            // only emit data that arrives via subscription (InternalStorageData).
+            // For LocalSource or non-streaming RemoteSource, emit the results.
+            final isStreamingRemote =
+                source is RemoteSource && (source as RemoteSource).stream;
+            if (!isStreamingRemote) {
+              _emitNewModels(models);
+            }
           })
           .catchError((e, stack) {
             if (mounted) {
@@ -238,7 +245,11 @@ class RequestNotifier<E extends Model<dynamic>>
       // For non-streaming queries (stream: false), we must explicitly refresh
       // after the query completes because there's no subscription to push updates.
       // For streaming queries, updates arrive via InternalStorageData callbacks.
-      if (!isStreaming) {
+      // NOTE: Only refresh for sources that include local storage. For pure
+      // RemoteSource, refreshing would pull in unrelated local data.
+      final relationshipIncludesLocal =
+          relationshipSource is LocalAndRemoteSource;
+      if (!isStreaming && relationshipIncludesLocal) {
         queryFuture.then((_) {
           if (mounted) {
             _refreshModels();
