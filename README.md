@@ -267,22 +267,22 @@ Content is plaintext before signing and encrypted during the signing process. Af
 
 ```dart
 // Create with plaintext
-final partial = PartialAppPack.withEncryptedApps(
+final partial = PartialAppStack.withEncryptedApps(
   name: 'Dev Tools',
   identifier: 'dev',
   apps: ['32267:pubkey:vscode'],
 );
 
 // Sign encrypts the content
-final appPack = await partial.signWith(signer);
+final appStack = await partial.signWith(signer);
 
 // To read, explicitly decrypt
-final decrypted = await signer.nip44Decrypt(appPack.content, signer.pubkey);
+final decrypted = await signer.nip44Decrypt(appStack.content, signer.pubkey);
 ```
 
 Models supporting encryption:
 - `DirectMessage` (NIP-44)
-- `AppPack`, `BookmarkSet`, `FollowSets`, `MuteList`, `PinList`
+- `AppStack`, `BookmarkSet`, `FollowSets`, `MuteList`, `PinList`
 - `NwcRequest`, `NwcResponse`, `NwcNotification` (NIP-47)
 
 ## NostrWalletConnect
@@ -430,7 +430,7 @@ StorageConfiguration(skipVerification: true)
 | 30063 | `Release` | Parameterizable |
 | 30078 | `CustomData` | Parameterizable |
 | 30222 | `TargetedPublication` | Parameterizable |
-| 30267 | `AppPack` | Parameterizable |
+| 30267 | `AppStack` | Parameterizable |
 | 31922 | `DateBasedCalendarEvent` | Parameterizable |
 | 31923 | `TimeBasedCalendarEvent` | Parameterizable |
 | 31924 | `Calendar` | Parameterizable |

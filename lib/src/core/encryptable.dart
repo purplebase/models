@@ -21,7 +21,7 @@ part of models;
 //
 // 1. **Self-encrypted lists (NIP-51)**: Private bookmarks, app lists, mute lists
 //    - Encrypted to your own pubkey
-//    - Example: `AppPack`, `BookmarkSet`, `MuteList`
+//    - Example: `AppStack`, `BookmarkSet`, `MuteList`
 //
 // 2. **Peer-to-peer messages (NIP-44)**: Direct messages, NWC
 //    - Encrypted to recipient's pubkey
@@ -35,7 +35,7 @@ part of models;
 //
 // ```dart
 // // Example 1: Private App List (self-encrypted)
-// final partial = PartialAppPack.withEncryptedApps(
+// final partial = PartialAppStack.withEncryptedApps(
 //   name: 'Private Apps',
 //   identifier: 'my-apps',
 //   apps: ['32267:pubkey:vscode', '32267:pubkey:terminal'],
@@ -73,11 +73,11 @@ part of models;
 //
 // ```dart
 // // After loading from storage, content is encrypted
-// final appPack = await storage.query(Request<AppPack>(...)).first;
-// print(appPack.content); // "AQBxY3..." (encrypted)
+// final appStack = await storage.query(Request<AppStack>(...)).first;
+// print(appStack.content); // "AQBxY3..." (encrypted)
 //
 // // To read: explicitly decrypt
-// final decrypted = await signer.nip44Decrypt(appPack.content, signer.pubkey);
+// final decrypted = await signer.nip44Decrypt(appStack.content, signer.pubkey);
 // final apps = jsonDecode(decrypted) as List;
 //
 // // Direct messages: decrypt using sender's pubkey

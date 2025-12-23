@@ -242,17 +242,23 @@ class RequestNotifier<E extends Model<dynamic>>
         subscriptionPrefix: prefix,
       );
 
-      // For non-streaming queries (stream: false), we must explicitly refresh
-      // after the query completes because there's no subscription to push updates.
+      // For non-streaming queries (stream: false), we must explicitly handle
+      // query completion because there's no subscription to push updates.
       // For streaming queries, updates arrive via InternalStorageData callbacks.
-      // NOTE: Only refresh for sources that include local storage. For pure
-      // RemoteSource, refreshing would pull in unrelated local data.
-      final relationshipIncludesLocal =
-          relationshipSource is LocalAndRemoteSource;
-      if (!isStreaming && relationshipIncludesLocal) {
+      if (!isStreaming) {
+        final relationshipIncludesLocal =
+            relationshipSource is LocalAndRemoteSource;
         queryFuture.then((_) {
           if (mounted) {
-            _refreshModels();
+            if (relationshipIncludesLocal) {
+              // Refresh from local storage to pick up new relationship data
+              _refreshModels();
+            } else {
+              // For RemoteSource: signal completion without pulling local data.
+              // This handles empty results (e.g., latestAsset on old-format apps)
+              // and ensures UI transitions from Loading → Data.
+              _signalQueryComplete();
+            }
           }
         });
       }
@@ -268,6 +274,19 @@ class RequestNotifier<E extends Model<dynamic>>
     } catch (e, stack) {
       state = StorageError(state.models, exception: e, stackTrace: stack);
     }
+  }
+
+  /// Signal that a query completed without modifying the model set.
+  /// Used for empty results or RemoteSource relationship completion.
+  /// This transitions Loading → Data if needed and triggers UI rebuild.
+  void _signalQueryComplete() {
+    if (!mounted) return;
+
+    // Re-process relationships (for nested discovery)
+    _processNewRelationships(state.models);
+
+    // Emit current state to trigger rebuild
+    state = StorageData(state.models);
   }
 
   /// Fetch only the specified models by ID from local storage.

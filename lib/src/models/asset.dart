@@ -4,41 +4,18 @@ part of models;
 ///
 /// Software assets represent files that can be downloaded and installed,
 /// including platform-specific information, version details, and checksums.
-class SoftwareAsset extends RegularModel<SoftwareAsset> {
+///
+/// Extends [FileMetadata] to inherit file metadata properties.
+class SoftwareAsset extends FileMetadata {
   SoftwareAsset.fromMap(super.map, super.ref) : super.fromMap();
 
-  /// Set of download URLs for the software asset
-  Set<String> get urls => event.getTagSetValues('url').toSet();
+  /// Minimum platform version required to run the software
+  String? get minPlatformVersion =>
+      event.getFirstTagValue('min_platform_version');
 
-  /// MIME type of the software asset file
-  String? get mimeType => event.getFirstTagValue('m');
-
-  /// File hash for verification (SHA-256 or other)
-  String get hash => event.getFirstTagValue('x')!;
-
-  /// File size in bytes
-  int? get size => event.getFirstTagValue('size').toInt();
-
-  /// Source repository URL
-  String? get repository => event.getFirstTagValue('repository');
-
-  /// Set of supported platforms
-  Set<String> get platforms => event.getTagSetValues('f').toSet();
-
-  /// Set of executable file names within the asset
-  Set<String> get executables => event.getTagSetValues('executable');
-
-  /// Minimum OS version required to run the software
-  String get minOSVersion => event.getFirstTagValue('min_os_version')!;
-
-  /// Target OS version for optimal performance
-  String get targetOSVersion => event.getFirstTagValue('target_os_version')!;
-
-  /// Application identifier this asset belongs to
-  String get appIdentifier => event.getFirstTagValue('i')!;
-
-  /// Version string of the software asset
-  String get version => event.getFirstTagValue('version')!;
+  /// Target platform version for optimal performance
+  String? get targetPlatformVersion =>
+      event.getFirstTagValue('target_platform_version');
 
   /// Original filename of the asset
   String? get filename => event.getFirstTagValue('filename');
@@ -46,103 +23,34 @@ class SoftwareAsset extends RegularModel<SoftwareAsset> {
   /// Asset variant (e.g., 'debug', 'release', 'lite')
   String? get variant => event.getFirstTagValue('variant');
 
-  // Android-specific properties
+  /// Supported Nostr NIPs
+  Set<String> get supportedNips => event.getTagSetValues('supported_nip');
 
-  /// Android version code (numeric)
-  int? get versionCode =>
-      int.tryParse(event.getFirstTagValue('version_code') ?? '');
+  /// Platform-specific permissions required
+  Set<String> get permissions => event.getTagSetValues('permission');
 
-  /// APK signature hash for Android applications
-  String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
+  /// APK certificate hashes for Android applications
+  Set<String> get apkCertificateHashes =>
+      event.getTagSetValues('apk_certificate_hash');
 }
 
 /// Generated partial model mixin for SoftwareAsset
-mixin PartialSoftwareAssetMixin on RegularPartialModel<SoftwareAsset> {
-  /// Set of download URLs for the software asset
-  Set<String> get urls => event.getTagSetValues('url');
+mixin PartialSoftwareAssetMixin on PartialFileMetadata {
+  /// Minimum platform version required
+  String? get minPlatformVersion =>
+      event.getFirstTagValue('min_platform_version');
 
-  /// Sets the download URLs
-  set urls(Set<String> value) => event.setTagValues('url', value);
+  /// Sets the minimum platform version
+  set minPlatformVersion(String? value) =>
+      event.setTagValue('min_platform_version', value);
 
-  /// Adds a download URL
-  void addUrl(String? value) => event.addTagValue('url', value);
+  /// Target platform version
+  String? get targetPlatformVersion =>
+      event.getFirstTagValue('target_platform_version');
 
-  /// Removes a download URL
-  void removeUrl(String? value) => event.removeTagWithValue('url', value);
-
-  /// MIME type of the file
-  String? get mimeType => event.getFirstTagValue('m');
-
-  /// Sets the MIME type
-  set mimeType(String? value) => event.setTagValue('m', value);
-
-  /// File hash for verification
-  String? get hash => event.getFirstTagValue('x');
-
-  /// Sets the file hash
-  set hash(String? value) => event.setTagValue('x', value);
-
-  /// File size in bytes
-  int? get size => int.tryParse(event.getFirstTagValue('size') ?? '');
-
-  /// Sets the file size
-  set size(int? value) => event.setTagValue('size', value?.toString());
-
-  /// Source repository URL
-  String? get repository => event.getFirstTagValue('repository');
-
-  /// Sets the repository URL
-  set repository(String? value) => event.setTagValue('repository', value);
-
-  /// Set of supported platforms
-  Set<String> get platforms => event.getTagSetValues('f');
-
-  /// Sets the supported platforms
-  set platforms(Set<String> value) => event.setTagValues('f', value);
-
-  /// Adds a supported platform
-  void addPlatform(String? value) => event.addTagValue('f', value);
-
-  /// Removes a supported platform
-  void removePlatform(String? value) => event.removeTagWithValue('f', value);
-
-  /// Set of executable file names
-  Set<String> get executables => event.getTagSetValues('executable');
-
-  /// Sets the executable file names
-  set executables(Set<String> value) => event.setTagValues('executable', value);
-
-  /// Adds an executable file name
-  void addExecutable(String? value) => event.addTagValue('executable', value);
-
-  /// Removes an executable file name
-  void removeExecutable(String? value) =>
-      event.removeTagWithValue('executable', value);
-
-  /// Minimum OS version required
-  String? get minOSVersion => event.getFirstTagValue('min_os_version');
-
-  /// Sets the minimum OS version
-  set minOSVersion(String? value) => event.setTagValue('min_os_version', value);
-
-  /// Target OS version
-  String? get targetOSVersion => event.getFirstTagValue('target_os_version');
-
-  /// Sets the target OS version
-  set targetOSVersion(String? value) =>
-      event.setTagValue('target_os_version', value);
-
-  /// Application identifier
-  String? get appIdentifier => event.getFirstTagValue('i');
-
-  /// Sets the application identifier
-  set appIdentifier(String? value) => event.setTagValue('i', value);
-
-  /// Version string
-  String? get version => event.getFirstTagValue('version');
-
-  /// Sets the version string
-  set version(String? value) => event.setTagValue('version', value);
+  /// Sets the target platform version
+  set targetPlatformVersion(String? value) =>
+      event.setTagValue('target_platform_version', value);
 
   /// Original filename
   String? get filename => event.getFirstTagValue('filename');
@@ -156,24 +64,53 @@ mixin PartialSoftwareAssetMixin on RegularPartialModel<SoftwareAsset> {
   /// Sets the asset variant
   set variant(String? value) => event.setTagValue('variant', value);
 
-  /// Android version code
-  int? get versionCode =>
-      int.tryParse(event.getFirstTagValue('version_code') ?? '');
+  /// Supported Nostr NIPs
+  Set<String> get supportedNips => event.getTagSetValues('supported_nip');
 
-  /// Sets the Android version code
-  set versionCode(int? value) =>
-      event.setTagValue('version_code', value?.toString());
+  /// Sets the supported NIPs
+  set supportedNips(Set<String> value) =>
+      event.setTagValues('supported_nip', value);
 
-  /// APK signature hash
-  String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
+  /// Adds a supported NIP
+  void addSupportedNip(String? value) =>
+      event.addTagValue('supported_nip', value);
 
-  /// Sets the APK signature hash
-  set apkSignatureHash(String? value) =>
-      event.setTagValue('apk_signature_hash', value);
+  /// Removes a supported NIP
+  void removeSupportedNip(String? value) =>
+      event.removeTagWithValue('supported_nip', value);
+
+  /// Platform-specific permissions
+  Set<String> get permissions => event.getTagSetValues('permission');
+
+  /// Sets platform-specific permissions
+  set permissions(Set<String> value) => event.setTagValues('permission', value);
+
+  /// Adds a platform-specific permission
+  void addPermission(String? value) => event.addTagValue('permission', value);
+
+  /// Removes a platform-specific permission
+  void removePermission(String? value) =>
+      event.removeTagWithValue('permission', value);
+
+  /// APK certificate hashes
+  Set<String> get apkCertificateHashes =>
+      event.getTagSetValues('apk_certificate_hash');
+
+  /// Sets the APK certificate hashes
+  set apkCertificateHashes(Set<String> value) =>
+      event.setTagValues('apk_certificate_hash', value);
+
+  /// Adds an APK certificate hash
+  void addApkCertificateHash(String? value) =>
+      event.addTagValue('apk_certificate_hash', value);
+
+  /// Removes an APK certificate hash
+  void removeApkCertificateHash(String? value) =>
+      event.removeTagWithValue('apk_certificate_hash', value);
 }
 
 /// Create and sign new software asset events.
-class PartialSoftwareAsset extends RegularPartialModel<SoftwareAsset>
+class PartialSoftwareAsset extends PartialFileMetadata
     with PartialSoftwareAssetMixin {
   PartialSoftwareAsset.fromMap(super.map) : super.fromMap();
 

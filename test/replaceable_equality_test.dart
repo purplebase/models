@@ -24,8 +24,8 @@ void main() {
 
   group('Replaceable Model Equality Tests', () {
     test('Model equality: same addressable ID but different event.id should be unequal', () {
-      // Create first version of AppPack
-      final signedPack1 = PartialAppPack(
+      // Create first version of AppStack
+      final signedPack1 = PartialAppStack(
         name: 'Original Name',
         identifier: 'test-pack',
       ).dummySign(nielPubkey);
@@ -34,7 +34,7 @@ void main() {
       Future.delayed(Duration(milliseconds: 1));
       
       // Create second version with same identifier but different content
-      final signedPack2 = PartialAppPack(
+      final signedPack2 = PartialAppStack(
         name: 'Updated Name',
         identifier: 'test-pack',
       ).dummySign(nielPubkey);
@@ -53,8 +53,8 @@ void main() {
     });
 
     test('StorageData equality: updated replaceable model should trigger change', () {
-      // Create first version of AppPack
-      final signedPack1 = PartialAppPack(
+      // Create first version of AppStack
+      final signedPack1 = PartialAppStack(
         name: 'Original Name',
         identifier: 'test-pack',
       ).dummySign(nielPubkey);
@@ -63,14 +63,14 @@ void main() {
       Future.delayed(Duration(milliseconds: 1));
       
       // Create second version with same identifier but different content
-      final signedPack2 = PartialAppPack(
+      final signedPack2 = PartialAppStack(
         name: 'Updated Name',
         identifier: 'test-pack',
       ).dummySign(nielPubkey);
 
       // Create two StorageData states
-      final state1 = StorageData<AppPack>([signedPack1]);
-      final state2 = StorageData<AppPack>([signedPack2]);
+      final state1 = StorageData<AppStack>([signedPack1]);
+      final state2 = StorageData<AppStack>([signedPack2]);
 
       print('State 1 models: ${state1.models.map((m) => m.event.id).toList()}');
       print('State 2 models: ${state2.models.map((m) => m.event.id).toList()}');
@@ -87,7 +87,7 @@ void main() {
 
     test('Riverpod listener detection: updated replaceable model should notify', () async {
       // Create and save first version
-      final signedPack1 = PartialAppPack(
+      final signedPack1 = PartialAppStack(
         name: 'Original Name',
         identifier: 'test-pack',
       ).dummySign(nielPubkey);
@@ -95,7 +95,7 @@ void main() {
       await storage.save({signedPack1});
 
       // Create query provider
-      final queryProvider = query<AppPack>(
+      final queryProvider = query<AppStack>(
         ids: {signedPack1.id},
         source: const LocalAndRemoteSource(stream: false),
       );
@@ -104,7 +104,7 @@ void main() {
       int notificationCount = 0;
       List<List<String>> capturedNames = [];
       
-      container.listen<StorageState<AppPack>>(
+      container.listen<StorageState<AppStack>>(
         queryProvider,
         (previous, next) {
           notificationCount++;
@@ -125,7 +125,7 @@ void main() {
       print('Initial state: ${initialState.models.map((m) => m.name).toList()}');
       
       // Update the pack with new content
-      final signedPack2 = PartialAppPack(
+      final signedPack2 = PartialAppStack(
         name: 'Updated Name',
         identifier: 'test-pack',
       ).dummySign(nielPubkey);

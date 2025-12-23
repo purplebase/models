@@ -10,6 +10,7 @@ class Release extends ParameterizableReplaceableModel<Release> {
   late final HasMany<FileMetadata> fileMetadatas;
   late final BelongsTo<FileMetadata> latestMetadata;
   late final HasMany<SoftwareAsset> softwareAssets;
+  late final BelongsTo<SoftwareAsset> latestAsset;
 
   Release.fromMap(super.map, super.ref) : super.fromMap() {
     app = BelongsTo(
@@ -44,6 +45,13 @@ class Release extends ParameterizableReplaceableModel<Release> {
         ids: event.getTagSetValues('e').toSet(),
       ).toRequest(),
     );
+    latestAsset = BelongsTo(
+      ref,
+      RequestFilter<SoftwareAsset>(
+        ids: {?event.getFirstTagValue('e')},
+        limit: 1,
+      ).toRequest(),
+    );
   }
 
   /// Release notes content describing changes and features
@@ -52,6 +60,9 @@ class Release extends ParameterizableReplaceableModel<Release> {
   /// Download URL for the release
   String? get url =>
       event.getFirstTagValue('url') ?? event.getFirstTagValue('r');
+
+  /// Title of the release, if any
+  String? get title => event.getFirstTagValue('title');
 
   /// Release channel (e.g., 'stable', 'beta', 'alpha')
   String? get channel => event.getFirstTagValue('c');
@@ -93,6 +104,12 @@ mixin PartialReleaseMixin on ParameterizableReplaceablePartialModel<Release> {
 
   /// Sets the download URL
   set url(String? value) => event.setTagValue('url', value);
+
+  /// Title of the release
+  String? get title => event.getFirstTagValue('title');
+
+  /// Sets the release title
+  set title(String? value) => event.setTagValue('title', value);
 
   /// Release channel
   String? get channel => event.getFirstTagValue('c');
@@ -139,6 +156,7 @@ class PartialRelease extends ParameterizableReplaceablePartialModel<Release>
   @override
   String? get appIdentifier {
     if (!newFormat) {
+      // Legacy
       final value = event.identifier != null
           ? _getNullableSplit(event.identifier!).$1
           : null;
@@ -177,13 +195,7 @@ class PartialRelease extends ParameterizableReplaceablePartialModel<Release>
   }
 
   @override
-  set url(String? value) {
-    if (newFormat) {
-      event.setTagValue('r', value);
-    } else {
-      event.setTagValue('url', value);
-    }
-  }
+  set url(String? value) => event.setTagValue('url', value);
 }
 
 (String? identifier, String? version) _getNullableSplit(String str) {

@@ -8,7 +8,7 @@ part of models;
 class App extends ParameterizableReplaceableModel<App> {
   late final HasMany<Release> releases;
   late final BelongsTo<Release> latestRelease;
-  late final HasMany<AppPack> appPacks;
+  late final HasMany<AppStack> appStacks;
 
   App.fromMap(super.map, super.ref) : super.fromMap() {
     releases = HasMany(
@@ -29,9 +29,9 @@ class App extends ParameterizableReplaceableModel<App> {
               limit: 1,
             ).toRequest(),
     );
-    appPacks = HasMany(
+    appStacks = HasMany(
       ref,
-      RequestFilter<AppPack>(
+      RequestFilter<AppStack>(
         tags: {
           '#a': {event.addressableId},
         },
@@ -53,6 +53,9 @@ class App extends ParameterizableReplaceableModel<App> {
 
   /// The application's website URL
   String? get url => event.getFirstTagValue('url');
+
+  /// Pointer to NIP-34 repository (addressable repository)
+  String? get addressableRepository => event.getFirstTagValue('a');
 
   /// Software license under which the app is distributed
   String? get license => event.getFirstTagValue('license');
@@ -98,6 +101,12 @@ mixin PartialAppMixin on ParameterizableReplaceablePartialModel<App> {
 
   /// Sets the website URL
   set url(String? value) => event.setTagValue('url', value);
+
+  /// Pointer to NIP-34 repository (addressable repository)
+  String? get addressableRepository => event.getFirstTagValue('a');
+
+  /// Sets the NIP-34 repository pointer
+  set addressableRepository(String? value) => event.setTagValue('a', value);
 
   /// Software license under which the app is distributed
   String? get license => event.getFirstTagValue('license');

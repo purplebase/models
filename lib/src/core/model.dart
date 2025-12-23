@@ -3,7 +3,7 @@ part of models;
 /// Base mixin for all domain model entities.
 ///
 /// Provides the fundamental interface that all models must implement.
-mixin ModelBase<E extends Model<E>> {
+mixin ModelBase<E extends Model<dynamic>> {
   EventBase get event;
   Map<String, dynamic> toMap();
 }
@@ -12,7 +12,7 @@ mixin ModelBase<E extends Model<E>> {
 ///
 /// This is the base abstract class for all Nostr models and provides common functionality
 /// like relationships, metadata processing, and storage access.
-sealed class Model<E extends Model<E>>
+sealed class Model<E extends Model<dynamic>>
     with EquatableMixin
     implements ModelBase<E> {
   final Ref ref;
@@ -135,7 +135,7 @@ sealed class Model<E extends Model<E>>
   /// Convert this model to its partial representation.
   ///
   /// Partial models are lightweight versions used for creation and updates.
-  P toPartial<P extends PartialModel<E>>() {
+  P toPartial<P extends PartialModel<dynamic>>() {
     return Model._getPartialConstructorFor<E>()!.call(toMap()) as P;
   }
 
@@ -172,17 +172,33 @@ sealed class Model<E extends Model<E>>
   >
   _modelRegistry = {};
 
-  /// Registers a new kind and associates it with its domain model
-  static void register<E extends Model<E>>({
+  /// Maps partial type names to their corresponding kind numbers.
+  /// Used to resolve the correct kind when creating new partial models
+  /// that inherit from other models.
+  static final Map<String, int> _partialTypeToKind = {};
+
+  /// Registers a new kind and associates it with its domain model.
+  ///
+  /// Uses looser constraint `Model<dynamic>` to allow model inheritance
+  /// (e.g., SoftwareAsset extends FileMetadata).
+  static void register<E extends Model<dynamic>>({
     required int kind,
     required ModelConstructor<E> constructor,
-    PartialModelConstructor<E>? partialConstructor,
+    PartialModelConstructor? partialConstructor,
   }) {
-    _modelRegistry[E.toString()] = (
+    final typeName = E.toString();
+    _modelRegistry[typeName] = (
       kind: kind,
       constructor: constructor,
       partialConstructor: partialConstructor,
     );
+    // Also register partial type name -> kind mapping
+    _partialTypeToKind['Partial$typeName'] = kind;
+  }
+
+  /// Looks up kind by partial type name (e.g., "PartialSoftwareAsset" -> 3063)
+  static int? _kindForPartialType(String partialTypeName) {
+    return _partialTypeToKind[partialTypeName];
   }
 
   static Exception _unregisteredException<T>() => Exception(
@@ -198,7 +214,7 @@ sealed class Model<E extends Model<E>>
   }
 
   /// Finds the constructor for type parameter [E].
-  static ModelConstructor<E>? getConstructorFor<E extends Model<E>>() {
+  static ModelConstructor<E>? getConstructorFor<E extends Model<dynamic>>() {
     final constructor =
         _modelRegistry[E.toString()]?.constructor as ModelConstructor<E>?;
     if (constructor == null) {
@@ -220,7 +236,7 @@ sealed class Model<E extends Model<E>>
 
   /// Finds the partial constructor for type parameter [E].
   static PartialModelConstructor<E>?
-  _getPartialConstructorFor<E extends Model<E>>() {
+  _getPartialConstructorFor<E extends Model<dynamic>>() {
     final constructor =
         _modelRegistry[E.toString()]?.partialConstructor
             as PartialModelConstructor<E>?;
@@ -236,15 +252,25 @@ sealed class Model<E extends Model<E>>
 ///
 /// Partial models are used for creating new events before they are signed
 /// and become immutable [Model] instances.
-sealed class PartialModel<E extends Model<E>>
+sealed class PartialModel<E extends Model<dynamic>>
     with Signable<E>
     implements ModelBase<E> {
   @override
-  final PartialEvent event;
+  late final PartialEvent event;
 
-  PartialModel() : event = PartialEvent<E>();
+  PartialModel() {
+    // Look up kind by runtime type name to support model inheritance
+    final typeName = runtimeType.toString().split('<').first;
+    final kind = Model._kindForPartialType(typeName);
+    event = PartialEvent<E>(null, kind);
+  }
 
-  PartialModel.fromMap(Map<String, dynamic> map) : event = PartialEvent<E>(map);
+  PartialModel.fromMap(Map<String, dynamic> map) {
+    // Look up kind by runtime type name to support model inheritance
+    final typeName = runtimeType.toString().split('<').first;
+    final kind = Model._kindForPartialType(typeName);
+    event = PartialEvent<E>(map, kind);
+  }
 
   /// Transient data that doesn't get included in the event.
   final transientData = <String, dynamic>{};
@@ -346,17 +372,19 @@ sealed class PartialModel<E extends Model<E>>
 mixin _EmptyMixin {}
 
 /// A base domain model class of a regular event
-abstract class RegularModel<E extends Model<E>> = Model<E> with _EmptyMixin;
-abstract class RegularPartialModel<E extends Model<E>> = PartialModel<E>
+abstract class RegularModel<E extends Model<dynamic>> = Model<E>
+    with _EmptyMixin;
+abstract class RegularPartialModel<E extends Model<dynamic>> = PartialModel<E>
     with _EmptyMixin;
 
 /// A base domain model class of an ephemeral event
-abstract class EphemeralModel<E extends Model<E>> = Model<E> with _EmptyMixin;
-abstract class EphemeralPartialModel<E extends Model<E>> = PartialModel<E>
+abstract class EphemeralModel<E extends Model<dynamic>> = Model<E>
+    with _EmptyMixin;
+abstract class EphemeralPartialModel<E extends Model<dynamic>> = PartialModel<E>
     with _EmptyMixin;
 
 /// A base domain model class of a replaceable event
-abstract class ReplaceableModel<E extends Model<E>> extends Model<E> {
+abstract class ReplaceableModel<E extends Model<dynamic>> extends Model<E> {
   @override
   ImmutableReplaceableEvent<E> get event =>
       super.event as ImmutableReplaceableEvent<E>;
@@ -368,14 +396,14 @@ abstract class ReplaceableModel<E extends Model<E>> extends Model<E> {
     : super._(ref, event);
 }
 
-abstract class ReplaceablePartialModel<E extends Model<E>>
+abstract class ReplaceablePartialModel<E extends Model<dynamic>>
     extends PartialModel<E> {
   ReplaceablePartialModel() : super();
   ReplaceablePartialModel.fromMap(super.map) : super.fromMap();
 }
 
 /// A base domain model class of a parameterizable replaceable event (d tag)
-abstract class ParameterizableReplaceableModel<E extends Model<E>>
+abstract class ParameterizableReplaceableModel<E extends Model<dynamic>>
     extends ReplaceableModel<E> {
   @override
   ImmutableParameterizableReplaceableEvent<E> get event =>
@@ -391,7 +419,7 @@ abstract class ParameterizableReplaceableModel<E extends Model<E>>
   String get identifier => event.identifier;
 }
 
-abstract class ParameterizableReplaceablePartialModel<E extends Model<E>>
+abstract class ParameterizableReplaceablePartialModel<E extends Model<dynamic>>
     extends ReplaceablePartialModel<E> {
   ParameterizableReplaceablePartialModel() : super();
   ParameterizableReplaceablePartialModel.fromMap(super.map) : super.fromMap();
@@ -403,7 +431,7 @@ abstract class ParameterizableReplaceablePartialModel<E extends Model<E>>
 typedef ModelConstructor<E extends Model<dynamic>> =
     E Function(Map<String, dynamic>, Ref ref);
 
-typedef PartialModelConstructor<E extends Model<E>> =
+typedef PartialModelConstructor<E extends Model<dynamic>> =
     PartialModel<E> Function(Map<String, dynamic>);
 
 // ======================================================================

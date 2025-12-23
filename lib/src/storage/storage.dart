@@ -220,8 +220,8 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     );
     Model.register(
       kind: 30267,
-      constructor: AppPack.fromMap,
-      partialConstructor: PartialAppPack.fromMap,
+      constructor: AppStack.fromMap,
+      partialConstructor: PartialAppStack.fromMap,
     );
     Model.register(
       kind: 32267,
@@ -396,7 +396,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
         kind == 10000 || // MuteList
         kind == 10001 || // PinList
         kind == 30003 || // BookmarkSet
-        kind == 30267 || // AppPack
+        kind == 30267 || // AppStack
         kind == 13194 || // NwcInfo
         kind == 23194 || // NwcRequest
         kind == 23195 || // NwcResponse

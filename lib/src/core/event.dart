@@ -4,8 +4,11 @@ part of models;
 ///
 /// Provides common functionality for event handling, tag manipulation,
 /// and data access patterns used across all event types.
-sealed class EventBase<E extends Model<E>> {
-  EventBase([Map<String, dynamic>? map])
+sealed class EventBase<E extends Model<dynamic>> {
+  /// The Nostr event kind number.
+  late final int kind;
+
+  EventBase([Map<String, dynamic>? map, int? kindOverride])
     : content = map?['content'] ?? '',
       createdAt = (map?['created_at'] as int?)?.toDate() ?? DateTime.now(),
       tags = [
@@ -13,15 +16,9 @@ sealed class EventBase<E extends Model<E>> {
           if (tag is Iterable && tag.length > 1)
             [for (final e in tag) e.toString()],
       ] {
-    if (map != null && map['kind'] != kind) {
-      throw Exception(
-        'Kind mismatch! Incoming JSON kind (${map['kind']}) is not of the kind of type $E ($kind)',
-      );
-    }
+    // Priority: explicit override > map kind > type parameter derivation
+    kind = kindOverride ?? map?['kind'] ?? Model._kindFor<E>();
   }
-
-  /// The Nostr event kind number.
-  final int kind = Model._kindFor<E>();
 
   /// When this event was created.
   DateTime createdAt;
@@ -66,7 +63,7 @@ sealed class EventBase<E extends Model<E>> {
 /// This represents a complete, immutable Nostr event with a signature
 /// and event ID. All [Model] instances wrap an [ImmutableEvent].
 /// ```
-final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
+final class ImmutableEvent<E extends Model<dynamic>> extends EventBase<E> {
   /// The unique event ID (hex-encoded SHA256 hash).
   final String id;
 
@@ -146,13 +143,13 @@ final class ImmutableEvent<E extends Model<E>> extends EventBase<E> {
 }
 
 /// A finalized (signed) nostr replaceable event
-final class ImmutableReplaceableEvent<E extends Model<E>>
+final class ImmutableReplaceableEvent<E extends Model<dynamic>>
     extends ImmutableEvent<E> {
   ImmutableReplaceableEvent(super.map);
 }
 
 /// A finalized (signed) nostr parameterized replaceable event
-final class ImmutableParameterizableReplaceableEvent<E extends Model<E>>
+final class ImmutableParameterizableReplaceableEvent<E extends Model<dynamic>>
     extends ImmutableReplaceableEvent<E> {
   ImmutableParameterizableReplaceableEvent(super.map);
 
@@ -160,12 +157,12 @@ final class ImmutableParameterizableReplaceableEvent<E extends Model<E>>
 }
 
 /// A partial, mutable, unsigned nostr event
-final class PartialEvent<E extends Model<E>> extends EventBase<E> {
-  PartialEvent([Map<String, dynamic>? map])
+final class PartialEvent<E extends Model<dynamic>> extends EventBase<E> {
+  PartialEvent([Map<String, dynamic>? map, int? kindOverride])
     : metadata = map?['metadata'] != null
           ? Map<String, dynamic>.from(map!['metadata'])
           : {},
-      super(_prepareMapForPartial(map)) {
+      super(_prepareMapForPartial(map), kindOverride) {
     // If there's cached plaintext in metadata, use it as content
     if (metadata.containsKey('_plaintext')) {
       content = metadata['_plaintext'] as String;

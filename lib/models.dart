@@ -46,7 +46,7 @@ part 'src/models/mute_list.dart';
 part 'src/models/pin_list.dart';
 part 'src/models/follow_sets.dart';
 part 'src/models/bookmark_set.dart';
-part 'src/models/app_pack.dart';
+part 'src/models/app_stack.dart';
 part 'src/models/note.dart';
 part 'src/models/profile.dart';
 part 'src/models/reaction.dart';

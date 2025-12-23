@@ -350,7 +350,7 @@ class DummySigner extends Signer {
 DummySigner? _dummySigner;
 
 /// Signable mixin to make the [signWith] method available on all models
-mixin Signable<E extends Model<E>> {
+mixin Signable<E extends Model<dynamic>> {
   Future<E> signWith(Signer signer) async {
     final partialModel = this as PartialModel<E>;
 

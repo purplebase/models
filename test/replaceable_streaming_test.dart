@@ -28,7 +28,7 @@ void main() {
       'query provider should update when replaceable model is updated via relay',
       () async {
         // Create and publish initial version
-        final pack1 = PartialAppPack(
+        final pack1 = PartialAppStack(
           name: 'Version 1',
           identifier: 'streaming-pack',
         ).dummySign(nielPubkey);
@@ -37,7 +37,7 @@ void main() {
         await storage.save({pack1});
 
         // Set up query with streaming enabled
-        final queryProvider = query<AppPack>(
+        final queryProvider = query<AppStack>(
           authors: {nielPubkey},
           source: const LocalAndRemoteSource(stream: true),
         );
@@ -47,12 +47,12 @@ void main() {
         // Expect initial state
         await tester.expectModels(hasLength(1));
         expect(
-          ((tester.notifier.state as StorageData).models.first as AppPack).name,
+          ((tester.notifier.state as StorageData).models.first as AppStack).name,
           'Version 1',
         );
 
         // Now publish an UPDATE with same identifier but different content
-        final pack2 = PartialAppPack(
+        final pack2 = PartialAppStack(
           name: 'Version 2 - Updated',
           identifier: 'streaming-pack', // Same identifier!
         ).dummySign(nielPubkey);
@@ -80,7 +80,7 @@ void main() {
 
     test('verify storage properly replaces old events', () async {
       // Create initial version
-      final pack1 = PartialAppPack(
+      final pack1 = PartialAppStack(
         name: 'Initial',
         identifier: 'test-pack',
       ).dummySign(nielPubkey);
@@ -88,15 +88,15 @@ void main() {
       // Save initial version
       await storage.save({pack1});
 
-      final req = Request<AppPack>([
-        RequestFilter<AppPack>(authors: {nielPubkey}),
+      final req = Request<AppStack>([
+        RequestFilter<AppStack>(authors: {nielPubkey}),
       ]);
       final results1 = storage.querySync(req);
 
       expect(results1, hasLength(1));
 
       // Now save update
-      final pack2 = PartialAppPack(
+      final pack2 = PartialAppStack(
         name: 'Updated',
         identifier: 'test-pack', // Same identifier
       ).dummySign(nielPubkey);

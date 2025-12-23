@@ -21,30 +21,30 @@ void main() {
     container.dispose();
   });
 
-  group('EncryptableModel - AppPack (Self-Encryption)', () {
+  group('EncryptableModel - AppStack (Self-Encryption)', () {
     test('provides access to encrypted content', () {
-      final appPack = PartialAppPack(
+      final appStack = PartialAppStack(
         name: 'Test Pack',
         identifier: 'test-pack',
       ).dummySign(nielPubkey);
 
-      expect(appPack.content, isNotNull);
-      expect(appPack.getEncryptionPubkey(), equals(nielPubkey));
-      expect(appPack.useNip04, isFalse);
+      expect(appStack.content, isNotNull);
+      expect(appStack.getEncryptionPubkey(), equals(nielPubkey));
+      expect(appStack.useNip04, isFalse);
     });
 
     test('encrypted private apps are not accessible without decryption', () {
-      final partial = PartialAppPack.withEncryptedApps(
+      final partial = PartialAppStack.withEncryptedApps(
         name: 'Private Apps',
         identifier: 'private',
         apps: ['32267:pubkey:app1', '32267:pubkey:app2'],
       );
 
-      final appPack = partial.dummySign(nielPubkey);
+      final appStack = partial.dummySign(nielPubkey);
 
       // Content is encrypted, so privateAppIds returns empty
-      expect(appPack.privateAppIds, isEmpty);
-      expect(appPack.content, contains('dummy_nip44_encrypted'));
+      expect(appStack.privateAppIds, isEmpty);
+      expect(appStack.content, contains('dummy_nip44_encrypted'));
     });
   });
 
@@ -58,7 +58,7 @@ void main() {
     });
 
     test('content management before encryption', () async {
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
 
       partial.setContent('Hello World');
       expect(partial.content, equals('Hello World'));
@@ -71,7 +71,7 @@ void main() {
     });
 
     test('encryption during prepareForSigning with NIP-44', () async {
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
       partial.setContent('Secret message');
 
       // Before encryption
@@ -88,7 +88,7 @@ void main() {
     });
 
     test('prevents double encryption', () async {
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
       partial.setContent('Original message');
 
       // First encryption
@@ -101,7 +101,7 @@ void main() {
     });
 
     test('handles empty content gracefully', () async {
-      final partial = PartialAppPack(name: 'Empty Pack', identifier: 'empty');
+      final partial = PartialAppStack(name: 'Empty Pack', identifier: 'empty');
       // No content set
 
       await partial.prepareForSigning(signer);
@@ -110,7 +110,7 @@ void main() {
     });
 
     test('encrypts JSON data correctly', () async {
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
       final testData = {
         'messages': ['Hello', 'World'],
         'timestamp': DateTime.now().millisecondsSinceEpoch,
@@ -134,7 +134,7 @@ void main() {
       // We can't directly test the private _isAlreadyEncrypted method,
       // but we can test its behavior through prepareForSigning
 
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
 
       // Manually set encrypted content (simulating encryption)
       partial.setContent('dGVzdA?iv=1234567890abcdef');
@@ -148,7 +148,7 @@ void main() {
     });
 
     test('detects NIP-44 format in encrypted content', () {
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
 
       // Manually set encrypted content (simulating NIP-44)
       const nip44Encrypted =
@@ -170,9 +170,9 @@ void main() {
       await signer.signIn();
     });
 
-    test('self-encrypted content workflow with AppPack', () async {
+    test('self-encrypted content workflow with AppStack', () async {
       // Test the full workflow: plaintext -> encrypt -> encrypted
-      final partial = PartialAppPack.withEncryptedApps(
+      final partial = PartialAppStack.withEncryptedApps(
         name: 'Private Apps',
         identifier: 'private',
         apps: ['32267:pubkey:secret1', '32267:pubkey:secret2'],
@@ -192,7 +192,7 @@ void main() {
     });
 
     test('encryption key selection for self-encryption', () async {
-      final partial = PartialAppPack(
+      final partial = PartialAppStack(
         name: 'Self-Encrypted',
         identifier: 'self',
       );
@@ -208,7 +208,7 @@ void main() {
         'metadata': {'created': DateTime.now().toIso8601String()},
       };
 
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
       partial.setContent(testData);
 
       final originalJson = jsonEncode(testData);
@@ -230,8 +230,8 @@ void main() {
   });
 
   group('NIP-04 vs NIP-44 Compatibility', () {
-    test('AppPack uses NIP-44 by default', () {
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+    test('AppStack uses NIP-44 by default', () {
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
 
       expect(partial.useNip04, isFalse); // Should default to NIP-44
     });
@@ -270,7 +270,7 @@ void main() {
     });
 
     test('handles malformed JSON gracefully', () async {
-      final partial = PartialAppPack(name: 'Test Pack', identifier: 'test');
+      final partial = PartialAppStack(name: 'Test Pack', identifier: 'test');
 
       // Set malformed JSON
       partial.setContent('{invalid json');
@@ -283,7 +283,7 @@ void main() {
     });
 
     test('handles very large content', () async {
-      final partial = PartialAppPack(name: 'Large Pack', identifier: 'large');
+      final partial = PartialAppStack(name: 'Large Pack', identifier: 'large');
 
       // Create large content
       final largeData = List.generate(1000, (i) => 'item$i');

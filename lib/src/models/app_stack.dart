@@ -8,14 +8,14 @@ part of models;
 /// - Content is always encrypted AFTER signing (locally and on relays)
 /// - To read: must explicitly decrypt using signer
 ///
-/// App packs allow users to organize applications into collections
+/// App stacks allow users to organize applications into collections
 /// like "Developer Tools", "Social Apps", or "Games". Supports both encrypted
 /// (private) and public app references.
-class AppPack extends ParameterizableReplaceableModel<AppPack>
-    with EncryptableModel<AppPack> {
+class AppStack extends ParameterizableReplaceableModel<AppStack>
+    with EncryptableModel<AppStack> {
   late final HasMany<App> apps;
 
-  AppPack.fromMap(super.map, super.ref) : super.fromMap() {
+  AppStack.fromMap(super.map, super.ref) : super.fromMap() {
     // Only include addressable events that are kind 32267 (App)
     final appIds = event
         .getTagSetValues('a')
@@ -24,7 +24,7 @@ class AppPack extends ParameterizableReplaceableModel<AppPack>
     apps = HasMany(ref, Request<App>.fromIds(appIds));
   }
 
-  /// The name of this app pack
+  /// The name of this app stack
   String? get name => event.getFirstTagValue('name');
 
   /// Get private app IDs (content is encrypted - will fail if not decrypted first)
@@ -49,15 +49,15 @@ class AppPack extends ParameterizableReplaceableModel<AppPack>
 ///
 /// Example usage:
 /// ```dart
-/// // Create a public app pack
-/// final appPack = PartialAppPack(
+/// // Create a public app stack
+/// final appStack = PartialAppStack(
 ///   name: 'Developer Tools',
 ///   identifier: 'dev-tools',
 /// );
-/// appPack.addApp('32267:pubkey:vscode');
+/// appStack.addApp('32267:pubkey:vscode');
 ///
-/// // Create a private app pack with encrypted content
-/// final privateApps = PartialAppPack.withEncryptedApps(
+/// // Create a private app stack with encrypted content
+/// final privateApps = PartialAppStack.withEncryptedApps(
 ///   name: 'Private Apps',
 ///   identifier: 'private',
 ///   apps: [
@@ -66,19 +66,19 @@ class AppPack extends ParameterizableReplaceableModel<AppPack>
 /// );
 /// await privateApps.signWith(signer);
 /// ```
-class PartialAppPack extends ParameterizableReplaceablePartialModel<AppPack>
-    with EncryptablePartialModel<AppPack> {
-  PartialAppPack.fromMap(super.map) : super.fromMap();
+class PartialAppStack extends ParameterizableReplaceablePartialModel<AppStack>
+    with EncryptablePartialModel<AppStack> {
+  PartialAppStack.fromMap(super.map) : super.fromMap();
 
-  /// The name of this app pack
+  /// The name of this app stack
   String? get name => event.getFirstTagValue('name');
   set name(String? value) => event.setTagValue('name', value);
 
-  /// The description of this app pack
+  /// The description of this app stack
   String? get description => event.getFirstTagValue('description');
   set description(String? value) => event.setTagValue('description', value);
 
-  /// Public app IDs (addressable event IDs) in this pack - only kind 32267
+  /// Public app IDs (addressable event IDs) in this stack - only kind 32267
   Set<String> get publicApps =>
       event.getTagSetValues('a').where((id) => id.startsWith('32267:')).toSet();
   set publicApps(Set<String> value) => event.setTagValues('a', value);
@@ -90,13 +90,13 @@ class PartialAppPack extends ParameterizableReplaceablePartialModel<AppPack>
   String? get encryptedContent => event.content.isEmpty ? null : event.content;
   set encryptedContent(String? value) => event.content = value ?? '';
 
-  /// Creates a new app pack
+  /// Creates a new app stack
   ///
-  /// [name] - Display name for this app pack
+  /// [name] - Display name for this app stack
   /// [identifier] - Unique identifier (auto-generated if not provided)
   /// [description] - Optional description
   /// [publicApps] - Initial set of app IDs to include
-  PartialAppPack({
+  PartialAppStack({
     required String name,
     String? identifier,
     String? description,
@@ -108,15 +108,15 @@ class PartialAppPack extends ParameterizableReplaceablePartialModel<AppPack>
     if (publicApps != null) this.publicApps = publicApps;
   }
 
-  /// Creates an app pack with encrypted (private) apps
+  /// Creates an app stack with encrypted (private) apps
   ///
-  /// [name] - Display name for this app pack
+  /// [name] - Display name for this app stack
   /// [identifier] - Unique identifier (auto-generated if not provided)
   /// [description] - Optional description
   /// [apps] - List of app IDs to encrypt (e.g., ['32267:pubkey:id'])
   ///
   /// The apps will be encrypted using NIP-44 when signed.
-  PartialAppPack.withEncryptedApps({
+  PartialAppStack.withEncryptedApps({
     required String name,
     String? identifier,
     String? description,
