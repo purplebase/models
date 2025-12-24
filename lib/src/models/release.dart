@@ -58,8 +58,7 @@ class Release extends ParameterizableReplaceableModel<Release> {
   String? get releaseNotes => event.content.isEmpty ? null : event.content;
 
   /// Download URL for the release
-  String? get url =>
-      event.getFirstTagValue('url') ?? event.getFirstTagValue('r');
+  String? get url => event.getFirstTagValue('url');
 
   /// Title of the release, if any
   String? get title => event.getFirstTagValue('title');

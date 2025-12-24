@@ -34,8 +34,13 @@ class SoftwareAsset extends FileMetadata {
       event.getTagSetValues('apk_certificate_hash');
 }
 
-/// Generated partial model mixin for SoftwareAsset
-mixin PartialSoftwareAssetMixin on PartialFileMetadata {
+/// Create and sign new software asset events.
+class PartialSoftwareAsset extends PartialFileMetadata {
+  PartialSoftwareAsset.fromMap(super.map) : super.fromMap();
+
+  /// Creates a new software asset event
+  PartialSoftwareAsset();
+
   /// Minimum platform version required
   String? get minPlatformVersion =>
       event.getFirstTagValue('min_platform_version');
@@ -107,13 +112,7 @@ mixin PartialSoftwareAssetMixin on PartialFileMetadata {
   /// Removes an APK certificate hash
   void removeApkCertificateHash(String? value) =>
       event.removeTagWithValue('apk_certificate_hash', value);
-}
 
-/// Create and sign new software asset events.
-class PartialSoftwareAsset extends PartialFileMetadata
-    with PartialSoftwareAssetMixin {
-  PartialSoftwareAsset.fromMap(super.map) : super.fromMap();
-
-  /// Creates a new software asset event
-  PartialSoftwareAsset();
+  @override
+  set appIdentifier(String? value) => event.setTagValue('i', value);
 }
