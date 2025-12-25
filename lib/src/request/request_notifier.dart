@@ -1,8 +1,14 @@
 part of models;
 
-/// A request notifier takes a [Request]
-/// that it uses to query and then filter incoming
-/// events from [StorageNotifier]
+/// A request notifier takes a [Request] that it uses to query and filter
+/// incoming events from [StorageNotifier].
+///
+/// Behavior varies by source type:
+/// - [LocalSource]: emit immediately, even if empty
+/// - [LocalAndRemoteSource]: emit local immediately if non-empty, then emit
+///   batches at each EOSE (or timeout)
+/// - [RemoteSource]: emit exactly the models that came in via subscriptions
+///   (not pre-existing local data)
 class RequestNotifier<E extends Model<dynamic>>
     extends StateNotifier<StorageState<E>> {
   final Ref ref;
@@ -13,185 +19,174 @@ class RequestNotifier<E extends Model<dynamic>>
   final Set<Request> relationshipRequests = {};
   final List<Request> mergedRelationshipRequests = [];
 
+  /// Subscription prefix extracted from the request's subscriptionId
+  late final String? _prefix;
+
   RequestNotifier(this.ref, this.req, this.source, [this.andSource])
     : storage = ref.read(storageNotifierProvider.notifier),
       super(StorageLoading([])) {
     if (req.filters.isEmpty) return;
 
-    // Extract prefix from the request's subscriptionId to reuse for internal queries
-    final prefix = req.subscriptionId.contains('-')
-        ? req.subscriptionId.split('-').first
-        : null;
+    _prefix =
+        req.subscriptionId.contains('-')
+            ? req.subscriptionId.split('-').first
+            : null;
 
-    // Start subscription FIRST to avoid race condition where InternalStorageData
-    // arrives before the listener is registered. This ensures we don't miss any
-    // updates that happen during the query.
     _startSubscription();
-
-    // For LocalAndRemoteSource: query local storage FIRST and emit immediately,
-    // then fire the remote query. This ensures the query provider returns local
-    // data immediately regardless of stream setting. The stream parameter only
-    // affects whether the remote subscription stays open after EOSE.
-    //
-    // For RemoteSource or LocalSource: query directly with the source.
-    if (source is LocalAndRemoteSource) {
-      final isStreaming = (source as LocalAndRemoteSource).stream;
-
-      // Step 1: Query local storage immediately (non-blocking)
-      storage
-          .query(req, source: LocalSource())
-          .then((localModels) {
-            // Emit local results immediately if not empty
-            // If empty, stay in StorageLoading to avoid empty flash
-            if (localModels.isNotEmpty) {
-              _emitNewModels(localModels);
-            }
-
-            // Step 2: Fire remote query (may block for stream: false, but that's fine
-            // since we've already emitted local data)
-            return storage.query(
-              req,
-              source: source,
-              subscriptionPrefix: prefix,
-            );
-          })
-          .then((remoteModels) {
-            // Remote query completed
-            // For stream: false (one-time fetch), refresh to pick up any new data
-            // For stream: true, the subscription handles updates via InternalStorageData
-            if (mounted && !isStreaming) {
-              _refreshModels();
-            }
-          })
-          .catchError((e, stack) {
-            if (mounted) {
-              state = StorageError(
-                state.models,
-                exception: e,
-                stackTrace: stack,
-              );
-            } else {
-              print(e);
-            }
-          });
-    } else {
-      // LocalSource or RemoteSource: query directly
-      storage
-          .query(req, source: source, subscriptionPrefix: prefix)
-          .then((models) {
-            // For streaming RemoteSource, don't emit initial results -
-            // only emit data that arrives via subscription (InternalStorageData).
-            // For LocalSource or non-streaming RemoteSource, emit the results.
-            final isStreamingRemote =
-                source is RemoteSource && (source as RemoteSource).stream;
-            if (!isStreamingRemote) {
-              _emitNewModels(models);
-            }
-          })
-          .catchError((e, stack) {
-            if (mounted) {
-              state = StorageError(
-                state.models,
-                exception: e,
-                stackTrace: stack,
-              );
-            } else {
-              print(e);
-            }
-          });
-    }
+    _initialize();
 
     ref.onDispose(() async {
-      // Cancel main request
       await storage.cancel(req);
-
-      // Cancel all merged relationship requests (the actual subscriptions)
       await Future.wait(
-        mergedRelationshipRequests.map(
-          (mergedReq) => storage.cancel(mergedReq),
-        ),
+        mergedRelationshipRequests.map((r) => storage.cancel(r)),
       );
     });
   }
 
-  /// Whether this source includes local storage data.
-  /// LocalSource and LocalAndRemoteSource include local; RemoteSource does not.
-  bool get _sourceIncludesLocal =>
-      source is LocalSource || source is LocalAndRemoteSource;
+  /// Initialize the query based on source type.
+  Future<void> _initialize() async {
+    try {
+      switch (source) {
+        case LocalSource():
+          // SPEC: "emit immediately, even if empty"
+          final models = await storage.query(req, source: LocalSource());
+          _emit(models);
 
+        case LocalAndRemoteSource(:final stream):
+          // SPEC: "emit local models immediately if non-empty"
+          final local = await storage.query(req, source: LocalSource());
+          if (local.isNotEmpty) _emit(local);
+
+          // Fire remote query. Per-EOSE updates arrive via InternalStorageData
+          // notifications caught by _startSubscription (registered before this).
+          // This await just waits for all subscriptions to complete.
+          await storage.query(req, source: source, subscriptionPrefix: _prefix);
+
+          // Final refresh after all EOSEs complete.
+          // For streaming: only refresh if still loading (handles empty EOSE)
+          if (mounted && (!stream || state is StorageLoading)) {
+            await _refreshFromLocal();
+          }
+
+        case RemoteSource():
+          // SPEC: "emit exactly the models that came in via those subscriptions"
+          // For non-streaming: models come back from query directly
+          // For streaming: models arrive via subscription callbacks
+          final models = await storage.query(
+            req,
+            source: source,
+            subscriptionPrefix: _prefix,
+          );
+
+          if (mounted) {
+            if (models.isNotEmpty) {
+              _emitIncremental(models);
+            } else if (state is StorageLoading) {
+              // After EOSE with no models, transition to empty data
+              _emit([]);
+            }
+          }
+      }
+    } catch (e, stack) {
+      if (mounted) {
+        state = StorageError(state.models, exception: e, stackTrace: stack);
+      }
+    }
+  }
+
+  /// Listen for storage updates and refresh models accordingly.
   void _startSubscription() {
     final sub = ref.listen(storageNotifierProvider, (_, storageState) async {
       if (!mounted) return;
+      if (storageState is! InternalStorageData) return;
+      if (storageState.updatedIds.isEmpty) return;
 
-      if (storageState case InternalStorageData(
-        req: final incomingReq,
-        :final updatedIds,
-      ) when updatedIds.isNotEmpty) {
-        // Check if this update is from our specific subscription
-        final isOurSubscription =
-            incomingReq?.subscriptionId == req.subscriptionId;
+      final isOurSubscription =
+          storageState.req?.subscriptionId == req.subscriptionId;
+      final isGeneralUpdate = storageState.req == null;
 
-        // General updates (incomingReq == null) only matter for sources that
-        // include local storage. For RemoteSource, we only care about updates
-        // from our specific remote subscription.
-        final isGeneralUpdate = incomingReq == null;
-
-        if (isOurSubscription) {
-          // Our subscription received data - fetch it from local storage
-          // For RemoteSource: only fetch the specific updated models (remote-only semantics)
-          // For other sources: refresh all matching models from local storage
-          if (_sourceIncludesLocal) {
-            await _refreshModels();
-          } else {
-            await _fetchUpdatedModels(updatedIds);
-          }
-        } else if (isGeneralUpdate && _sourceIncludesLocal) {
-          // General update for sources that include local storage
-          await _refreshModels();
-        } else {
-          // Ignore unrelated updates while still in initial loading state
-          // This prevents wrongly transitioning from Loading to empty Data
-          // Once we've transitioned to StorageData (even if empty), process normally
-          if (state is StorageLoading) return;
-
-          // For RemoteSource, skip processing unrelated updates entirely
-          // since we only care about data from our remote subscription
-          if (!_sourceIncludesLocal) return;
-
-          // Check if any updatedIds affect our models (for replaceable updates)
-          // Pre-compute both Sets for O(1) lookups instead of O(n) scans
-          final ourIds = state.models.map((m) => m.id).toSet();
-          final ourEventIds = state.models.map((m) => m.event.id).toSet();
-          final hasRelevantUpdate = updatedIds.any(
-            (id) => ourIds.contains(id) || ourEventIds.contains(id),
-          );
-
-          if (hasRelevantUpdate) {
-            // Replaceable model was updated - refresh from storage
-            await _refreshModels();
-          } else {
-            // Check if this update is from one of our relationship requests
-            // If so, refresh models to pick up the new relationship data
-            // and re-evaluate the and: callback for nested relationships
+      switch (source) {
+        // LocalAndRemoteSource must come before RemoteSource (it's a subclass)
+        case LocalSource() || LocalAndRemoteSource():
+          // Refresh from local on our subscription or general updates
+          if (isOurSubscription || isGeneralUpdate) {
+            await _refreshFromLocal();
+          } else if (state is! StorageLoading) {
+            // Check if update affects our models or relationships
             final isRelationshipUpdate = mergedRelationshipRequests.any(
-              (r) => r.subscriptionId == incomingReq?.subscriptionId,
+              (r) => r.subscriptionId == storageState.req?.subscriptionId,
             );
-
-            if (isRelationshipUpdate) {
-              // Relationship data arrived - refresh models from local storage
-              // This ensures nested relationships are properly discovered
-              await _refreshModels();
-            } else {
-              // Truly unrelated update - just process any new relationships
-              _processNewRelationships(state.models);
-              state = StorageData(state.models);
+            if (isRelationshipUpdate || _affectsOurModels(storageState.updatedIds)) {
+              await _refreshFromLocal();
             }
           }
-        }
+
+        case RemoteSource():
+          // RemoteSource only cares about its own subscription
+          if (!isOurSubscription) return;
+          await _fetchByIds(storageState.updatedIds);
       }
     });
 
     ref.onDispose(() => sub.close());
+  }
+
+  /// Check if any of the updated IDs affect models we're tracking.
+  bool _affectsOurModels(Set<String> updatedIds) {
+    final ourIds = state.models.map((m) => m.id).toSet();
+    final ourEventIds = state.models.map((m) => m.event.id).toSet();
+    return updatedIds.any((id) => ourIds.contains(id) || ourEventIds.contains(id));
+  }
+
+  /// Emit models and process relationships.
+  void _emit(List<E> models) {
+    _processNewRelationships(models);
+    if (!mounted) return;
+    state = StorageData(models.toSet().sortByCreatedAt());
+  }
+
+  /// Refresh all matching models from local storage.
+  Future<void> _refreshFromLocal() async {
+    try {
+      final models = await storage.query(req, source: LocalSource());
+      _emit(models);
+    } catch (e, stack) {
+      if (mounted) {
+        state = StorageError(state.models, exception: e, stackTrace: stack);
+      }
+    }
+  }
+
+  /// Fetch specific models by ID (for RemoteSource).
+  /// Maintains remote-only semantics by only returning models that arrived
+  /// via our subscription, not pre-existing local data.
+  Future<void> _fetchByIds(Set<String> updatedIds) async {
+    try {
+      final idRequest = Request<E>(
+        req.filters.map((f) => f.copyWith(ids: updatedIds)).toList(),
+      );
+      final models = await storage.query(idRequest, source: LocalSource());
+      _emitIncremental(models);
+    } catch (e, stack) {
+      if (mounted) {
+        state = StorageError(state.models, exception: e, stackTrace: stack);
+      }
+    }
+  }
+
+  /// Emit new models incrementally, merging with existing state.
+  /// Used for RemoteSource where we accumulate models from the subscription.
+  void _emitIncremental(List<E> newModels) {
+    _processNewRelationships(newModels);
+    if (!mounted) return;
+
+    // Merge: new models replace existing ones with same ID
+    final existing = {for (final m in state.models) m.id: m};
+    for (final m in newModels) {
+      existing[m.id] = m;
+    }
+
+    state = StorageData(existing.values.toSet().sortByCreatedAt());
   }
 
   List<Relationship> _getRelationshipsFrom(Iterable<Model<dynamic>> models) {
@@ -202,9 +197,8 @@ class RequestNotifier<E extends Model<dynamic>>
     ];
   }
 
-  /// Process and query new relationships for the given models
+  /// Process and query new relationships for the given models.
   void _processNewRelationships(Iterable<Model<dynamic>> models) {
-    // Calculate new relationships from models
     final newRelationshipRequests = [
       for (final r in _getRelationshipsFrom(models))
         if (!relationshipRequests.contains(r.req)) r.req,
@@ -214,146 +208,35 @@ class RequestNotifier<E extends Model<dynamic>>
 
     relationshipRequests.addAll(newRelationshipRequests);
 
-    // Extract prefix from the main request to use for relationships
-    final prefix = req.subscriptionId.contains('-')
-        ? req.subscriptionId.split('-').first
-        : null;
-
-    final mergedRelationshipRequest = RequestFilter.mergeMultiple(
+    final mergedRequest = RequestFilter.mergeMultiple(
       newRelationshipRequests.expand((r) => r.filters).toList(),
-    ).toRequest(subscriptionPrefix: prefix);
+    ).toRequest(subscriptionPrefix: _prefix);
 
-    // Determine the source to use for relationship queries
-    // Use custom andSource if provided, otherwise use the parent source
     final relationshipSource = andSource ?? source;
 
-    // Only query if we have filters and a remote source to query
-    if (mergedRelationshipRequest.filters.isNotEmpty &&
-        relationshipSource is RemoteSource) {
-      // Store the merged request for proper cleanup on dispose
-      mergedRelationshipRequests.add(mergedRelationshipRequest);
+    if (mergedRequest.filters.isNotEmpty && relationshipSource is RemoteSource) {
+      mergedRelationshipRequests.add(mergedRequest);
 
-      final isStreaming = relationshipSource.stream;
-
-      // Fire the relationship query
-      final queryFuture = storage.query(
-        mergedRelationshipRequest,
-        source: relationshipSource,
-        subscriptionPrefix: prefix,
-      );
-
-      // For non-streaming queries (stream: false), we must explicitly handle
-      // query completion because there's no subscription to push updates.
-      // For streaming queries, updates arrive via InternalStorageData callbacks.
-      if (!isStreaming) {
-        final relationshipIncludesLocal =
-            relationshipSource is LocalAndRemoteSource;
-        queryFuture.then((_) {
-          if (mounted) {
-            if (relationshipIncludesLocal) {
-              // Refresh from local storage to pick up new relationship data
-              _refreshModels();
-            } else {
-              // For RemoteSource: signal completion without pulling local data.
-              // This handles empty results (e.g., latestAsset on old-format apps)
-              // and ensures UI transitions from Loading → Data.
-              _signalQueryComplete();
+      storage
+          .query(mergedRequest, source: relationshipSource, subscriptionPrefix: _prefix)
+          .then((_) {
+            // For non-streaming, refresh after EOSE
+            if (mounted && !relationshipSource.stream) {
+              switch (relationshipSource) {
+                case LocalAndRemoteSource():
+                  _refreshFromLocal();
+                case RemoteSource():
+                  // Signal completion for pure RemoteSource relationships
+                  if (state is StorageLoading) {
+                    state = StorageData(state.models);
+                  }
+              }
             }
-          }
-        });
-      }
-    }
-  }
-
-  /// Refresh all matching models from local storage.
-  /// Used for sources that include local (LocalSource, LocalAndRemoteSource).
-  Future<void> _refreshModels() async {
-    try {
-      final refreshedModels = await storage.query(req, source: LocalSource());
-      _replaceAllModels(refreshedModels);
-    } catch (e, stack) {
-      state = StorageError(state.models, exception: e, stackTrace: stack);
-    }
-  }
-
-  /// Signal that a query completed without modifying the model set.
-  /// Used for empty results or RemoteSource relationship completion.
-  /// This transitions Loading → Data if needed and triggers UI rebuild.
-  void _signalQueryComplete() {
-    if (!mounted) return;
-
-    // Re-process relationships (for nested discovery)
-    _processNewRelationships(state.models);
-
-    // Emit current state to trigger rebuild
-    state = StorageData(state.models);
-  }
-
-  /// Fetch only the specified models by ID from local storage.
-  /// Used for RemoteSource to maintain remote-only semantics - only returns
-  /// models that arrived via our subscription, not pre-existing local data.
-  Future<void> _fetchUpdatedModels(Set<String> updatedIds) async {
-    try {
-      // Query by the updated IDs, applying the original request's filters
-      // to ensure we only get models that match our subscription criteria
-      final idRequest = Request<E>(
-        req.filters.map((f) => f.copyWith(ids: updatedIds)).toList(),
-      );
-      final models = await storage.query(idRequest, source: LocalSource());
-      _emitNewModels(models);
-    } catch (e, stack) {
-      state = StorageError(state.models, exception: e, stackTrace: stack);
-    }
-  }
-
-  void _replaceAllModels(Iterable<Model<dynamic>> models) {
-    final typedModels = models.whereType<E>();
-
-    _processNewRelationships(typedModels);
-
-    if (!mounted) return;
-
-    final sortedModels = typedModels.toSet().sortByCreatedAt();
-    state = StorageData(sortedModels);
-  }
-
-  void _emitNewModels(Iterable<Model<dynamic>> models) {
-    // Filter only models of type E
-    // Related models are stored in request cache, they only
-    // thing to do is trigger a rebuild
-    final newModels = models.whereType<E>();
-
-    // Process relationships for newly arrived models
-    _processNewRelationships(newModels);
-
-    if (!mounted) return;
-
-    // Handle duplicates: remove existing models that are being replaced by new models
-    final existingModels = state.models.toList();
-    final modelsToKeep = <E>[];
-
-    for (final existingModel in existingModels) {
-      // Check if any new model replaces this existing model
-      final hasReplacement = newModels.any((newModel) {
-        // For replaceable models, check addressable ID
-        if (newModel is ReplaceableModel && existingModel is ReplaceableModel) {
-          return newModel.id == existingModel.id;
-        }
-        // For regular models, check event ID to avoid duplicates
-        return newModel.event.id == existingModel.event.id;
-      });
-
-      if (!hasReplacement) {
-        modelsToKeep.add(existingModel);
-      }
-    }
-
-    // Combine kept models with new models and sort
-    // Put them in a Set to remove duplicates, new models take precedence
-    final sortedModels = {...newModels, ...modelsToKeep}.sortByCreatedAt();
-
-    if (mounted) {
-      state = StorageData(sortedModels);
+          })
+          .catchError((e, stack) {
+            print('Relationship query error: $e\n$stack');
+            if (mounted) _refreshFromLocal();
+          });
     }
   }
 }
@@ -364,8 +247,8 @@ final Map<
 >
 _typedProviderCache = {};
 
-/// Family of notifier providers, one per request
-/// Manually caching since a factory function is needed to pass the type
+/// Family of notifier providers, one per request.
+/// Manually caching since a factory function is needed to pass the type.
 _requestNotifierProvider<E extends Model<dynamic>>(
   RequestFilter<E> filter,
   Source source,
@@ -373,10 +256,6 @@ _requestNotifierProvider<E extends Model<dynamic>>(
   String? subscriptionPrefix,
 ) => _typedProviderCache[filter] ??= StateNotifierProvider.autoDispose
     .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>((ref, req) {
-      // Defer Request creation til this point so we leverage
-      // equality on the RequestFilter at the provider level
-
-      // Clean up cache entry when provider is disposed
       ref.onDispose(() => _typedProviderCache.remove(filter));
       return RequestNotifier(
         ref,
@@ -386,8 +265,7 @@ _requestNotifierProvider<E extends Model<dynamic>>(
       );
     })(filter);
 
-/// Syntax-sugar for `requestNotifierProvider(RequestFilter(...))`
-/// with type [Model] (of any kind)
+/// Query for models of any kind.
 AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   Set<String>? ids,
   Set<int>? kinds,
@@ -417,16 +295,10 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
     and: and,
     schemaFilter: schemaFilter,
   );
-  return _requestNotifierProvider(
-    filter,
-    source,
-    andSource,
-    subscriptionPrefix,
-  );
+  return _requestNotifierProvider(filter, source, andSource, subscriptionPrefix);
 }
 
-/// Syntax-sugar for `requestNotifierProvider(RequestFilter<E>(...))`
-/// with type [E] (one specific kind)
+/// Query for models of a specific type [E].
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 query<E extends Model<E>>({
   Set<String>? ids,
@@ -455,15 +327,10 @@ query<E extends Model<E>>({
     and: _castAnd(and),
     schemaFilter: schemaFilter,
   );
-  return _requestNotifierProvider<E>(
-    filter,
-    source,
-    andSource,
-    subscriptionPrefix,
-  );
+  return _requestNotifierProvider<E>(filter, source, andSource, subscriptionPrefix);
 }
 
-/// Syntax sugar for watching one model of type [E]
+/// Watch a specific model instance.
 AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
 model<E extends Model<E>>(
   E model, {
@@ -473,14 +340,8 @@ model<E extends Model<E>>(
   AndFunction<E> and,
   bool remote = true,
 }) {
-  // Note: does not need kind or other arguments as it queries by ID
   final filter = RequestFilter<E>(ids: {model.id}, and: _castAnd(and));
-  return _requestNotifierProvider<E>(
-    filter,
-    source,
-    andSource,
-    subscriptionPrefix,
-  );
+  return _requestNotifierProvider<E>(filter, source, andSource, subscriptionPrefix);
 }
 
 typedef AndFunction<E extends Model<dynamic>> =

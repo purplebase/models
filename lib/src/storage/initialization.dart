@@ -44,9 +44,6 @@ class StorageConfiguration extends Equatable {
   /// Duration to wait for relays to respond (final timeout)
   final Duration responseTimeout;
 
-  /// Duration to wait for first EOSE before flushing (if at least 1 relay EOSE'd)
-  final Duration eoseFirstFlushTimeout;
-
   /// How often event updates are emitted from [StorageNotifier] (default: 2 seconds)
   final Duration streamingBufferWindow;
 
@@ -62,8 +59,7 @@ class StorageConfiguration extends Equatable {
     this.defaultRelays = const {},
     this.defaultQuerySource = const LocalAndRemoteSource(stream: false),
     this.idleTimeout = const Duration(minutes: 5),
-    this.responseTimeout = const Duration(seconds: 15),
-    this.eoseFirstFlushTimeout = const Duration(seconds: 4),
+    this.responseTimeout = const Duration(seconds: 4),
     this.streamingBufferWindow = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
   });
@@ -76,7 +72,6 @@ class StorageConfiguration extends Equatable {
     defaultRelays,
     idleTimeout,
     responseTimeout,
-    eoseFirstFlushTimeout,
     streamingBufferWindow,
     keepMaxModels,
   ];

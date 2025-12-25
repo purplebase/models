@@ -194,9 +194,35 @@ ref.watch(
 );
 ```
 
-### Post-Query Filtering with `where`
+### Caching
 
-The `where` parameter enables client-side filtering after Nostr filters have been applied:
+For queries consisting only of author and/or replaceable kinds, `cachedFor` returns local data without querying remote for the specified duration:
+
+```dart
+// Use cached profile for 5 minutes
+query<Profile>(
+  authors: {pubkey},
+  source: LocalAndRemoteSource(cachedFor: Duration(minutes: 5)),
+)
+```
+
+Caching is silently ignored if the query has other filter fields (tags, ids, search, until).
+
+### Filtering
+
+Two filtering options are available:
+
+**`schemaFilter`** - Applied to raw events *before* model construction. More efficient but can only access raw event data:
+
+```dart
+// Discard short notes before constructing models
+query<Note>(
+  authors: {pubkey},
+  schemaFilter: (event) => (event['content'] as String).length > 10,
+)
+```
+
+**`where`** - Applied to models *after* construction. Can access relationships and computed properties:
 
 ```dart
 // Filter by relationship data
@@ -305,7 +331,7 @@ final config = StorageConfiguration(
   },
   defaultQuerySource: LocalAndRemoteSource(stream: false),
   idleTimeout: Duration(minutes: 5),
-  responseTimeout: Duration(seconds: 6),
+  responseTimeout: Duration(seconds: 4),
   streamingBufferWindow: Duration(seconds: 2),
   keepMaxModels: 20000,
 );
