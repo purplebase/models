@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import 'package:models/models.dart';
-import 'helpers.dart';
+import '../helpers.dart';
 
 void main() {
   group('Shareable Identifier Encoding/Decoding', () {

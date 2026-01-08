@@ -1,7 +1,7 @@
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 import 'package:models/models.dart';
-import 'helpers.dart';
+import '../helpers.dart';
 
 /// Test to verify if StorageState equality properly detects
 /// when replaceable models are updated (new content, different event.id)

@@ -4,7 +4,7 @@ import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-import 'helpers.dart';
+import '../helpers.dart';
 
 /// Tests for nested relationship loading (App -> Release -> FileMetadata)
 void main() {

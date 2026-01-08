@@ -2,22 +2,18 @@ import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-import 'helpers.dart';
+import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late Ref ref;
 
   setUp(() async {
     container = await createTestContainer(
       config: StorageConfiguration(keepSignatures: false),
     );
-    ref = container.read(refProvider);
   });
 
-  tearDown(() async {
-    container.dispose();
-  });
+  tearDown(() => container.tearDown());
 
   group('Signer', () {
     group('Bip340PrivateKeySigner', () {
@@ -26,7 +22,7 @@ void main() {
           'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
 
       setUp(() {
-        signer = Bip340PrivateKeySigner(privateKey, ref);
+        signer = Bip340PrivateKeySigner(privateKey, container.ref);
       });
 
       test('initialization', () async {
@@ -149,7 +145,7 @@ void main() {
       late DummySigner signer;
 
       setUp(() {
-        signer = DummySigner(ref);
+        signer = DummySigner(container.ref);
       });
 
       test('initialization', () async {
@@ -166,7 +162,7 @@ void main() {
       test('initialization with custom pubkey', () async {
         const customPubkey =
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
-        final customSigner = DummySigner(ref, pubkey: customPubkey);
+        final customSigner = DummySigner(container.ref, pubkey: customPubkey);
 
         await customSigner.signIn();
 
@@ -195,7 +191,7 @@ void main() {
       test('signer registration and retrieval', () async {
         const pubkey =
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
-        final signer = DummySigner(ref, pubkey: pubkey);
+        final signer = DummySigner(container.ref, pubkey: pubkey);
         await signer.signIn();
 
         // Check that signer is registered
@@ -224,7 +220,7 @@ void main() {
     );
 
     setUp(() async {
-      signer = Bip340PrivateKeySigner(privateKey, ref);
+      signer = Bip340PrivateKeySigner(privateKey, container.ref);
       await signer.signIn();
     });
 
@@ -307,7 +303,7 @@ void main() {
         'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
 
     setUp(() async {
-      signer = Bip340PrivateKeySigner(privateKey, ref);
+      signer = Bip340PrivateKeySigner(privateKey, container.ref);
       await signer.signIn();
     });
 
@@ -386,7 +382,7 @@ void main() {
         'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
 
     setUp(() async {
-      signer = Bip340PrivateKeySigner(privateKey, ref);
+      signer = Bip340PrivateKeySigner(privateKey, container.ref);
       await signer.signIn();
 
       // Get storage instance
@@ -424,7 +420,7 @@ void main() {
         // Test that switching active signers changes the profile
         const secondPrivateKey =
             'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
-        final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, ref);
+        final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, container.ref);
         await secondSigner.signIn();
 
         // Wait for the provider to update with the new profile
@@ -480,7 +476,7 @@ void main() {
       // Create a second signer
       const secondPrivateKey =
           'a9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885be';
-      final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, ref);
+      final secondSigner = Bip340PrivateKeySigner(secondPrivateKey, container.ref);
       await secondSigner.signIn(setAsActive: false); // Don't set as active
 
       // Test signedInPubkeysProvider has both signers

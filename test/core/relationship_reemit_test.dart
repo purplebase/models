@@ -4,7 +4,7 @@ import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-import 'helpers.dart';
+import '../helpers.dart';
 
 /// Tests that relationship data arriving triggers re-emission of main query results,
 /// even when the main results haven't changed (so listeners can check relationships).

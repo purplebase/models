@@ -4,22 +4,18 @@ import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-import 'helpers.dart';
+import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late Ref ref;
 
   setUp(() async {
     container = await createTestContainer(
       config: StorageConfiguration(keepSignatures: false),
     );
-    ref = container.read(refProvider);
   });
 
-  tearDown(() async {
-    container.dispose();
-  });
+  tearDown(() => container.tearDown());
 
   group('EncryptableModel - AppStack (Self-Encryption)', () {
     test('provides access to encrypted content', () {
@@ -53,7 +49,7 @@ void main() {
 
     setUp(() async {
       final privateKey = Utils.generateRandomHex64();
-      signer = Bip340PrivateKeySigner(privateKey, ref);
+      signer = Bip340PrivateKeySigner(privateKey, container.ref);
       await signer.signIn();
     });
 
@@ -166,7 +162,7 @@ void main() {
 
     setUp(() async {
       final privateKey = Utils.generateRandomHex64();
-      signer = Bip340PrivateKeySigner(privateKey, ref);
+      signer = Bip340PrivateKeySigner(privateKey, container.ref);
       await signer.signIn();
     });
 
@@ -265,7 +261,7 @@ void main() {
 
     setUp(() async {
       final privateKey = Utils.generateRandomHex64();
-      signer = Bip340PrivateKeySigner(privateKey, ref);
+      signer = Bip340PrivateKeySigner(privateKey, container.ref);
       await signer.signIn();
     });
 

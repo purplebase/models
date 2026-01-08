@@ -2,12 +2,11 @@ import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-import 'helpers.dart';
-import 'test_data_generators.dart';
+import '../helpers.dart';
+import '../helpers/test_data_generators.dart';
 
 void main() async {
   late ProviderContainer container;
-  late DummyStorageNotifier storage;
   late TestDataGenerator generator;
 
   setUp(() async {
@@ -20,15 +19,10 @@ void main() async {
         keepMaxModels: 1000,
       ),
     );
-    storage =
-        container.read(storageNotifierProvider.notifier)
-            as DummyStorageNotifier;
     generator = container.read(testDataGeneratorProvider);
   });
 
-  tearDown(() async {
-    container.dispose();
-  });
+  tearDown(() => container.tearDown());
 
   group('storage filters', () {
     late StateNotifierProviderTester tester;
@@ -57,7 +51,7 @@ void main() async {
         replyTo: b,
       ).dummySign(nielProfile.pubkey);
 
-      await storage.save({
+      await container.storage.save({
         a,
         b,
         c,
@@ -69,7 +63,7 @@ void main() async {
         replyToB,
         nielProfile,
       });
-      await storage.publish({
+      await container.storage.publish({
         nielProfile,
       }, source: RemoteSource(relays: 'big-relays'));
     });
@@ -187,7 +181,7 @@ void main() async {
       final originalProfile = PartialProfile(
         name: 'original',
       ).dummySign(testPubkey);
-      await storage.save({originalProfile});
+      await container.storage.save({originalProfile});
 
       tester = container.testerFor(
         query<Profile>(authors: {testPubkey}, source: LocalSource()),
@@ -269,10 +263,10 @@ void main() async {
       final app = partialApp.dummySign(pubkey);
 
       // Save all entities
-      await storage.save({app, release, fileMetadata});
+      await container.storage.save({app, release, fileMetadata});
 
       // Query the app and verify relationships resolve
-      final apps = await storage.query(
+      final apps = await container.storage.query(
         RequestFilter<App>(ids: {app.id}).toRequest(),
         source: LocalSource(),
       );
@@ -304,10 +298,10 @@ void main() async {
       ).dummySign(authorPubkey);
 
       // Save all entities
-      await storage.save({note, author, contactList});
+      await container.storage.save({note, author, contactList});
 
       // Query and verify relationships resolve
-      final notes = await storage.query(
+      final notes = await container.storage.query(
         RequestFilter<Note>(ids: {note.id}).toRequest(),
         source: LocalSource(),
       );
@@ -353,10 +347,10 @@ void main() async {
       partialRelease1.event.setTagValue('e', file1.id);
       final release1 = partialRelease1.dummySign(pubkey1);
 
-      await storage.save({signedApp1, signedApp2, release1, file1});
+      await container.storage.save({signedApp1, signedApp2, release1, file1});
 
       // Query both apps
-      final apps = await storage.query(
+      final apps = await container.storage.query(
         RequestFilter<App>(ids: {signedApp1.id, signedApp2.id}).toRequest(),
         source: LocalSource(),
       );
@@ -397,10 +391,10 @@ void main() async {
       final app = partialApp.dummySign(pubkey);
 
       // Save everything at once
-      await storage.save({app, release, file});
+      await container.storage.save({app, release, file});
 
       // Query and verify all relationships are available
-      final apps = await storage.query(
+      final apps = await container.storage.query(
         RequestFilter<App>(ids: {app.id}).toRequest(),
         source: LocalSource(),
       );
@@ -524,7 +518,7 @@ void main() async {
   group('storage', () {
     test('clear with req', () async {
       // Clear storage first to ensure test isolation
-      await storage.clear();
+      await container.storage.clear();
 
       // Create test dates
       final beginOfMonth = DateTime.parse('2025-04-01');
@@ -551,18 +545,18 @@ void main() async {
       }
 
       // Save all events to storage
-      await storage.save({...marchEvents, ...mayEvents});
+      await container.storage.save({...marchEvents, ...mayEvents});
 
       // Verify we have 6 events total at the storage level
       // (Note: With external relay, we verify by querying)
-      final allEvents = storage.querySync(Request([RequestFilter()]));
+      final allEvents = container.storage.querySync(Request([RequestFilter()]));
       expect(allEvents.length, equals(6));
 
       // Create the clear request - this should match March events (events until April 1st)
       final clearRequest = RequestFilter(until: beginOfMonth).toRequest();
 
       // Verify the clear request would match the correct events at storage level
-      final eventsToBeCleared = storage.querySync(clearRequest);
+      final eventsToBeCleared = container.storage.querySync(clearRequest);
       expect(eventsToBeCleared, hasLength(3));
 
       // Verify these are the March events (all should be before April 1st)
@@ -576,10 +570,10 @@ void main() async {
       }
 
       // Now test the storage.clear() method
-      await storage.clear(clearRequest);
+      await container.storage.clear(clearRequest);
 
       // Verify the events were deleted from storage
-      final allEventsAfterClear = storage.querySync(Request([RequestFilter()]));
+      final allEventsAfterClear = container.storage.querySync(Request([RequestFilter()]));
       expect(allEventsAfterClear.length, equals(3));
 
       // Verify only May events remain at storage level
@@ -640,16 +634,16 @@ void main() async {
       final shortNote = PartialNote('Hi').dummySign(pubkey);
       final longNote = PartialNote('This is a longer note').dummySign(pubkey);
 
-      await storage.save({shortNote, longNote});
+      await container.storage.save({shortNote, longNote});
 
       // Verify both are in storage
-      var allNotes = storage.querySync(
+      var allNotes = container.storage.querySync(
         RequestFilter<Note>(authors: {pubkey}).toRequest(),
       );
       expect(allNotes, hasLength(2));
 
       // Query with schemaFilter that rejects short content
-      final filtered = storage.querySync(
+      final filtered = container.storage.querySync(
         RequestFilter<Note>(
           authors: {pubkey},
           schemaFilter: (event) =>
@@ -660,7 +654,7 @@ void main() async {
       expect(filtered.first.content, equals('This is a longer note'));
 
       // The short note should have been deleted from storage
-      allNotes = storage.querySync(
+      allNotes = container.storage.querySync(
         RequestFilter<Note>(authors: {pubkey}).toRequest(),
       );
       expect(allNotes, hasLength(1));
@@ -679,7 +673,7 @@ void main() async {
           generator.generateProfile(pubkey1),
           generator.generateProfile(pubkey2),
         ];
-        await storage.save({franzap, niel});
+        await container.storage.save({franzap, niel});
 
         final tester = container.testerFor(
           query<Profile>(authors: {pubkey2}, source: LocalSource()),
@@ -731,7 +725,7 @@ void main() async {
         );
 
         // Simulate an error by clearing storage during query
-        await storage.clear();
+        await container.storage.clear();
 
         // Should handle the error and maintain previous state or show error
         // Note: The exact behavior depends on implementation, but it shouldn't crash
@@ -761,7 +755,7 @@ void main() async {
           generator.generateProfile(franzapPubkey),
           generator.generateProfile(nielPubkey),
         ];
-        await storage.save({franzap, niel});
+        await container.storage.save({franzap, niel});
 
         final tester = container.testerFor(
           query<Profile>(
@@ -778,7 +772,7 @@ void main() async {
 
         // Add more data after disposal - should not trigger updates
         final newProfile = generator.generateProfile(verbirichaPubkey);
-        await storage.save({newProfile});
+        await container.storage.save({newProfile});
       });
 
       test('should handle multiple concurrent requests', () async {
@@ -789,7 +783,7 @@ void main() async {
           generator.generateProfile(pubkey1),
           generator.generateProfile(pubkey2),
         ];
-        await storage.save({franzap, niel});
+        await container.storage.save({franzap, niel});
 
         // Create multiple notifiers watching different queries
         final tester1 = container.testerFor(
@@ -811,7 +805,7 @@ void main() async {
 
         // Add a note for niel
         final note = generator.generateModel(kind: 1, pubkey: pubkey2)!;
-        await storage.save({note});
+        await container.storage.save({note});
 
         // Only tester3 should get the update
         await tester3.expectModels(hasLength(1));
@@ -822,7 +816,7 @@ void main() async {
       test('should handle replaceable event updates', () async {
         final pubkey1 = Utils.generateRandomHex64();
         final originalProfile = generator.generateProfile(pubkey1);
-        await storage.save({originalProfile});
+        await container.storage.save({originalProfile});
 
         final tester = container.testerFor(
           query<Profile>(authors: {pubkey1}, source: LocalSource()),
@@ -841,7 +835,7 @@ void main() async {
           Duration(seconds: 1),
         );
         final updatedProfile = updatedPartialProfile.dummySign(pubkey1);
-        await storage.save({updatedProfile});
+        await container.storage.save({updatedProfile});
 
         // Should replace the old profile with the new one
         await tester.expectModels(
@@ -860,7 +854,7 @@ void main() async {
           generator.generateProfile(pubkey1),
           generator.generateProfile(pubkey2),
         ];
-        await storage.save({franzap, niel});
+        await container.storage.save({franzap, niel});
 
         final tester = container.testerFor(
           query<Note>(
@@ -874,13 +868,13 @@ void main() async {
 
         // Add notes one by one
         final note1 = generator.generateModel(kind: 1, pubkey: pubkey2)!;
-        await storage.save({note1});
+        await container.storage.save({note1});
 
         // Wait for first streaming update
         await tester.expectModels(hasLength(1));
 
         final note2 = generator.generateModel(kind: 1, pubkey: pubkey1)!;
-        await storage.save({note2});
+        await container.storage.save({note2});
 
         // Check that we eventually have both notes in the stream
         final finalQuery = RequestFilter<Note>(
@@ -898,7 +892,7 @@ void main() async {
         // Create a note with author relationship
         final author = generator.generateProfile(pubkey1);
         final note = generator.generateModel(kind: 1, pubkey: pubkey1)!;
-        await storage.save({author, note});
+        await container.storage.save({author, note});
 
         final tester = container.testerFor(
           query<Note>(
@@ -915,7 +909,7 @@ void main() async {
         final updatedAuthor = author
             .copyWith(name: 'Updated Author')
             .dummySign(pubkey1);
-        await storage.save({updatedAuthor});
+        await container.storage.save({updatedAuthor});
 
         // Should trigger a state update due to relationship change
         await tester.expect(isA<StorageData>());
@@ -931,7 +925,7 @@ void main() async {
           generator.generateProfile(pubkey1),
           generator.generateProfile(pubkey2),
         ];
-        await storage.save({franzap, niel});
+        await container.storage.save({franzap, niel});
 
         final tester = container.testerFor(
           query<Profile>(
@@ -952,7 +946,7 @@ void main() async {
           generator.generateProfile(pubkey1),
           generator.generateProfile(pubkey2),
         ];
-        await storage.save({franzap, niel});
+        await container.storage.save({franzap, niel});
 
         final tester = container.testerFor(
           query<Profile>(
@@ -972,7 +966,7 @@ void main() async {
           generator.generateProfile(pubkey1),
           generator.generateProfile(pubkey2),
         ];
-        await storage.save({franzap, niel});
+        await container.storage.save({franzap, niel});
 
         final tester = container.testerFor(
           query<Profile>(
@@ -992,7 +986,7 @@ void main() async {
           generator.generateProfile(pubkey1),
           generator.generateProfile(pubkey2),
         ];
-        await storage.save({franzap, niel});
+        await container.storage.save({franzap, niel});
 
         // Test with ad-hoc relay URL
         final tester = container.testerFor(
@@ -1010,12 +1004,12 @@ void main() async {
 
         // Ad-hoc URL should be returned as-is
         expect(
-          await storage.resolveRelays(sourceWithUrl.relays),
+          await container.storage.resolveRelays(sourceWithUrl.relays),
           equals({'wss://custom.relay.io'}),
         );
         // Identifier should look up from defaultRelaySets
         expect(
-          await storage.resolveRelays(sourceWithIdentifier.relays),
+          await container.storage.resolveRelays(sourceWithIdentifier.relays),
           equals({'wss://test.relay'}),
         );
       });
@@ -1030,7 +1024,7 @@ void main() async {
             generator.generateProfile(pubkey1),
             generator.generateProfile(pubkey2),
           ];
-          await storage.save({franzap, niel});
+          await container.storage.save({franzap, niel});
 
           // Test LocalAndRemoteSource with ad-hoc relay URL
           final tester = container.testerFor(
@@ -1047,7 +1041,7 @@ void main() async {
             relays: 'wss://priority.relay.io',
           );
           expect(
-            await storage.resolveRelays(source.relays),
+            await container.storage.resolveRelays(source.relays),
             equals({'wss://priority.relay.io'}),
           );
         },
@@ -1064,7 +1058,7 @@ void main() async {
           generator.generateProfile(pubkey2),
         ];
         final note = generator.generateModel(kind: 1, pubkey: pubkey2)!;
-        await storage.save({franzap, niel, note});
+        await container.storage.save({franzap, niel, note});
 
         // Query for profiles only
         final profileTester = container.testerFor(
@@ -1099,7 +1093,7 @@ void main() async {
           parentId: note.id,
           pubkey: pubkey1,
         )!;
-        await storage.save({franzap, niel, note, reaction});
+        await container.storage.save({franzap, niel, note, reaction});
 
         // Query for multiple kinds
         final tester = container.testerFor(
@@ -1127,7 +1121,7 @@ void main() async {
         ];
         final note1 = generator.generateModel(kind: 1, pubkey: pubkey2)!;
         final note2 = generator.generateModel(kind: 1, pubkey: pubkey1)!;
-        await storage.save({franzap, niel, note1, note2});
+        await container.storage.save({franzap, niel, note1, note2});
 
         // Complex filter with multiple conditions
         final tester = container.testerFor(
@@ -1152,7 +1146,7 @@ void main() async {
         ];
         final note1 = generator.generateModel(kind: 1, pubkey: pubkey2)!;
         final note2 = generator.generateModel(kind: 1, pubkey: pubkey1)!;
-        await storage.save({franzap, niel, note1, note2});
+        await container.storage.save({franzap, niel, note1, note2});
 
         // Use where function to filter
         final tester = container.testerFor(
@@ -1181,7 +1175,7 @@ void main() async {
         generator.generateProfile(pubkey1),
         generator.generateProfile(pubkey2),
       ];
-      await storage.save({
+      await container.storage.save({
         franzap,
         niel,
         ...List.generate(
@@ -1215,7 +1209,7 @@ void main() async {
         generator.generateProfile(pubkey1),
         generator.generateProfile(pubkey2),
       ];
-      await storage.save({
+      await container.storage.save({
         franzap,
         niel,
         ...List.generate(
@@ -1249,7 +1243,7 @@ void main() async {
         name: 'Roundtrip User',
         about: 'Test roundtrip',
       ).dummySign(pubkey);
-      await storage.save({profile});
+      await container.storage.save({profile});
 
       final tester = container.testerFor(
         query<Profile>(authors: {pubkey}, source: LocalSource()),
@@ -1280,7 +1274,7 @@ void main() async {
       expect(dm.content, contains('dummy_nip44_encrypted'));
 
       // Save to storage (stored encrypted)
-      await storage.save({dm});
+      await container.storage.save({dm});
 
       // Load it back from storage
       final tester = container.testerFor(
@@ -1312,7 +1306,7 @@ void main() async {
       expect(dm.content, contains('dummy_nip44_encrypted'));
 
       // Save to storage (stored encrypted)
-      await storage.save({dm});
+      await container.storage.save({dm});
 
       // Load it back
       final tester = container.testerFor(
@@ -1357,7 +1351,7 @@ void main() async {
         expect(dm.content, isNotEmpty);
 
         // Save to storage (stored encrypted)
-        await storage.save({dm});
+        await container.storage.save({dm});
 
         // Load it back
         final tester = container.testerFor(

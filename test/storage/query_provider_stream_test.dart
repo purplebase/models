@@ -1,7 +1,7 @@
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 import 'package:models/models.dart';
-import 'helpers.dart';
+import '../helpers.dart';
 
 /// Tests for query provider stream behavior.
 ///
