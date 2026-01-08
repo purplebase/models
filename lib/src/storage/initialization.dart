@@ -38,17 +38,17 @@ class StorageConfiguration extends Equatable {
   /// The default source for query when absent from query()
   final Source defaultQuerySource;
 
-  /// After this inactivity duration, relays disconnect (default: 5 minutes)
+  /// After this inactivity duration, relays disconnect
   final Duration idleTimeout;
 
   /// Duration to wait for relays to respond (final timeout)
   final Duration responseTimeout;
 
-  /// How often event updates are emitted from [StorageNotifier] (default: 2 seconds)
+  /// How often event updates are emitted from [StorageNotifier]
   final Duration streamingBufferWindow;
 
   /// Maximum amount of recent models to keep in the database,
-  /// older will be removed (default: 20000)
+  /// older will be removed
   final int keepMaxModels;
 
   /// Storage configuration

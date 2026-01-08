@@ -1,33 +1,56 @@
-# Models Query Specification
+# Query Specification
 
 Queries take `Request`s (or `RequestFilter`s) and `Source`s to understand *what* and *where/how* to query.
 
 This is a local-first system: every model emitted comes from local storage and **never** directly from a remote source.
 
-## Sources
+## Query Providers vs storage.query
 
-- `LocalSource`: query models in local storage only; emit immediately, even if empty
-
-- `LocalAndRemoteSource`: emit local models immediately if non-empty, then open remote subscriptions and emit incoming models in batches at each EOSE (or timeout)
-
-- `RemoteSource`: open remote subscriptions and emit *exactly* the models that came in via those subscriptions (not pre-existing local data)
-
-If no source is provided, `StorageConfiguration#defaultQuerySource` is used.
+**Query providers** (`query`, `queryKinds`, `model`) are reactive:
 
 ```dart
-// Local only
-final notes = await storage.query(req, source: LocalSource());
-
-// Local + remote (default)
-final notes = await storage.query(req, source: LocalAndRemoteSource());
-
-// Remote only (ignore pre-existing local data)
-final notes = await storage.query(req, source: RemoteSource(relays: 'wss://relay.example.com'));
+// Emits each time an EOSE batch arrives
+ref.watch(query<Note>(authors: {pubkey}))
 ```
+
+They are also auto-disposable, notifiers call `cancel` on the underlying subscriptions, closing the relay connections for that query.
+
+In contrast, **async mode** with `storage.query` returns a future and resolves once, after all subscriptions complete or time out:
+
+```dart
+Future<List<E>> query<E extends Model<dynamic>>(
+  Request<E> req, {
+  Source? source,
+  String? subscriptionPrefix,
+});
+
+// Waits for all EOSEs, returns all models in one lump
+final notes = await storage.query(req);
+```
+
+The optional `subscriptionPrefix` makes subscription IDs readable for debugging (e.g., `app-detail-123456` instead of `sub-123456`).
+
+## Flushing
+
+Models from local storage are not emitted through a notifier as they are saved, but only at certain points in time flushed in batches. In this document we use the term "flush" for simplicity, even if technically the word is "emit" for `query` provider and "return" for `storage.query` async mode.
+
+- EOSE: flush for every EOSE received or on `responseTimeout`, whatever comes first. In async mode wait for all EOSEs/timeouts to flush once. Every time an EOSE flush is mentioned hereafter, assume it includes timeouts as the system is designed to never hang
+
+- Stream buffers: applicable to subscriptions, flush every `streamingBufferWindow`
+
+## Sources
+
+- `LocalSource`: query models in local storage only; flushes immediately, even if empty
+
+- `LocalAndRemoteSource`: query models in local storage, flush immediately only if non-empty, then open remote subscriptions and flush new models
+
+- `RemoteSource`: open remote subscriptions; incoming models are saved to local storage, then flushed. Only models that arrived via this exact subscription are included—pre-existing local data matching the request is excluded.
+
+If no source is provided, `defaultQuerySource` is used.
 
 ### Relay Resolution
 
-Remote sources take `relays` which can be:
+Remote sources take a `relays` argument which can be:
 
 - A URL prefixed with `ws://` or `wss://` (used directly)
 - A label string (resolves to the active user's signed `RelayList` first, then falls back to `defaultRelays` in configuration)
@@ -37,21 +60,18 @@ By the time a query is issued, all relays must be resolved to their final URL.
 
 ## The `stream` Parameter
 
-Applies only to remote sources.
+Async mode is naturally always non-streaming and flushes once.
 
-With `stream=false`, models are emitted in batches at each EOSE (or timeout), after which subscriptions close. Subscriptions do not wait for each other—if querying with a subscription to 3 different relays, 3 separate emissions will occur.
+The parameter applies only on remote sources (`LocalAndRemoteSource`, `RemoteSource`).
+
+For non-streaming queries, models are flushed only at EOSE, after which subscriptions close. Subscriptions do not wait for each other—if querying with a subscription to 3 different relays, 3 separate emissions will occur.
 
 ```dart
 // One-time fetch, subscriptions close after EOSE (or timeout)
 query<Note>(authors: {pubkey}, source: LocalAndRemoteSource(stream: false))
 ```
 
-With `stream=true`, subscriptions remain open indefinitely (until manually canceled or process is killed). After EOSE, incoming models are batched and emitted every `StorageConfiguration#streamingBufferWindow`.
-
-```dart
-// Keep streaming new notes as they arrive
-query<Note>(authors: {pubkey}, source: LocalAndRemoteSource(stream: true))
-```
+With `stream=true`, subscriptions remain open indefinitely (until manually canceled or process is killed). After EOSE, incoming models are batched and emitted every `streamingBufferWindow` configurable duration.
 
 ## Relationship Queries (`and`)
 
@@ -62,22 +82,44 @@ Relationships depend on models from the main query. By default they inherit the 
 query<App>(
   authors: {pubkey},
   source: LocalSource(),
-  andSource: LocalAndRemoteSource(stream: false),
   and: (app) => {app.latestRelease},
+  andSource: LocalAndRemoteSource(stream: false),
 )
 ```
 
-Every time new models arrive from the main query, relationship queries are issued for those new models (existing relationship queries are not re-issued). The `stream` behavior applies: if false, relationship subscriptions close after EOSE; if true, they remain open.
+Every time new models arrive (originated in any query: main or relationship), relationship queries are issued for those new models only – not for the existing models.
+
+Example: 
+
+```dart
+  and: (app) => {app.latestRelease, app.latestRelease.value?.latestMetadata},
+```
+
+(As `latestMetadata` depends on `latestRelease`, it will be queried any time new latest releases arrive).
+
+This introduces a potential N+1 query problem, so the `relationshipBufferWindow` argument on `Source` is used to wait for a small window during which models arrive, calculate relationships needed, merge requests and send.
+
+All permutations of `stream` values in both `source` and `andSource` are valid, since requests are different some of them can stream while others remain non-streaming.
 
 ## Filtering
 
-`schemaFilter` discards events before model construction, applied to both local and remote data. The `where` filter prevents events from showing, this is after model construction, which is more expensive but relationships can be used. 
+`schemaFilter` evaluates events before model construction and rejected ones are permanently deleted from local storage. Use this for events that under no circumstance should be kept.
 
 ```dart
 // Only keep notes longer than 10 characters
 query<Note>(
   authors: {pubkey},
   schemaFilter: (event) => (event['content'] as String).length > 10,
+)
+```
+
+The `where` filter prevents events from showing in results, this happens after model construction (relationships can be used in the rejection logic) and not removed from local storage.
+
+```dart
+// Only keep notes whose author's name is longer than 10 characters
+query<Note>(
+  authors: {pubkey},
+  where: (note) => note.author.value.name.length > 10,
 )
 ```
 
@@ -92,36 +134,14 @@ query<Profile>(authors: {pubkey}, source: LocalAndRemoteSource(cachedFor: Durati
 
 If the query has other filter fields (tags, ids, search, until), caching is silently ignored.
 
+Cache freshness is tracked per unique author+kind combination. When the cache expires, the next query with `cachedFor` will hit remote relays again.
+
 ## State Transitions
 
-The loading phase (`StorageLoading`) will never exceed `StorageConfiguration#responseTimeout`. All subscriptions will have responded with EOSE or timed out by then.
+The loading phase (`StorageLoading`) will never exceed `responseTimeout`. All subscriptions will have flushed by then.
 
 `StorageLoading` must transition to `StorageData` or `StorageError`, never remaining in loading state—even with zero results.
 
-For `LocalSource`, transition immediately. For remote sources, if local storage is empty, wait for first EOSE or timeout before transitioning.
+For `LocalSource`, transition immediately. For remote sources, if local storage is empty, flush on first EOSE.
 
-When errors occur, a `StorageError` is emitted.
-
-## Query Providers vs storage.query
-
-**Query providers** (`query`, `queryKinds`, `model`) are reactive—they emit multiple times as data arrives:
-
-```dart
-// Emits each time an EOSE batch arrives
-ref.watch(query<Note>(authors: {pubkey}))
-```
-
-In contrast, **`storage.query`** returns a future and resolves once, after all subscriptions complete (or time out):
-
-```dart
-Future<List<E>> query<E extends Model<dynamic>>(
-  Request<E> req, {
-  Source? source,
-  String? subscriptionPrefix,
-});
-
-// Waits for all EOSEs, returns all models in one lump
-final notes = await storage.query(req);
-```
-
-The optional `subscriptionPrefix` makes subscription IDs readable for debugging (e.g., `app-detail-123456` instead of `sub-123456`).
+When errors occur a `StorageError` is emitted, the system has already attempted recovery—no automatic retries follow. As a `StorageState` instance it preserves any models successfully loaded before the error.
