@@ -433,6 +433,7 @@ void main() async {
         );
       }
     });
+
   });
 
   group('storage configuration', () {
@@ -631,6 +632,39 @@ void main() async {
       );
 
       expect(r1, equals(r4));
+    });
+
+    test('schemaFilter deletes rejected events from storage', () async {
+      // Create notes with varying content lengths
+      final pubkey = Utils.generateRandomHex64();
+      final shortNote = PartialNote('Hi').dummySign(pubkey);
+      final longNote = PartialNote('This is a longer note').dummySign(pubkey);
+
+      await storage.save({shortNote, longNote});
+
+      // Verify both are in storage
+      var allNotes = storage.querySync(
+        RequestFilter<Note>(authors: {pubkey}).toRequest(),
+      );
+      expect(allNotes, hasLength(2));
+
+      // Query with schemaFilter that rejects short content
+      final filtered = storage.querySync(
+        RequestFilter<Note>(
+          authors: {pubkey},
+          schemaFilter: (event) =>
+              (event['content'] as String? ?? '').length > 10,
+        ).toRequest(),
+      );
+      expect(filtered, hasLength(1));
+      expect(filtered.first.content, equals('This is a longer note'));
+
+      // The short note should have been deleted from storage
+      allNotes = storage.querySync(
+        RequestFilter<Note>(authors: {pubkey}).toRequest(),
+      );
+      expect(allNotes, hasLength(1));
+      expect(allNotes.first.content, equals('This is a longer note'));
     });
   });
 

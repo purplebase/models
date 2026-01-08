@@ -237,8 +237,27 @@ class DummyStorageNotifier extends StorageNotifier {
       );
 
       // Apply schemaFilter before model construction
+      // Events rejected by schemaFilter are deleted from local storage
       if (filter.schemaFilter != null) {
-        filtered = filtered.where(filter.schemaFilter!);
+        final schemaFilter = filter.schemaFilter!;
+        final rejectedIds = <String>{};
+        final accepted = <Map<String, dynamic>>[];
+
+        for (final event in filtered) {
+          if (schemaFilter(event)) {
+            accepted.add(event);
+          } else {
+            rejectedIds.add(event['id'] as String);
+          }
+        }
+
+        // Delete rejected events from storage
+        if (rejectedIds.isNotEmpty) {
+          _events.removeWhere((e) => rejectedIds.contains(e['id']));
+          invalidateQueryCache();
+        }
+
+        filtered = accepted;
       }
 
       var models = filtered
