@@ -28,18 +28,26 @@ class _RemoteQueryBuffer {
     // Skip buffering for streaming queries - they need their original
     // subscription IDs for the streaming update mechanism to work
     if (source.stream) {
-      return storage.query(request, source: source, subscriptionPrefix: subscriptionPrefix);
+      return storage.query(
+        request,
+        source: source,
+        subscriptionPrefix: subscriptionPrefix,
+      );
     }
 
     final completer = Completer<List<Model<dynamic>>>();
     final key = _sourceKey(source);
 
-    _pending.putIfAbsent(key, () => []).add(_PendingQuery(
-      request: request,
-      source: source,
-      subscriptionPrefix: subscriptionPrefix,
-      completer: completer,
-    ));
+    _pending
+        .putIfAbsent(key, () => [])
+        .add(
+          _PendingQuery(
+            request: request,
+            source: source,
+            subscriptionPrefix: subscriptionPrefix,
+            completer: completer,
+          ),
+        );
 
     // Reset timer on each new request
     _timer?.cancel();
@@ -82,10 +90,10 @@ class _RemoteQueryBuffer {
       // Use the first query's source (they all have same relay/stream config)
       final source = queries.first.source;
       final basePrefix = queries.first.subscriptionPrefix;
-      
+
       // Add merged indicator when multiple queries are combined
       final prefix = queries.length > 1
-          ? '${basePrefix ?? 'sub'}--merged'
+          ? '${basePrefix ?? 'sub'}-merged'
           : basePrefix;
 
       // Create merged request
@@ -221,10 +229,10 @@ class RequestNotifier<E extends Model<dynamic>>
 
           // Fire remote query via buffer. Per-EOSE updates arrive via
           // InternalStorageData notifications caught by _startSubscription.
-          await _bufferRemoteQuery(req, remoteSource);
+          final remoteModels = await _bufferRemoteQuery(req, remoteSource);
 
-          // Update cache timestamp after successful remote query
-          if (remoteSource.cachedFor != null) {
+          // Only update cache timestamp if we got results - don't cache empty
+          if (remoteSource.cachedFor != null && remoteModels.isNotEmpty) {
             storage.updateCacheTimestamp(req);
           }
 
