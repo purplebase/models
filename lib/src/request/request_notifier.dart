@@ -85,7 +85,7 @@ class _RemoteQueryBuffer {
       
       // Add merged indicator when multiple queries are combined
       final prefix = queries.length > 1
-          ? '$basePrefix--merged${queries.length}'
+          ? '${basePrefix ?? 'sub'}--merged'
           : basePrefix;
 
       // Create merged request

@@ -14,6 +14,16 @@ part of models;
 ///
 /// final notes = await storage.query(request);
 /// ```
+/// Maximum length for subscription ID prefix (excluding the random suffix).
+/// The final subscription ID will be: {prefix}-{random} where random is up to 6 digits.
+const _kMaxPrefixLength = 40;
+
+/// Trims a prefix to fit within the max length, preserving important suffixes.
+String _trimPrefix(String prefix, int maxLength) {
+  if (prefix.length <= maxLength) return prefix;
+  return prefix.substring(0, maxLength);
+}
+
 class Request<E extends Model<dynamic>> with EquatableMixin {
   static final _random = math.Random();
 
@@ -24,7 +34,8 @@ class Request<E extends Model<dynamic>> with EquatableMixin {
 
   Request(this.filters, {String? subscriptionPrefix}) {
     final prefix = subscriptionPrefix ?? _getDefaultPrefix<E>();
-    subscriptionId = '$prefix-${_random.nextInt(999999)}';
+    final trimmedPrefix = _trimPrefix(prefix, _kMaxPrefixLength);
+    subscriptionId = '$trimmedPrefix-${_random.nextInt(999999)}';
   }
 
   /// Get default subscription prefix based on model type

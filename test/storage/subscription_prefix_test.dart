@@ -236,5 +236,27 @@ void main() {
 
       sub.close();
     });
+
+    test('Long subscription prefix is trimmed to 40 chars', () {
+      final longPrefix = 'a' * 50; // 50 chars
+      final req = Request([
+        RequestFilter(kinds: {1}, authors: {nielPubkey}),
+      ], subscriptionPrefix: longPrefix);
+
+      // Prefix should be trimmed to 40 chars, then random added
+      final parts = req.subscriptionId.split('-');
+      final prefix = parts.sublist(0, parts.length - 1).join('-');
+      expect(prefix.length, equals(40));
+      expect(prefix, equals('a' * 40));
+    });
+
+    test('Short subscription prefix is not trimmed', () {
+      final shortPrefix = 'my-prefix';
+      final req = Request([
+        RequestFilter(kinds: {1}, authors: {nielPubkey}),
+      ], subscriptionPrefix: shortPrefix);
+
+      expect(req.subscriptionId, startsWith('my-prefix-'));
+    });
   });
 }
