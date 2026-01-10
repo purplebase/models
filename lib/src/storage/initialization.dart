@@ -51,6 +51,14 @@ class StorageConfiguration extends Equatable {
   /// older will be removed
   final int keepMaxModels;
 
+  /// Duration to buffer remote requests before merging and sending.
+  ///
+  /// When multiple queries arrive within this window, they are collected,
+  /// merged into fewer relay requests, and sent together. This prevents
+  /// N+1 query problems when many providers are created simultaneously.
+  /// Defaults to 16ms.
+  final Duration requestBufferDuration;
+
   /// Storage configuration
   StorageConfiguration({
     this.databasePath,
@@ -62,6 +70,7 @@ class StorageConfiguration extends Equatable {
     this.responseTimeout = const Duration(seconds: 4),
     this.streamingBufferWindow = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
+    this.requestBufferDuration = const Duration(milliseconds: 16),
   });
 
   @override
@@ -74,5 +83,6 @@ class StorageConfiguration extends Equatable {
     responseTimeout,
     streamingBufferWindow,
     keepMaxModels,
+    requestBufferDuration,
   ];
 }

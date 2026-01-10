@@ -6,13 +6,9 @@ import '../helpers.dart';
 void main() {
   late ProviderContainer container;
 
-  setUpAll(() async {
-    
-  });
+  setUpAll(() async {});
 
-  tearDownAll(() async {
-    
-  });
+  tearDownAll(() async {});
 
   setUp(() async {
     container = await createTestContainer(

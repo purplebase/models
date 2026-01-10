@@ -6,37 +6,20 @@ This is a local-first system: every model emitted comes from local storage and *
 
 ## Query Providers vs storage.query
 
-**Query providers** (`query`, `queryKinds`, `model`) are reactive:
+**Query providers** (`query`, `queryKinds`, `model`) are reactive and auto-disposable, notifiers call `cancel` on the underlying subscriptions, closing the relay connections for that query.
 
-```dart
-// Emits each time an EOSE batch arrives
-ref.watch(query<Note>(authors: {pubkey}))
-```
-
-They are also auto-disposable, notifiers call `cancel` on the underlying subscriptions, closing the relay connections for that query.
-
-In contrast, **async mode** with `storage.query` returns a future and resolves once, after all subscriptions complete or time out:
-
-```dart
-Future<List<E>> query<E extends Model<dynamic>>(
-  Request<E> req, {
-  Source? source,
-  String? subscriptionPrefix,
-});
-
-// Waits for all EOSEs, returns all models in one lump
-final notes = await storage.query(req);
-```
+In contrast, **async mode** with `storage.query` returns a future and resolves once, after all subscriptions complete or time out.
 
 The optional `subscriptionPrefix` makes subscription IDs readable for debugging (e.g., `app-detail-123456` instead of `sub-123456`).
+
+Due to how `query` may be used in clients, triggering N+1 style queries, the `requestBufferDuration` setting in `StorageConfiguration` is used to wait for a small window during which models arrive, in order to buffer and merge requests before sending. This prevents flooding relays with requests.
 
 ## Flushing
 
 Models from local storage are not emitted through a notifier as they are saved, but only at certain points in time flushed in batches. In this document we use the term "flush" for simplicity, even if technically the word is "emit" for `query` provider and "return" for `storage.query` async mode.
 
-- EOSE: flush for every EOSE received or on `responseTimeout`, whatever comes first. In async mode wait for all EOSEs/timeouts to flush once. Every time an EOSE flush is mentioned hereafter, assume it includes timeouts as the system is designed to never hang
-
-- Stream buffers: applicable to subscriptions, flush every `streamingBufferWindow`
+ - EOSE: flush for every EOSE received or on `responseTimeout`, whatever comes first. In async mode wait for all EOSEs/timeouts to flush once. Every time an EOSE flush is mentioned hereafter, assume it includes timeouts as the system is designed to never hang
+ - Stream buffers: applicable to subscriptions, flush every `streamingBufferWindow`
 
 ## Sources
 
@@ -96,8 +79,6 @@ Example:
 ```
 
 (As `latestMetadata` depends on `latestRelease`, it will be queried any time new latest releases arrive).
-
-This introduces a potential N+1 query problem, so the `relationshipBufferWindow` argument on `Source` is used to wait for a small window during which models arrive, calculate relationships needed, merge requests and send.
 
 All permutations of `stream` values in both `source` and `andSource` are valid, since requests are different some of them can stream while others remain non-streaming.
 

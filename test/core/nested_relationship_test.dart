@@ -249,5 +249,119 @@ void main() {
           reason: 'Direct querySync should find the metadata');
     });
   });
+
+  group('requestBufferDuration', () {
+    test('batches relationship queries using global buffer duration', () async {
+      // Create multiple apps that will each need relationship queries
+      final apps = List.generate(
+        5,
+        (i) => (PartialApp()
+              ..identifier = 'buffered-app-$i'
+              ..name = 'Buffered App $i')
+            .dummySign(franzapPubkey),
+      );
+
+      // Save all apps
+      await storage.save(apps.toSet());
+
+      // Set up query with relationships
+      final provider = query<App>(
+        authors: {franzapPubkey},
+        source: LocalAndRemoteSource(stream: true),
+        and: (app) => {app.latestRelease},
+        andSource: LocalAndRemoteSource(stream: false),
+      );
+
+      final sub = container.listen(provider, (_, __) {});
+      // Wait for buffer (16ms default) + processing
+      await Future.delayed(Duration(milliseconds: 50));
+
+      // Get the notifier to check merged requests
+      final notifier = container.read(provider.notifier);
+
+      // With buffering, multiple apps should result in merged relationship requests
+      expect(
+        notifier.mergedRelationshipRequests.length,
+        lessThanOrEqualTo(2),
+        reason: 'Relationship queries should be batched with buffer window',
+      );
+
+      sub.close();
+    });
+
+    test('uses default 16ms buffer window', () async {
+      final app = (PartialApp()
+            ..identifier = 'default-buffer-app'
+            ..name = 'Default Buffer App')
+          .dummySign(franzapPubkey);
+
+      await storage.save({app});
+
+      // Default buffer window is 16ms
+      final provider = query<App>(
+        authors: {franzapPubkey},
+        source: LocalAndRemoteSource(stream: true),
+        and: (app) => {app.latestRelease},
+        andSource: LocalAndRemoteSource(stream: false),
+      );
+
+      final sub = container.listen(provider, (_, __) {});
+
+      // After buffer window expires (16ms default + processing)
+      await Future.delayed(Duration(milliseconds: 50));
+      final notifierAfter = container.read(provider.notifier);
+      expect(
+        notifierAfter.mergedRelationshipRequests.isNotEmpty,
+        isTrue,
+        reason: 'Relationship query should fire after buffer expires',
+      );
+
+      sub.close();
+    });
+
+    test('relationships inherit source by default', () async {
+      final app =
+          (PartialApp()..identifier = 'inherit-test').dummySign(franzapPubkey);
+      await storage.save({app});
+
+      final provider = query<App>(
+        authors: {franzapPubkey},
+        source: LocalAndRemoteSource(stream: true),
+        and: (app) => {app.latestRelease},
+        // No andSource - should inherit from source
+      );
+
+      final sub = container.listen(provider, (_, __) {});
+      // Wait for buffer (16ms default) + processing
+      await Future.delayed(Duration(milliseconds: 50));
+
+      final notifier = container.read(provider.notifier);
+      expect(notifier.relationshipRequests, isNotEmpty);
+
+      sub.close();
+    });
+
+    test('andSource can override source for relationships', () async {
+      final app =
+          (PartialApp()..identifier = 'override-test').dummySign(franzapPubkey);
+      await storage.save({app});
+
+      final provider = query<App>(
+        authors: {franzapPubkey},
+        source: LocalSource(), // Main query is local
+        and: (app) => {app.latestRelease},
+        andSource:
+            LocalAndRemoteSource(stream: false), // Relationships fetch remotely
+      );
+
+      final sub = container.listen(provider, (_, __) {});
+      await Future.delayed(Duration(milliseconds: 50));
+
+      final notifier = container.read(provider.notifier);
+      expect(notifier.andSource, isA<LocalAndRemoteSource>());
+
+      sub.close();
+    });
+  });
 }
 

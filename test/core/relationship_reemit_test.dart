@@ -130,6 +130,7 @@ void main() {
         // Keep provider alive with a listener (autoDispose provider!)
         final sub = container.listen(provider, (_, __) {});
 
+        // Wait for buffer window (16ms) + processing time
         await Future.delayed(const Duration(milliseconds: 50));
 
         // Check that the notifier has registered the merged relationship request
@@ -184,6 +185,7 @@ void main() {
         });
 
         container.read(provider);
+        // Wait for buffer window (16ms) + processing time
         await Future.delayed(const Duration(milliseconds: 50));
 
         final notifier = container.read(provider.notifier);

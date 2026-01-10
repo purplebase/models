@@ -54,7 +54,10 @@ final class RemoteSource extends Source {
   /// - `false`: Blocking, waits for EOSE before returning
   final bool stream;
 
-  const RemoteSource({this.relays, this.stream = true});
+  const RemoteSource({
+    this.relays,
+    this.stream = true,
+  });
 
   RemoteSource copyWith({
     dynamic relays,
@@ -110,7 +113,11 @@ final class LocalAndRemoteSource extends RemoteSource {
   }
 
   @override
-  List<Object?> get props => [relays, stream, cachedFor];
+  List<Object?> get props => [
+    relays,
+    stream,
+    cachedFor,
+  ];
 
   @override
   String toString() {

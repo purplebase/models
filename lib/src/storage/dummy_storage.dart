@@ -25,6 +25,7 @@ class DummyStorageNotifier extends StorageNotifier {
     if (models.isEmpty) return true;
 
     invalidateQueryCache();
+    invalidateCacheForModels(models);
 
     final savedEvents = <Map<String, dynamic>>[];
 

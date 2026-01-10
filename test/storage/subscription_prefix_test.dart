@@ -135,5 +135,106 @@ void main() {
       // The subscription should have been created
       expect(state, isA<StorageState>());
     });
+
+    test('Relationship requests use parent--rel subscription format', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // Initialize storage
+      await container.read(
+        initializationProvider(StorageConfiguration()).future,
+      );
+
+      final storage =
+          container.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
+
+      // Create an app to query
+      final partialApp = PartialApp()
+        ..identifier = 'com.example.subtest'
+        ..description = 'Test subscription prefix';
+      final app = partialApp.dummySign(franzapPubkey);
+      await storage.save({app});
+
+      // Query with custom prefix and relationship
+      final provider = model<App>(
+        app,
+        and: (a) => {a.latestRelease},
+        subscriptionPrefix: 'app-detail',
+        source: LocalAndRemoteSource(stream: true),
+      );
+
+      // Keep provider alive
+      final sub = container.listen(provider, (_, __) {});
+      container.read(provider);
+
+      // Wait for relationship queries to be registered
+      await Future.delayed(const Duration(milliseconds: 250));
+
+      final notifier = container.read(provider.notifier);
+
+      // Verify relationship requests use parent--rel format
+      expect(notifier.mergedRelationshipRequests, isNotEmpty);
+      final relRequest = notifier.mergedRelationshipRequests.first;
+      
+      // Should start with parent subscription ID followed by --rel
+      expect(
+        relRequest.subscriptionId,
+        matches(RegExp(r'app-detail-\d+--rel-\d+')),
+        reason: 'Relationship subscription should be parent--rel-{random}',
+      );
+
+      sub.close();
+    });
+
+    test('Relationship requests preserve multi-part parent prefix', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // Initialize storage
+      await container.read(
+        initializationProvider(StorageConfiguration()).future,
+      );
+
+      final storage =
+          container.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
+
+      // Create an app to query
+      final partialApp = PartialApp()
+        ..identifier = 'com.example.multipart'
+        ..description = 'Test multi-part prefix';
+      final app = partialApp.dummySign(franzapPubkey);
+      await storage.save({app});
+
+      // Query with typed request (generates sub-app prefix)
+      final provider = model<App>(
+        app,
+        and: (a) => {a.latestRelease},
+        source: LocalAndRemoteSource(stream: true),
+      );
+
+      // Keep provider alive
+      final sub = container.listen(provider, (_, __) {});
+      container.read(provider);
+
+      // Wait for relationship queries to be registered
+      await Future.delayed(const Duration(milliseconds: 250));
+
+      final notifier = container.read(provider.notifier);
+
+      // Verify relationship requests preserve full parent prefix
+      expect(notifier.mergedRelationshipRequests, isNotEmpty);
+      final relRequest = notifier.mergedRelationshipRequests.first;
+      
+      // Should preserve sub-app prefix, not just 'sub'
+      expect(
+        relRequest.subscriptionId,
+        matches(RegExp(r'sub-app-\d+--rel-\d+')),
+        reason: 'Relationship subscription should preserve full parent prefix (sub-app)',
+      );
+
+      sub.close();
+    });
   });
 }

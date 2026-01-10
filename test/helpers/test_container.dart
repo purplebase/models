@@ -41,19 +41,30 @@ extension TestContainerExt on ProviderContainer {
 ///
 /// Each container has its own isolated in-memory storage,
 /// so tests can run in parallel.
+///
+/// Note: [requestBufferDuration] and [streamingBufferWindow] are set to
+/// [Duration.zero] by default for predictable test behavior, unless
+/// explicitly overridden in the passed [config].
 Future<ProviderContainer> createTestContainer({
   StorageConfiguration? config,
   List<Override>? overrides,
 }) async {
   final container = ProviderContainer(overrides: overrides ?? []);
-  final storageConfig = config ??
-      StorageConfiguration(
-        defaultRelays: {
-          'default': {'wss://test.relay'},
-        },
-        streamingBufferWindow: Duration.zero,
-        keepMaxModels: 1000,
-      );
+
+  // Default test configuration with zero buffer durations for predictable behavior
+  final storageConfig = StorageConfiguration(
+    databasePath: config?.databasePath,
+    keepSignatures: config?.keepSignatures ?? false,
+    skipVerification: config?.skipVerification ?? false,
+    defaultRelays: config?.defaultRelays ?? {'default': {'wss://test.relay'}},
+    defaultQuerySource:
+        config?.defaultQuerySource ?? const LocalAndRemoteSource(stream: false),
+    idleTimeout: config?.idleTimeout ?? const Duration(minutes: 5),
+    responseTimeout: config?.responseTimeout ?? const Duration(seconds: 4),
+    streamingBufferWindow: config?.streamingBufferWindow ?? Duration.zero,
+    keepMaxModels: config?.keepMaxModels ?? 1000,
+    requestBufferDuration: config?.requestBufferDuration ?? Duration.zero,
+  );
 
   await container.read(initializationProvider(storageConfig).future);
 

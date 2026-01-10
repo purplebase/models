@@ -14,10 +14,88 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   int _cacheVersion = 0;
   int get cacheVersion => _cacheVersion;
 
+  /// Cache timestamps for author+kind queries with cachedFor.
+  /// Key format: "authors_sorted:kind" (e.g., "abc123,def456:0")
+  final Map<String, DateTime> _queryCacheTimestamps = {};
+
   /// Call this in subclass mutation methods (save, clear, etc.)
   /// to invalidate relationship query caches.
   @protected
   void invalidateQueryCache() => _cacheVersion++;
+
+  /// Check if a query result is still fresh based on cachedFor duration.
+  ///
+  /// Returns true if the cache is valid and remote query should be skipped.
+  /// Cache only applies to queries with:
+  /// - Only authors and/or kinds filters
+  /// - Replaceable kinds (0, 3, 10000-19999, 30000-39999)
+  /// - No other filter fields (tags, ids, search, until, since)
+  bool isCacheValid(Request req, Duration cachedFor) {
+    // Generate cache key for this request
+    final cacheKey = _generateCacheKey(req);
+    if (cacheKey == null) return false;
+
+    final cachedAt = _queryCacheTimestamps[cacheKey];
+    if (cachedAt == null) return false;
+
+    return DateTime.now().difference(cachedAt) < cachedFor;
+  }
+
+  /// Update the cache timestamp for a cacheable query.
+  void updateCacheTimestamp(Request req) {
+    final cacheKey = _generateCacheKey(req);
+    if (cacheKey != null) {
+      _queryCacheTimestamps[cacheKey] = DateTime.now();
+    }
+  }
+
+  /// Generate a cache key for a request if it's cacheable.
+  ///
+  /// Returns null if the query is not cacheable (has non-cacheable filters).
+  String? _generateCacheKey(Request req) {
+    if (req.filters.isEmpty) return null;
+
+    // Collect all authors and kinds from all filters
+    final allAuthors = <String>{};
+    final allKinds = <int>{};
+
+    for (final filter in req.filters) {
+      // Check for non-cacheable filter fields
+      if (filter.ids.isNotEmpty ||
+          filter.tags.isNotEmpty ||
+          filter.search != null ||
+          filter.since != null ||
+          filter.until != null) {
+        return null;
+      }
+
+      allAuthors.addAll(filter.authors);
+      allKinds.addAll(filter.kinds);
+    }
+
+    // Must have at least authors or kinds
+    if (allAuthors.isEmpty && allKinds.isEmpty) return null;
+
+    // All kinds must be replaceable (0, 3, 10000-19999, 30000-39999)
+    for (final kind in allKinds) {
+      if (!Utils.isEventReplaceable(kind)) {
+        return null;
+      }
+    }
+
+    // Generate canonical cache key
+    final sortedAuthors = allAuthors.toList()..sort();
+    final sortedKinds = allKinds.toList()..sort();
+    return '${sortedAuthors.join(',')}:${sortedKinds.join(',')}';
+  }
+
+  /// Clear cache entries for specific authors/kinds when data is mutated.
+  @protected
+  void invalidateCacheForModels(Iterable<Model<dynamic>> models) {
+    // Simple approach: clear all cache on any mutation
+    // A more sophisticated approach would selectively invalidate
+    _queryCacheTimestamps.clear();
+  }
 
   /// Storage initialization, sets up [config] and registers types,
   /// `super` MUST be called
