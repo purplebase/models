@@ -12,14 +12,14 @@ In contrast, **async mode** with `storage.query` returns a future and resolves o
 
 The optional `subscriptionPrefix` makes subscription IDs readable for debugging (e.g., `app-detail-123456` instead of `sub-123456`).
 
-Due to how `query` may be used in clients, triggering N+1 style queries, the `requestBufferDuration` setting in `StorageConfiguration` is used to wait for a small window during which models arrive, in order to buffer and merge requests before sending. This prevents flooding relays with requests.
+Due to the nature of query calls (including nested ones), queries will be buffered during  `requestBufferDuration` and requests merged before sent to remotes, preventing flooding relays.
 
 ## Flushing
 
 Models from local storage are not emitted through a notifier as they are saved, but only at certain points in time flushed in batches. In this document we use the term "flush" for simplicity, even if technically the word is "emit" for `query` provider and "return" for `storage.query` async mode.
 
  - EOSE: flush for every EOSE received or on `responseTimeout`, whatever comes first. In async mode wait for all EOSEs/timeouts to flush once. Every time an EOSE flush is mentioned hereafter, assume it includes timeouts as the system is designed to never hang
- - Stream buffers: applicable to subscriptions, flush every `streamingBufferWindow`
+ - Stream buffers: applicable to subscriptions, flush every `streamingBufferDuration`
 
 ## Sources
 
@@ -54,33 +54,43 @@ For non-streaming queries, models are flushed only at EOSE, after which subscrip
 query<Note>(authors: {pubkey}, source: LocalAndRemoteSource(stream: false))
 ```
 
-With `stream=true`, subscriptions remain open indefinitely (until manually canceled or process is killed). After EOSE, incoming models are batched and emitted every `streamingBufferWindow` configurable duration.
+With `stream=true`, subscriptions remain open indefinitely (until manually canceled or process is killed). After EOSE, incoming models are batched and emitted every `streamingBufferDuration` configurable duration.
 
-## Relationship Queries (`and`)
+## Nested Queries
 
-Relationships depend on models from the main query. By default they inherit the source, but can specify their own via `andSource`.
+Nested queries fetch relationships of models from the outer query. The `and` callback receives each model and returns a `Set<NestedQuery>` via the `.query()` method on relationships.
 
 ```dart
-// Fetch apps locally, but fetch their releases from remote
 query<App>(
   authors: {pubkey},
   source: LocalSource(),
-  and: (app) => {app.latestRelease},
-  andSource: LocalAndRemoteSource(stream: false),
+  and: (app) => {
+    app.latestRelease.query(source: LocalAndRemoteSource(stream: false)),
+    app.author.query(source: RemoteSource(relays: {'social'})),
+    app.appStacks.query(),
+  },
 )
 ```
 
-Every time new models arrive (originated in any query: main or relationship), relationship queries are issued for those new models only – not for the existing models.
+By default, nested queries inherit `source` and `subscriptionPrefix` from the outer query. Override per-relationship as shown above.
 
-Example: 
+On every outer flush, relationships are recomputed. New relationships not already streaming are issued; non-streaming relationships are re-issued each flush. Request merging via `requestBufferDuration` applies.
+
+Arbitrary nesting is supported. Each level honors its own parameters.
 
 ```dart
-  and: (app) => {app.latestRelease, app.latestRelease.value?.latestMetadata},
+query<App>(
+  authors: {pubkey},
+  and: (app) => {
+    app.latestRelease.query(
+      source: LocalAndRemoteSource(stream: false),
+      and: (release) => {release.signer.query()}
+    ),
+  },
+)
 ```
 
-(As `latestMetadata` depends on `latestRelease`, it will be queried any time new latest releases arrive).
-
-All permutations of `stream` values in both `source` and `andSource` are valid, since requests are different some of them can stream while others remain non-streaming.
+Errors in nested queries emit `StorageError` on the outer notifier, preserving outer models loaded before the error along with the nested exception.
 
 ## Filtering
 

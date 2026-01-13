@@ -45,7 +45,7 @@ class StorageConfiguration extends Equatable {
   final Duration responseTimeout;
 
   /// How often event updates are emitted from [StorageNotifier]
-  final Duration streamingBufferWindow;
+  final Duration streamingBufferDuration;
 
   /// Maximum amount of recent models to keep in the database,
   /// older will be removed
@@ -68,7 +68,7 @@ class StorageConfiguration extends Equatable {
     this.defaultQuerySource = const LocalAndRemoteSource(stream: false),
     this.idleTimeout = const Duration(minutes: 5),
     this.responseTimeout = const Duration(seconds: 4),
-    this.streamingBufferWindow = const Duration(seconds: 2),
+    this.streamingBufferDuration = const Duration(seconds: 2),
     this.keepMaxModels = 20000,
     this.requestBufferDuration = const Duration(milliseconds: 16),
   });
@@ -81,7 +81,7 @@ class StorageConfiguration extends Equatable {
     defaultRelays,
     idleTimeout,
     responseTimeout,
-    streamingBufferWindow,
+    streamingBufferDuration,
     keepMaxModels,
     requestBufferDuration,
   ];

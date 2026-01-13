@@ -153,12 +153,31 @@ class DummyStorageNotifier extends StorageNotifier {
     String? subscriptionPrefix,
   }) async {
     // Register subscription for streaming if enabled
-    // This applies to both RemoteSource and LocalAndRemoteSource (which extends RemoteSource)
     if (source is RemoteSource && source.stream) {
       _subscriptions[req.subscriptionId] = req;
     }
 
-    return querySync(req);
+    final results = querySync(req);
+
+    // For pure RemoteSource (not LocalAndRemoteSource), simulate "data arrived
+    // via subscription" by emitting InternalStorageData. This allows RequestNotifier
+    // to track which models arrived via this exact subscription.
+    // LocalAndRemoteSource doesn't need this - it refreshes from local storage.
+    if (source is RemoteSource && source is! LocalAndRemoteSource) {
+      final matchingIds = <String>{};
+      for (final model in results) {
+        final addressableId = _computeAddressableId(model.toMap());
+        matchingIds.add(addressableId ?? model.event.id);
+      }
+      // Use scheduleMicrotask to avoid modifying state during provider initialization
+      scheduleMicrotask(() {
+        if (mounted) {
+          state = InternalStorageData(req: req, updatedIds: matchingIds);
+        }
+      });
+    }
+
+    return results;
   }
 
   @override

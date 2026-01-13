@@ -44,10 +44,10 @@ void main() {
 
         final tester = container.testerFor(queryProvider);
 
-        // Expect initial state
+        // Expect initial state (StorageLoading until EOSE for LocalAndRemoteSource)
         await tester.expectModels(hasLength(1));
         expect(
-          ((tester.notifier.state as StorageData).models.first as AppStack).name,
+          (tester.notifier.state.models.first as AppStack).name,
           'Version 1',
         );
 

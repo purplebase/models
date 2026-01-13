@@ -1,5 +1,29 @@
 part of models;
 
+/// Descriptor for a nested query on a relationship.
+///
+/// Created via [Relationship.query] and returned from the `and` callback.
+/// Contains the request to execute plus optional overrides for source and
+/// subscription prefix. When these are null, values are inherited from the
+/// outer query.
+class NestedQuery with EquatableMixin {
+  final Request? request;
+  final Source? source;
+  final String? subscriptionPrefix;
+  final Set<NestedQuery> Function(Model<dynamic>)? and;
+
+  const NestedQuery({
+    required this.request,
+    this.source,
+    this.subscriptionPrefix,
+    this.and,
+  });
+
+  /// Equality is based on request only - used to track streaming state.
+  @override
+  List<Object?> get props => [request];
+}
+
 /// Relationship to other models established via a [Request]
 sealed class Relationship<E extends Model<dynamic>> {
   final Request<E>? req;
@@ -11,7 +35,7 @@ sealed class Relationship<E extends Model<dynamic>> {
   int? _cachedAtVersion;
 
   Relationship(this.ref, this.req)
-      : storage = ref.read(storageNotifierProvider.notifier);
+    : storage = ref.read(storageNotifierProvider.notifier);
 
   // TODO [cache]: if _cache[req] exists and is null
   // (it is created when the big rel query is fired to relays)
@@ -28,6 +52,38 @@ sealed class Relationship<E extends Model<dynamic>> {
     _cachedModels = storage.querySync(req!);
     _cachedAtVersion = currentVersion;
     return _cachedModels!;
+  }
+
+  /// Create a nested query descriptor for this relationship.
+  ///
+  /// By default inherits source and subscriptionPrefix from the outer query.
+  /// Override per-relationship as needed:
+  ///
+  /// ```dart
+  /// query<App>(
+  ///   authors: {pubkey},
+  ///   source: LocalSource(),
+  ///   and: (app) => {
+  ///     app.latestRelease.query(
+  ///       source: RemoteSource(stream: false),
+  ///       and: (release) => {release.latestMetadata.query()},
+  ///     ),
+  ///     app.author.query(source: RemoteSource(relays: {'social'})),
+  ///     app.appStacks.query(), // inherits outer source
+  ///   },
+  /// )
+  /// ```
+  NestedQuery query({
+    Source? source,
+    String? subscriptionPrefix,
+    Set<NestedQuery> Function(E)? and,
+  }) {
+    return NestedQuery(
+      request: req,
+      source: source,
+      subscriptionPrefix: subscriptionPrefix,
+      and: and == null ? null : (m) => and(m as E),
+    );
   }
 }
 

@@ -159,7 +159,7 @@ void main() {
       // Query with custom prefix and relationship
       final provider = model<App>(
         app,
-        and: (a) => {a.latestRelease},
+        and: (a) => {a.latestRelease.query()},
         subscriptionPrefix: 'app-detail',
         source: LocalAndRemoteSource(stream: true),
       );
@@ -174,8 +174,8 @@ void main() {
       final notifier = container.read(provider.notifier);
 
       // Verify relationship requests use parent--rel format
-      expect(notifier.mergedRelationshipRequests, isNotEmpty);
-      final relRequest = notifier.mergedRelationshipRequests.first;
+      expect(notifier.relationshipRequests, isNotEmpty);
+      final relRequest = notifier.relationshipRequests.first;
       
       // Should start with parent subscription ID followed by --rel
       expect(
@@ -210,7 +210,7 @@ void main() {
       // Query with typed request (generates sub-app prefix)
       final provider = model<App>(
         app,
-        and: (a) => {a.latestRelease},
+        and: (a) => {a.latestRelease.query()},
         source: LocalAndRemoteSource(stream: true),
       );
 
@@ -224,8 +224,8 @@ void main() {
       final notifier = container.read(provider.notifier);
 
       // Verify relationship requests preserve full parent prefix
-      expect(notifier.mergedRelationshipRequests, isNotEmpty);
-      final relRequest = notifier.mergedRelationshipRequests.first;
+      expect(notifier.relationshipRequests, isNotEmpty);
+      final relRequest = notifier.relationshipRequests.first;
       
       // Should preserve sub-app prefix, not just 'sub'
       expect(

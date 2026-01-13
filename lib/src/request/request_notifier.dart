@@ -1,33 +1,43 @@
 part of models;
 
-/// Global buffer for batching remote queries across all RequestNotifier instances.
+/// Global buffer for batching LocalAndRemoteSource queries.
 ///
 /// When multiple queries arrive within [StorageConfiguration.requestBufferDuration],
 /// they are collected, merged into fewer relay requests, and sent together.
-/// This prevents N+1 query problems when many providers are created simultaneously.
+/// This prevents flooding relays with requests.
+///
+/// Only LocalAndRemoteSource queries are buffered/merged. RemoteSource queries
+/// bypass the buffer to preserve "arrived via this exact subscription" semantics.
 class _RemoteQueryBuffer {
   final StorageNotifier storage;
   Timer? _timer;
 
-  /// Pending queries grouped by source key (relay target + stream mode).
-  /// Each entry contains the requests and their completers.
+  /// Pending queries grouped by source key (relay target).
   final Map<String, List<_PendingQuery>> _pending = {};
 
   _RemoteQueryBuffer(this.storage);
 
-  /// Buffer a remote query for batched execution.
+  /// Buffer a query for batched execution.
   ///
-  /// Returns a Future that completes when the (merged) query completes.
-  /// Streaming queries are not buffered as they rely on subscription IDs
-  /// for incremental updates.
+  /// Only LocalAndRemoteSource non-streaming queries are buffered.
+  /// All other queries go directly to storage.
+  ///
+  /// Returns the models from the query. For non-buffered queries (RemoteSource,
+  /// streaming LocalAndRemoteSource), returns the actual models. For buffered
+  /// queries (LocalAndRemoteSource non-streaming), returns empty list since
+  /// those notifiers refresh from local storage via InternalStorageData.
   Future<List<Model<dynamic>>> bufferQuery(
     Request request,
     RemoteSource source,
     String? subscriptionPrefix,
   ) {
-    // Skip buffering for streaming queries - they need their original
-    // subscription IDs for the streaming update mechanism to work
-    if (source.stream) {
+    // Only buffer non-streaming LocalAndRemoteSource queries.
+    // - Streaming queries need their original subscription IDs
+    // - RemoteSource needs exact subscription semantics (no merging)
+    final shouldBuffer = source is LocalAndRemoteSource && !source.stream;
+
+    if (!shouldBuffer) {
+      // Return models directly for non-buffered queries (RemoteSource, streaming)
       return storage.query(
         request,
         source: source,
@@ -54,7 +64,6 @@ class _RemoteQueryBuffer {
 
     final bufferDuration = storage.config.requestBufferDuration;
     if (bufferDuration == Duration.zero) {
-      // Flush immediately when no buffering is configured (e.g., in tests)
       _flush();
     } else {
       _timer = Timer(bufferDuration, _flush);
@@ -64,12 +73,19 @@ class _RemoteQueryBuffer {
   }
 
   /// Create a key for grouping sources that can be merged.
-  /// Queries with the same relay target and stream mode can be merged.
   String _sourceKey(RemoteSource source) {
-    final relays = source.relays?.toString() ?? 'outbox';
-    final stream = source.stream;
-    final type = source is LocalAndRemoteSource ? 'local_and_remote' : 'remote';
-    return '$type:$relays:$stream';
+    // Canonicalize relay set for stable keys
+    String relays;
+    if (source.relays == null) {
+      relays = 'outbox';
+    } else if (source.relays is Iterable) {
+      final list = (source.relays as Iterable).map((e) => e.toString()).toList()
+        ..sort();
+      relays = list.join(',');
+    } else {
+      relays = source.relays.toString();
+    }
+    return 'local_and_remote:$relays';
   }
 
   /// Flush all pending queries, merging where possible.
@@ -83,11 +99,11 @@ class _RemoteQueryBuffer {
       final queries = entry.value;
       if (queries.isEmpty) continue;
 
-      // Merge all requests in this group
+      // Merge all request filters in this group
       final allFilters = queries.expand((q) => q.request.filters).toList();
       final mergedFilters = RequestFilter.mergeMultiple(allFilters);
 
-      // Use the first query's source (they all have same relay/stream config)
+      // Use the first query's source (they all have same relay config)
       final source = queries.first.source;
       final basePrefix = queries.first.subscriptionPrefix;
 
@@ -99,25 +115,29 @@ class _RemoteQueryBuffer {
       // Create merged request
       final mergedRequest = mergedFilters.toRequest(subscriptionPrefix: prefix);
 
-      // Execute merged query
+      // Execute merged query. For LocalAndRemoteSource, notifiers refresh
+      // from local storage on any InternalStorageData update, so they don't
+      // need the exact subscription ID - just the data in storage.
+      // We complete with empty list since buffered queries don't need models.
       storage
           .query(mergedRequest, source: source, subscriptionPrefix: prefix)
-          .then((models) {
-            // Complete all original completers with the merged result
+          .then((_) {
             for (final q in queries) {
-              q.completer.complete(models);
+              if (!q.completer.isCompleted) {
+                q.completer.complete(const []);
+              }
             }
           })
           .catchError((e, stack) {
-            // Propagate error to all completers
             for (final q in queries) {
-              q.completer.completeError(e, stack);
+              if (!q.completer.isCompleted) {
+                q.completer.completeError(e, stack);
+              }
             }
           });
     }
   }
 
-  /// Cancel the buffer timer.
   void dispose() {
     _timer?.cancel();
   }
@@ -160,10 +180,40 @@ class RequestNotifier<E extends Model<dynamic>>
   final Ref ref;
   final Request<E> req;
   final Source source;
-  final Source? andSource;
   final StorageNotifier storage;
-  final Set<Request> relationshipRequests = {};
-  final List<Request> mergedRelationshipRequests = [];
+
+  /// Tracks model.id -> event.id for processed models.
+  /// Used to detect updated replaceable models (same model.id, new event.id)
+  /// which need their relationships re-queried.
+  /// Bounded: one entry per model, not per event.
+  final Map<String, String> _processedModelEventIds = {};
+
+  /// Tracks streaming nested query requests (by Request equality, before prefixing).
+  /// Maps the unprefixed Request to its prefixed version for cancellation.
+  final Map<Request, Request> _streamingRequestToPrefixed = {};
+
+  /// All relationship requests that have been issued (for cancellation).
+  final List<Request> _relationshipRequests = [];
+
+  /// Exposed for testing - all relationship requests issued.
+  List<Request> get relationshipRequests => _relationshipRequests;
+
+  /// Counter for total relationship queries issued (for testing).
+  /// Unlike relationshipRequests.length, this only increases.
+  int _totalRelationshipQueriesIssued = 0;
+
+  /// Exposed for testing - total relationship queries issued.
+  int get totalRelationshipQueriesIssued => _totalRelationshipQueriesIssued;
+
+  /// Tracks nested queries with `and` callbacks, keyed by their prefixed request.
+  /// When relationship data arrives via subscription, we look up the NestedQuery
+  /// to process its nested callbacks. Stores (NestedQuery, resolvedSource) tuple
+  /// so deeply nested queries inherit source from their parent.
+  final Map<String, (NestedQuery, Source)> _pendingNestedCallbacks = {};
+
+  /// For RemoteSource: tracks IDs that arrived via our subscription.
+  /// Only these IDs are emitted (excludes pre-existing local data).
+  final Set<String> _arrivedViaSubscription = {};
 
   /// The parent subscription ID, used for relationship queries
   late final String _parentSubscriptionId;
@@ -171,7 +221,17 @@ class RequestNotifier<E extends Model<dynamic>>
   /// Timer for responseTimeout enforcement
   Timer? _responseTimeoutTimer;
 
-  RequestNotifier(this.ref, this.req, Source? source, [this.andSource])
+  /// Whether EOSE has been received for the primary query.
+  /// Used to keep StorageLoading until initial load completes for LocalAndRemoteSource.
+  bool _eoseReceived = false;
+
+  /// Guard: prevent concurrent refreshes
+  bool _isRefreshing = false;
+
+  /// Guard: prevent re-entrant relationship processing
+  bool _isProcessingRelationships = false;
+
+  RequestNotifier(this.ref, this.req, Source? source)
     : storage = ref.read(storageNotifierProvider.notifier),
       source =
           source ??
@@ -188,9 +248,12 @@ class RequestNotifier<E extends Model<dynamic>>
     ref.onDispose(() async {
       _responseTimeoutTimer?.cancel();
       await storage.cancel(req);
-      await Future.wait(
-        mergedRelationshipRequests.map((r) => storage.cancel(r)),
-      );
+      await Future.wait(_relationshipRequests.map((r) => storage.cancel(r)));
+      // Clean up tracking structures
+      _processedModelEventIds.clear();
+      _streamingRequestToPrefixed.clear();
+      _pendingNestedCallbacks.clear();
+      _arrivedViaSubscription.clear();
     });
   }
 
@@ -201,6 +264,7 @@ class RequestNotifier<E extends Model<dynamic>>
     _responseTimeoutTimer = Timer(storage.config.responseTimeout, () {
       if (!mounted) return;
       if (state is StorageLoading) {
+        _eoseReceived = true;
         state = StorageData(state.models);
       }
     });
@@ -221,35 +285,44 @@ class RequestNotifier<E extends Model<dynamic>>
           if (remoteSource.cachedFor != null &&
               storage.isCacheValid(req, remoteSource.cachedFor!)) {
             // Cache is valid, just emit local data (even if empty)
+            _eoseReceived = true;
             if (local.isEmpty && state is StorageLoading) {
               _emit([]);
+            } else {
+              _emit(local);
             }
             return;
           }
 
-          // Fire remote query via buffer. Per-EOSE updates arrive via
-          // InternalStorageData notifications caught by _startSubscription.
-          final remoteModels = await _bufferRemoteQuery(req, remoteSource);
+          // Fire remote query (side-effectful).
+          // Updates arrive via InternalStorageData notifications.
+          await _fireRemoteQuery(req, remoteSource);
 
-          // Only update cache timestamp if we got results - don't cache empty
-          if (remoteSource.cachedFor != null && remoteModels.isNotEmpty) {
+          // EOSE received - now we can emit StorageData
+          _eoseReceived = true;
+
+          // Update cache timestamp after remote query completes
+          if (remoteSource.cachedFor != null) {
             storage.updateCacheTimestamp(req);
           }
 
-          // Final refresh after all EOSEs complete.
-          // For streaming: only refresh if still loading (handles empty EOSE)
-          if (mounted && (!remoteSource.stream || state is StorageLoading)) {
+          // Final refresh now emits StorageData
+          if (mounted) {
             await _refreshFromLocal();
           }
 
         case final RemoteSource remoteSource:
-          final models = await _bufferRemoteQuery(req, remoteSource);
-
+          // Fire remote query and use returned models directly.
+          // For stream: false, InternalStorageData notifications aren't sent,
+          // so we must use the models returned from the query.
+          final models = await _fireRemoteQuery(req, remoteSource);
           if (mounted) {
-            if (models.isNotEmpty) {
-              _emitIncremental(models.cast<E>());
+            final typedModels = models.whereType<E>().toList();
+            if (typedModels.isNotEmpty) {
+              // Track arrived IDs for consistency with streaming behavior
+              _arrivedViaSubscription.addAll(typedModels.map((m) => m.id));
+              _emitIncremental(typedModels);
             } else if (state is StorageLoading) {
-              // After EOSE with no models, transition to empty data
               _emit([]);
             }
           }
@@ -261,16 +334,38 @@ class RequestNotifier<E extends Model<dynamic>>
     }
   }
 
-  /// Buffer a remote query for batched execution.
-  Future<List<Model<dynamic>>> _bufferRemoteQuery(
+  /// Fire a remote query and return the models.
+  ///
+  /// For non-buffered queries (RemoteSource, streaming LocalAndRemoteSource),
+  /// returns the actual models from the query. For buffered queries
+  /// (LocalAndRemoteSource non-streaming), returns empty list since those
+  /// notifiers refresh from local storage via InternalStorageData.
+  Future<List<Model<dynamic>>> _fireRemoteQuery(
     Request request,
     RemoteSource source,
   ) {
-    // Extract prefix from subscription ID (everything before the last -number)
     final subId = request.subscriptionId;
     final lastDash = subId.lastIndexOf('-');
     final prefix = lastDash > 0 ? subId.substring(0, lastDash) : null;
     return _getQueryBuffer(storage).bufferQuery(request, source, prefix);
+  }
+
+  /// Check if an incoming subscription ID matches our subscription prefix.
+  /// Used for RemoteSource where the buffer/storage may generate a different
+  /// subscription ID suffix while preserving the prefix.
+  bool _matchesByPrefix(String? incomingSubId) {
+    if (incomingSubId == null) return false;
+
+    final ourSubId = req.subscriptionId;
+    final ourLastDash = ourSubId.lastIndexOf('-');
+    if (ourLastDash <= 0) {
+      // No dash in our ID, fall back to exact match
+      return incomingSubId == ourSubId;
+    }
+
+    final ourPrefix = ourSubId.substring(0, ourLastDash);
+    // Check if incoming ID starts with our prefix followed by a dash
+    return incomingSubId.startsWith('$ourPrefix-');
   }
 
   /// Listen for storage updates and refresh models accordingly.
@@ -278,11 +373,24 @@ class RequestNotifier<E extends Model<dynamic>>
     final sub = ref.listen(storageNotifierProvider, (_, storageState) async {
       if (!mounted) return;
       if (storageState is! InternalStorageData) return;
-      if (storageState.updatedIds.isEmpty) return;
 
       final isOurSubscription =
           storageState.req?.subscriptionId == req.subscriptionId;
       final isGeneralUpdate = storageState.req == null;
+
+      // For non-RemoteSource, skip empty updates
+      // For RemoteSource, empty updates signal "query completed with no results"
+      if (storageState.updatedIds.isEmpty && source is! RemoteSource) return;
+      if (storageState.updatedIds.isEmpty && !isOurSubscription) return;
+
+      // Check if this is a relationship update and process nested callbacks
+      final relSubId = storageState.req?.subscriptionId;
+      if (relSubId != null && _pendingNestedCallbacks.containsKey(relSubId)) {
+        await _processNestedCallbacksForUpdate(
+          relSubId,
+          storageState.updatedIds,
+        );
+      }
 
       switch (source) {
         // LocalAndRemoteSource must come before RemoteSource (it's a subclass)
@@ -292,23 +400,56 @@ class RequestNotifier<E extends Model<dynamic>>
             await _refreshFromLocal();
           } else if (state is! StorageLoading) {
             // Check if update affects our models or relationships
-            final isRelationshipUpdate = mergedRelationshipRequests.any(
-              (r) => r.subscriptionId == storageState.req?.subscriptionId,
-            );
-            if (isRelationshipUpdate ||
+            if (_isRelationshipUpdate(storageState.req) ||
                 _affectsOurModels(storageState.updatedIds)) {
               await _refreshFromLocal();
             }
           }
 
         case RemoteSource():
-          // RemoteSource only cares about its own subscription
-          if (!isOurSubscription) return;
-          await _fetchByIds(storageState.updatedIds);
+          // RemoteSource: check by prefix since the buffer/storage may generate
+          // a different subscription ID suffix while preserving the prefix.
+          // This happens because _fireRemoteQuery extracts the prefix and the
+          // buffer/storage may create a new subscription ID with that prefix.
+          if (!_matchesByPrefix(storageState.req?.subscriptionId)) return;
+          // Track arrived IDs
+          _arrivedViaSubscription.addAll(storageState.updatedIds);
+          // Fetch arrived models, or transition to empty data if none arrived
+          if (_arrivedViaSubscription.isEmpty) {
+            // Query completed with no results - transition to empty data
+            if (state is StorageLoading) {
+              _emit([]);
+            }
+          } else {
+            await _fetchArrivedModels();
+          }
       }
     });
 
     ref.onDispose(() => sub.close());
+  }
+
+  /// Process nested `and` callbacks when relationship data arrives via subscription.
+  Future<void> _processNestedCallbacksForUpdate(
+    String subscriptionId,
+    Set<String> updatedIds,
+  ) async {
+    final entry = _pendingNestedCallbacks[subscriptionId];
+    if (entry == null) return;
+    final (nq, parentSource) = entry;
+    if (nq.and == null || nq.request == null) return;
+
+    // Fetch the models that match the relationship request from local storage
+    final models = await storage.query(nq.request!, source: LocalSource());
+
+    // Process nested callbacks for each model
+    for (final model in models) {
+      final nestedQueries = nq.and!(model);
+      for (final nestedNq in nestedQueries) {
+        // Pass parent's source so deeply nested queries inherit from parent
+        _executeNestedQuery(nestedNq, parentResolvedSource: parentSource);
+      }
+    }
   }
 
   /// Check if any of the updated IDs affect models we're tracking.
@@ -320,17 +461,37 @@ class RequestNotifier<E extends Model<dynamic>>
     );
   }
 
-  /// Emit models and process relationships.
+  /// Check if update is from one of our relationship subscriptions.
+  bool _isRelationshipUpdate(Request? updateReq) {
+    if (updateReq == null) return false;
+    return _relationshipRequests.any(
+      (r) => r.subscriptionId == updateReq.subscriptionId,
+    );
+  }
+
+  /// Emit models and process relationships for new/updated models.
   void _emit(List<E> models) {
     _processNewRelationships(models);
     if (!mounted) return;
     // Cancel timeout timer since we're transitioning to data state
     _responseTimeoutTimer?.cancel();
-    state = StorageData(models.toSet().sortByCreatedAt());
+
+    final sorted = models.toSet().sortByCreatedAt();
+
+    // Stay in StorageLoading until EOSE for LocalAndRemoteSource
+    if (source is LocalAndRemoteSource && !_eoseReceived) {
+      state = StorageLoading(sorted);
+    } else {
+      state = StorageData(sorted);
+    }
   }
 
   /// Refresh all matching models from local storage.
   Future<void> _refreshFromLocal() async {
+    // Guard against concurrent refreshes
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+
     try {
       final models = await storage.query(req, source: LocalSource());
       _emit(models);
@@ -338,23 +499,35 @@ class RequestNotifier<E extends Model<dynamic>>
       if (mounted) {
         state = StorageError(state.models, exception: e, stackTrace: stack);
       }
+    } finally {
+      _isRefreshing = false;
     }
   }
 
-  /// Fetch specific models by ID (for RemoteSource).
-  /// Maintains remote-only semantics by only returning models that arrived
-  /// via our subscription, not pre-existing local data.
-  Future<void> _fetchByIds(Set<String> updatedIds) async {
+  /// Fetch models that arrived via our subscription (for RemoteSource).
+  /// Only emits models whose IDs are in _arrivedViaSubscription.
+  Future<void> _fetchArrivedModels() async {
+    if (_arrivedViaSubscription.isEmpty) return;
+
+    // Guard against concurrent refreshes
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+
     try {
-      final idRequest = Request<E>(
-        req.filters.map((f) => f.copyWith(ids: updatedIds)).toList(),
-      );
+      // Use Request.fromIds which properly handles both regular event IDs
+      // and addressable IDs (kind:pubkey:d-tag format for replaceables).
+      // This avoids the bug where copyWith(ids: addressableIds) creates
+      // an AND filter that can't match (e.g., kinds:[0] AND ids:["0:abc:"]).
+      final idRequest = Request<E>.fromIds(_arrivedViaSubscription);
       final models = await storage.query(idRequest, source: LocalSource());
+
       _emitIncremental(models);
     } catch (e, stack) {
       if (mounted) {
         state = StorageError(state.models, exception: e, stackTrace: stack);
       }
+    } finally {
+      _isRefreshing = false;
     }
   }
 
@@ -375,95 +548,215 @@ class RequestNotifier<E extends Model<dynamic>>
     state = StorageData(existing.values.toSet().sortByCreatedAt());
   }
 
-  List<Relationship> _getRelationshipsFrom(Iterable<Model<dynamic>> models) {
-    final andFns = req.filters.map((f) => f.and).nonNulls;
-    return [
-      for (final andFn in andFns)
-        for (final m in models) ...andFn(m).nonNulls,
-    ];
+  /// Process and query relationships for the given models.
+  ///
+  /// Only processes nested queries for NEW or UPDATED models (different event.id).
+  /// Unchanged models are skipped - their relationships haven't changed.
+  ///
+  /// Nested queries are collected and deduplicated before issuing:
+  /// - Streaming: skip if already streaming (by Request equality)
+  /// - Non-streaming: go through buffer for merging
+  void _processNewRelationships(Iterable<Model<dynamic>> models) {
+    // Guard against re-entrant processing
+    if (_isProcessingRelationships) return;
+    _isProcessingRelationships = true;
+
+    try {
+      final andFns = req.filters.map((f) => f.and).nonNulls.toList();
+      if (andFns.isEmpty) return;
+
+      // Collect all nested queries from new/updated models
+      final nestedQueries = <NestedQuery>[];
+
+      for (final m in models) {
+        final previousEventId = _processedModelEventIds[m.id];
+        final isNewOrUpdated =
+            previousEventId == null || previousEventId != m.event.id;
+
+        // Skip unchanged models - their relationships haven't changed
+        if (!isNewOrUpdated) continue;
+
+        _processedModelEventIds[m.id] = m.event.id;
+
+        // Collect nested queries for this model
+        for (final andFn in andFns) {
+          nestedQueries.addAll(andFn(m));
+        }
+      }
+
+      // Deduplicate by Request equality before issuing
+      final seen = <Request>{};
+      for (final nq in nestedQueries) {
+        if (nq.request == null) continue;
+        if (seen.contains(nq.request)) continue;
+        seen.add(nq.request!);
+        _executeNestedQuery(nq);
+      }
+    } finally {
+      _isProcessingRelationships = false;
+    }
   }
 
-  /// Process and query new relationships for the given models.
+  /// Execute a single nested query with its specific source.
   ///
-  /// Relationship queries are sent to the global buffer which batches
-  /// them with other concurrent queries before sending to relays.
-  void _processNewRelationships(Iterable<Model<dynamic>> models) {
-    final relationshipSource = andSource ?? source;
+  /// Called only for new/updated models. Requests are already deduplicated
+  /// by the caller, but streaming requests are also tracked to avoid
+  /// duplicate subscriptions across flushes.
+  ///
+  /// [parentResolvedSource] is the resolved source from the parent nested query.
+  /// If provided, nested queries without explicit source inherit from parent,
+  /// not from the outer query. This enables proper inheritance chains like:
+  /// outer(stream:true) -> nested(stream:false) -> nested-of-nested(inherits stream:false)
+  void _executeNestedQuery(NestedQuery nq, {Source? parentResolvedSource}) {
+    final request = nq.request;
+    if (request == null || request.filters.isEmpty) return;
 
-    if (relationshipSource is! RemoteSource) {
-      return;
+    // Resolve source: explicit > parent > outer
+    final nestedSource = nq.source ?? parentResolvedSource ?? source;
+
+    // Only execute remote queries
+    if (nestedSource is! RemoteSource) return;
+
+    final isStreaming = nestedSource.stream;
+
+    // For streaming: if already streaming this request, close old subscription
+    // (model must have updated for us to reach here)
+    final existingPrefixed = _streamingRequestToPrefixed[request];
+    if (existingPrefixed != null && isStreaming) {
+      storage.cancel(existingPrefixed);
+      _relationshipRequests.remove(existingPrefixed);
+      _streamingRequestToPrefixed.remove(request);
+      _pendingNestedCallbacks.remove(existingPrefixed.subscriptionId);
     }
 
-    _executeRelationshipQueries(models);
+    // Resolve subscription prefix
+    final prefix = nq.subscriptionPrefix ?? '$_parentSubscriptionId--rel';
+    final prefixedRequest = request.filters.toRequest(
+      subscriptionPrefix: prefix,
+    );
+
+    // Track for cancellation and testing
+    _relationshipRequests.add(prefixedRequest);
+    _totalRelationshipQueriesIssued++;
+
+    // Track streaming requests
+    if (isStreaming) {
+      _streamingRequestToPrefixed[request] = prefixedRequest;
+    }
+
+    // Track nested queries with `and` callbacks for subscription-based updates
+    // Store both the query and resolved source for proper inheritance
+    if (nq.and != null) {
+      _pendingNestedCallbacks[prefixedRequest.subscriptionId] = (
+        nq,
+        nestedSource,
+      );
+    }
+
+    // Fire query (side-effectful)
+    _fireRemoteQuery(prefixedRequest, nestedSource)
+        .then((_) {
+          // For non-streaming, clean up after completion
+          if (!isStreaming) {
+            _pendingNestedCallbacks.remove(prefixedRequest.subscriptionId);
+          }
+
+          // Process nested `and` callbacks if present
+          if (nq.and != null) {
+            _processNestedAndCallbacks(nq, prefixedRequest, nestedSource);
+          }
+
+          // For non-streaming LocalAndRemoteSource, refresh after EOSE
+          if (mounted && !isStreaming && nestedSource is LocalAndRemoteSource) {
+            _refreshFromLocal();
+          }
+        })
+        .catchError((e, stack) {
+          // Clean up on error
+          _pendingNestedCallbacks.remove(prefixedRequest.subscriptionId);
+          if (isStreaming) {
+            _streamingRequestToPrefixed.remove(request);
+          }
+
+          if (mounted) {
+            state = StorageError(state.models, exception: e, stackTrace: stack);
+          }
+        });
   }
 
-  /// Execute relationship queries for the given models.
-  void _executeRelationshipQueries(Iterable<Model<dynamic>> models) {
-    final newRelationshipRequests = [
-      for (final r in _getRelationshipsFrom(models))
-        if (!relationshipRequests.contains(r.req)) r.req,
-    ].nonNulls;
+  /// Process nested `and` callbacks after a relationship query completes.
+  ///
+  /// [parentResolvedSource] is the resolved source of the parent nested query,
+  /// used for source inheritance by nested-of-nested queries.
+  Future<void> _processNestedAndCallbacks(
+    NestedQuery nq,
+    Request prefixedRequest,
+    Source parentResolvedSource,
+  ) async {
+    if (nq.and == null || nq.request == null) return;
 
-    if (newRelationshipRequests.isEmpty) return;
+    // Fetch relationship models from local storage
+    final models = await storage.query(nq.request!, source: LocalSource());
 
-    relationshipRequests.addAll(newRelationshipRequests);
-
-    final mergedRequest = RequestFilter.mergeMultiple(
-      newRelationshipRequests.expand((r) => r.filters).toList(),
-    ).toRequest(subscriptionPrefix: '$_parentSubscriptionId--rel');
-
-    final relationshipSource = andSource ?? source;
-
-    if (mergedRequest.filters.isNotEmpty &&
-        relationshipSource is RemoteSource) {
-      mergedRelationshipRequests.add(mergedRequest);
-
-      _bufferRemoteQuery(mergedRequest, relationshipSource)
-          .then((_) {
-            // For non-streaming, refresh after EOSE
-            if (mounted && !relationshipSource.stream) {
-              switch (relationshipSource) {
-                case LocalAndRemoteSource():
-                  _refreshFromLocal();
-                case RemoteSource():
-                  // Signal completion for pure RemoteSource relationships
-                  if (state is StorageLoading) {
-                    state = StorageData(state.models);
-                  }
-              }
-            }
-          })
-          .catchError((e, stack) {
-            print('Relationship query error: $e\n$stack');
-            if (mounted) _refreshFromLocal();
-          });
+    for (final model in models) {
+      final nestedQueries = nq.and!(model);
+      for (final nestedNq in nestedQueries) {
+        // Pass parent's source so deeply nested queries inherit from parent, not outer
+        _executeNestedQuery(
+          nestedNq,
+          parentResolvedSource: parentResolvedSource,
+        );
+      }
     }
   }
 }
 
 final Map<
-  RequestFilter,
+  _ProviderCacheKey,
   AutoDisposeStateNotifierProvider<RequestNotifier, StorageState>
 >
 _typedProviderCache = {};
+
+/// Cache key that includes filter, source, and subscription prefix.
+class _ProviderCacheKey {
+  final RequestFilter filter;
+  final Source? source;
+  final String? subscriptionPrefix;
+
+  _ProviderCacheKey(this.filter, this.source, this.subscriptionPrefix);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ProviderCacheKey &&
+      other.filter == filter &&
+      other.source == source &&
+      other.subscriptionPrefix == subscriptionPrefix;
+
+  @override
+  int get hashCode => Object.hash(filter, source, subscriptionPrefix);
+}
 
 /// Family of notifier providers, one per request.
 /// Manually caching since a factory function is needed to pass the type.
 _requestNotifierProvider<E extends Model<dynamic>>(
   RequestFilter<E> filter,
   Source? source,
-  Source? andSource,
   String? subscriptionPrefix,
-) => _typedProviderCache[filter] ??= StateNotifierProvider.autoDispose
-    .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>((ref, req) {
-      ref.onDispose(() => _typedProviderCache.remove(filter));
-      return RequestNotifier(
+) {
+  final cacheKey = _ProviderCacheKey(filter, source, subscriptionPrefix);
+  return _typedProviderCache[cacheKey] ??= StateNotifierProvider.autoDispose
+      .family<RequestNotifier<E>, StorageState<E>, RequestFilter<E>>((
         ref,
-        filter.toRequest(subscriptionPrefix: subscriptionPrefix),
-        source,
-        andSource,
-      );
-    })(filter);
+        req,
+      ) {
+        ref.onDispose(() => _typedProviderCache.remove(cacheKey));
+        return RequestNotifier(
+          ref,
+          filter.toRequest(subscriptionPrefix: subscriptionPrefix),
+          source,
+        );
+      })(filter);
+}
 
 /// Query for models of any kind.
 ///
@@ -478,7 +771,6 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
   DateTime? until,
   int? limit,
   Source? source,
-  Source? andSource,
   String? subscriptionPrefix,
   AndFunction and,
   WhereFunction where,
@@ -497,12 +789,7 @@ AutoDisposeStateNotifierProvider<RequestNotifier, StorageState> queryKinds({
     and: and,
     schemaFilter: schemaFilter,
   );
-  return _requestNotifierProvider(
-    filter,
-    source,
-    andSource,
-    subscriptionPrefix,
-  );
+  return _requestNotifierProvider(filter, source, subscriptionPrefix);
 }
 
 /// Query for models of a specific type [E].
@@ -518,7 +805,6 @@ query<E extends Model<E>>({
   DateTime? until,
   int? limit,
   Source? source,
-  Source? andSource,
   String? subscriptionPrefix,
   WhereFunction<E> where,
   AndFunction<E> and,
@@ -536,37 +822,20 @@ query<E extends Model<E>>({
     and: _castAnd(and),
     schemaFilter: schemaFilter,
   );
-  return _requestNotifierProvider<E>(
-    filter,
-    source,
-    andSource,
-    subscriptionPrefix,
-  );
+  return _requestNotifierProvider<E>(filter, source, subscriptionPrefix);
 }
 
 /// Watch a specific model instance.
 ///
 /// If [source] is not provided, uses [StorageConfiguration.defaultQuerySource].
-AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>>
-model<E extends Model<E>>(
-  E model, {
-  Source? source,
-  Source? andSource,
-  String? subscriptionPrefix,
-  AndFunction<E> and,
-  bool remote = true,
-}) {
+AutoDisposeStateNotifierProvider<RequestNotifier<E>, StorageState<E>> model<
+  E extends Model<E>
+>(E model, {Source? source, String? subscriptionPrefix, AndFunction<E> and}) {
   final filter = RequestFilter<E>(ids: {model.id}, and: _castAnd(and));
-  return _requestNotifierProvider<E>(
-    filter,
-    source,
-    andSource,
-    subscriptionPrefix,
-  );
+  return _requestNotifierProvider<E>(filter, source, subscriptionPrefix);
 }
 
-typedef AndFunction<E extends Model<dynamic>> =
-    Set<Relationship<Model>?> Function(E)?;
+typedef AndFunction<E extends Model<dynamic>> = Set<NestedQuery> Function(E)?;
 
 typedef WhereFunction<E extends Model<dynamic>> = bool Function(E)?;
 

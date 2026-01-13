@@ -12,11 +12,11 @@ All notable changes to this project will be documented in this file.
   - Example: `Request(filters, subscriptionPrefix: 'app-detail')` generates IDs like `app-detail-123456`
   - Purely for debugging convenience and doesn't affect functionality
 
-- **`andSource` parameter for independent relationship source control**: The `query()`, `queryKinds()`, and `model()` functions now accept an optional `andSource` parameter that allows you to specify a different source configuration for relationship queries (via the `and` parameter).
-  - Main queries and their relationships can now use different `stream`, `background`, relay groups, or even source types
-  - Example: Main query can use `stream: false` while relationships use `stream: true`
-  - Example: Main query can use `LocalSource()` while relationships fetch fresh data with `LocalAndRemoteSource()`
-  - If `andSource` is not provided, relationships continue to inherit from the main `source` (backward compatible)
+- **Per-relationship source control via `NestedQuery`**: The `and` callback now returns `Set<NestedQuery>` instead of `Set<Relationship>`. Use `.query()` on relationships to create `NestedQuery` descriptors with optional per-relationship source overrides.
+  - Each relationship can specify its own `source`, `subscriptionPrefix`, and nested `and` callback
+  - Example: `app.latestRelease.query(source: RemoteSource(stream: false))`
+  - If source is not specified, inherits from outer query (backward compatible behavior)
+  - Arbitrary nesting supported: `app.latestRelease.query(and: (r) => {r.signer.query()})`
 
 ### Fixed
 - **`stream: false` now properly waits for EOSE**: When using `stream: false` in query sources, the query now correctly waits for EOSE (End of Stored Events) before returning, regardless of the `background` flag setting. This ensures that `and` relationships are properly fetched for all models, not just those already in local storage.

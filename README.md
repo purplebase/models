@@ -23,7 +23,7 @@ Widget build(BuildContext context, WidgetRef ref) {
     query<Note>(
       limit: 10,
       authors: {npub1, npub2, npub3},
-      and: (note) => {note.author, note.reactions, note.zaps},
+      and: (note) => {note.author.query(), note.reactions.query(), note.zaps.query()},
     ),
   );
 
@@ -86,16 +86,15 @@ final reactions = note.reactions.toList();
 final zaps = note.zaps.toList();
 ```
 
-Relationships support nested loading via the `and` parameter:
+Relationships support nested loading via the `and` parameter, which returns `NestedQuery` descriptors:
 
 ```dart
 final state = ref.watch(
   query<App>(
     limit: 20,
     and: (app) => {
-      app.latestRelease,
-      if (app.latestRelease.value != null)
-        app.latestRelease.value!.latestMetadata,
+      app.latestRelease.query(),
+      app.author.query(source: RemoteSource(relays: {'social'})),
     },
   ),
 );
@@ -114,7 +113,7 @@ final notes = ref.watch(
     limit: 50,
     since: DateTime.now().subtract(Duration(days: 7)),
     tags: {'#t': {'nostr', 'dart'}},
-    and: (note) => {note.author, note.reactions},
+    and: (note) => {note.author.query(), note.reactions.query()},
   ),
 );
 ```
@@ -135,7 +134,7 @@ final mixed = ref.watch(
 
 ```dart
 final noteState = ref.watch(
-  model<Note>(existingNote, and: (n) => {n.author, n.reactions}),
+  model<Note>(existingNote, and: (n) => {n.author.query(), n.reactions.query()}),
 );
 ```
 
@@ -181,15 +180,16 @@ The `relays` parameter accepts:
 - **Label**: Looks up a `RelayList` by label (e.g., 'AppCatalog' → kind 10067)
 - **null**: TODO - will implement outbox lookup (NIP-65)
 
-Relationships can use a different source than the main query:
+Each relationship can specify its own source:
 
 ```dart
 ref.watch(
   query<Note>(
     authors: {pubkey},
     source: RemoteSource(stream: false),      // One-time fetch for notes
-    andSource: RemoteSource(stream: true),    // Keep profiles streaming
-    and: (note) => {note.author},
+    and: (note) => {
+      note.author.query(source: RemoteSource(stream: true)),  // Keep profile streaming
+    },
   ),
 );
 ```
@@ -230,7 +230,7 @@ final verified = ref.watch(
   query<Note>(
     authors: allAuthors,
     where: (note) => note.author.value?.nip05 != null,
-    and: (note) => {note.author},
+    and: (note) => {note.author.query()},
   ),
 );
 
@@ -332,7 +332,7 @@ final config = StorageConfiguration(
   defaultQuerySource: LocalAndRemoteSource(stream: false),
   idleTimeout: Duration(minutes: 5),
   responseTimeout: Duration(seconds: 4),
-  streamingBufferWindow: Duration(seconds: 2),
+  streamingBufferDuration: Duration(seconds: 2),
   keepMaxModels: 20000,
 );
 ```

@@ -53,11 +53,11 @@ Both provide synchronous (`value`, `toList()`) and asynchronous (`valueAsync`, `
 
 ### Relationship Discovery
 
-The `and` parameter in queries returns a `Set<Relationship>` which the system uses to:
+The `and` parameter in queries returns a `Set<NestedQuery>` which the system uses to:
 
-1. Extract `Request` objects from each relationship
-2. Execute those requests with the configured `andSource`
-3. Re-evaluate the function when primary models arrive (enabling nested relationships)
+1. Extract `Request` objects and per-relationship `Source` from each `NestedQuery`
+2. Execute those requests (inheriting outer source if not specified)
+3. Re-evaluate the function on every flush (enabling nested relationship discovery)
 
 ## Query Execution Pipeline
 
@@ -238,7 +238,7 @@ class HardwareWalletSigner extends Signer {
 - **Metadata Caching**: Expensive computations stored in `ImmutableEvent.metadata`
 - **Signature Stripping**: `keepSignatures: false` reduces storage size
 - **Query Deduplication**: Relationship queries deduplicated across re-evaluations
-- **Streaming Buffer**: `streamingBufferWindow` batches rapid relay events
+- **Streaming Buffer**: `streamingBufferDuration` batches rapid relay events
 - **Model Eviction**: `keepMaxModels` prevents unbounded growth
 
 ## Testing

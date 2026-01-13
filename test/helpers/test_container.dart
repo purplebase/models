@@ -42,7 +42,7 @@ extension TestContainerExt on ProviderContainer {
 /// Each container has its own isolated in-memory storage,
 /// so tests can run in parallel.
 ///
-/// Note: [requestBufferDuration] and [streamingBufferWindow] are set to
+/// Note: [requestBufferDuration] and [streamingBufferDuration] are set to
 /// [Duration.zero] by default for predictable test behavior, unless
 /// explicitly overridden in the passed [config].
 Future<ProviderContainer> createTestContainer({
@@ -61,7 +61,7 @@ Future<ProviderContainer> createTestContainer({
         config?.defaultQuerySource ?? const LocalAndRemoteSource(stream: false),
     idleTimeout: config?.idleTimeout ?? const Duration(minutes: 5),
     responseTimeout: config?.responseTimeout ?? const Duration(seconds: 4),
-    streamingBufferWindow: config?.streamingBufferWindow ?? Duration.zero,
+    streamingBufferDuration: config?.streamingBufferDuration ?? Duration.zero,
     keepMaxModels: config?.keepMaxModels ?? 1000,
     requestBufferDuration: config?.requestBufferDuration ?? Duration.zero,
   );
@@ -93,8 +93,15 @@ class StateNotifierProviderTester {
     return result;
   }
 
-  Future<dynamic> expectModels(Matcher m) async {
+  /// Expect StorageData with matching models (query is complete)
+  Future<dynamic> expectData(Matcher m) async {
     return expect(isA<StorageData>().having((s) => s.models, 'models', m));
+  }
+
+  /// Expect any state (StorageLoading or StorageData) with matching models.
+  /// Use this for LocalAndRemoteSource which stays in StorageLoading until EOSE.
+  Future<dynamic> expectModels(Matcher m) async {
+    return expect(isA<StorageState>().having((s) => s.models, 'models', m));
   }
 
   void dispose() {
@@ -125,8 +132,15 @@ class ProviderTester {
     return result;
   }
 
-  Future<dynamic> expectModels(Matcher m) async {
+  /// Expect StorageData with matching models (query is complete)
+  Future<dynamic> expectData(Matcher m) async {
     return expect(isA<StorageData>().having((s) => s.models, 'models', m));
+  }
+
+  /// Expect any state (StorageLoading or StorageData) with matching models.
+  /// Use this for LocalAndRemoteSource which stays in StorageLoading until EOSE.
+  Future<dynamic> expectModels(Matcher m) async {
+    return expect(isA<StorageState>().having((s) => s.models, 'models', m));
   }
 
   void dispose() {
