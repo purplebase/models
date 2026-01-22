@@ -401,10 +401,18 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> cancel([Request? req]) async {
-    if (req != null) {
-      _subscriptions.remove(req.subscriptionId);
-    } else {
+  Future<void> cancel(Request req) async {
+    _subscriptions.remove(req.subscriptionId);
+  }
+
+  @override
+  Future<void> closeSubscriptions({required dynamic relays}) async {
+    // Resolve relay URLs - in dummy storage we just clear all subscriptions
+    // since we don't track per-relay state
+    final relayUrls = await resolveRelays(relays);
+    if (relayUrls.isNotEmpty) {
+      // For dummy storage, we don't track which relays each subscription uses,
+      // so we just clear all subscriptions when any relay is specified
       _subscriptions.clear();
     }
   }

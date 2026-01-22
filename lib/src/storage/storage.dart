@@ -492,6 +492,31 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
   /// done on dispose as we need to pass the request).
   Future<void> cancel(Request req);
 
+  /// Close subscriptions to specified relays without affecting other relays.
+  ///
+  /// Uses the same relay resolution as [RemoteSource.relays]:
+  /// - URL (wss://...) → close that specific relay
+  /// - Label (e.g., 'social') → resolve via RelayList and close those relays
+  /// - Iterable → resolve each item and close all matching relays
+  ///
+  /// If a subscription uses 3 relays and 1 is closed, the other 2 continue.
+  /// If all relays for a subscription are closed, the subscription is cancelled.
+  ///
+  /// Note: To close ALL subscriptions regardless of relay, use [disconnect].
+  ///
+  /// Example:
+  /// ```dart
+  /// // Close a specific relay
+  /// await storage.closeSubscriptions(relays: 'wss://relay.example.com');
+  ///
+  /// // Close all relays in the 'social' group
+  /// await storage.closeSubscriptions(relays: 'social');
+  ///
+  /// // Close multiple specific relays
+  /// await storage.closeSubscriptions(relays: {'wss://relay1.com', 'wss://relay2.com'});
+  /// ```
+  Future<void> closeSubscriptions({required dynamic relays});
+
   @override
   void dispose() {
     if (isInitialized) {
