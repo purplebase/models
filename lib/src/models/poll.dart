@@ -25,16 +25,11 @@ enum PollType {
 /// Poll represents a poll event (kind 1068) as specified in NIP-88.
 /// Polls allow users to create questions with multiple choice options.
 class Poll extends RegularModel<Poll> {
-  late final BelongsTo<Profile> author;
   late final HasMany<PollResponse> responses;
   late final BelongsTo<Model> targetModel;
 
   Poll.fromMap(super.map, super.ref) : super.fromMap() {
-    // Author relationship (inherited from Model but we set it up here for clarity)
-    author = BelongsTo(
-      ref,
-      RequestFilter<Profile>(authors: {event.pubkey}).toRequest(),
-    );
+    // Note: author relationship is inherited from Model base class
 
     // All responses to this poll
     responses = HasMany(
