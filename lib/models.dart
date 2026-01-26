@@ -66,6 +66,8 @@ part 'src/models/video.dart';
 part 'src/models/reporting.dart';
 part 'src/models/calendar_events.dart';
 part 'src/models/voice_message.dart';
+part 'src/models/poll.dart';
+part 'src/models/poll_response.dart';
 
 part 'src/models/nwc.dart';
 part 'src/nwc/nwc_connection.dart';
