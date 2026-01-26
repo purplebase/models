@@ -21,20 +21,23 @@ class PollResponse extends RegularModel<PollResponse> {
   /// The poll event ID this response is for
   String? get pollId => event.getFirstTagValue('e');
 
-  /// Selected option IDs from response tags
+  /// Selected option IDs from response tags (preserves tag order)
   ///
-  /// For singlechoice polls, only the first response is considered valid.
-  /// For multiplechoice polls, all unique response IDs are valid.
-  Set<String> get selectedOptionIds {
-    final responseTags = event.getTagSet('response');
-    return responseTags
-        .where((tag) => tag.length >= 2)
+  /// Returns a List to preserve the order of response tags in the event.
+  /// For singlechoice polls, only the first response is considered valid (use [firstSelectedOptionId]).
+  /// For multiplechoice polls, all responses are valid.
+  List<String> get selectedOptionIds {
+    // Use tags directly to preserve order (getTagSet returns Set which loses order)
+    return event.tags
+        .where((tag) => tag[0] == 'response' && tag.length >= 2)
         .map((tag) => tag[1]) // tag is ["response", "option_id"]
-        .toSet();
+        .toList();
   }
 
-  /// Get the first selected option (for singlechoice polls)
-  String? get selectedOptionId {
+  /// Get the first selected option (for singlechoice polls per NIP-88)
+  ///
+  /// NIP-88 specifies that for singlechoice polls, only the first response tag counts.
+  String? get firstSelectedOptionId {
     final responses = selectedOptionIds;
     return responses.isEmpty ? null : responses.first;
   }
@@ -47,12 +50,18 @@ class PollResponse extends RegularModel<PollResponse> {
 mixin PartialPollResponseMixin on RegularPartialModel<PollResponse> {
   String? get pollId => event.getFirstTagValue('e');
 
-  Set<String> get selectedOptionIds {
-    final responseTags = event.getTagSet('response');
-    return responseTags
-        .where((tag) => tag.length >= 2)
-        .map((tag) => tag[1]) // tag is ["response", "option_id"]
-        .toSet();
+  /// Selected option IDs (preserves tag order)
+  List<String> get selectedOptionIds {
+    return event.tags
+        .where((tag) => tag[0] == 'response' && tag.length >= 2)
+        .map((tag) => tag[1])
+        .toList();
+  }
+
+  /// First selected option (for singlechoice polls per NIP-88)
+  String? get firstSelectedOptionId {
+    final responses = selectedOptionIds;
+    return responses.isEmpty ? null : responses.first;
   }
 
   /// Add a response (vote) for an option
@@ -77,16 +86,16 @@ mixin PartialPollResponseMixin on RegularPartialModel<PollResponse> {
 ///
 /// Example usage:
 /// ```dart
-/// // Single choice vote
+/// // Single choice vote (only first option counts per NIP-88)
 /// final vote = await PartialPollResponse(
 ///   poll: pollEvent,
-///   selectedOptionIds: {'option_a'},
+///   selectedOptionIds: ['option_a'],
 /// ).signWith(signer);
 ///
 /// // Multiple choice vote
 /// final multiVote = await PartialPollResponse(
 ///   poll: pollEvent,
-///   selectedOptionIds: {'option_a', 'option_c'},
+///   selectedOptionIds: ['option_a', 'option_c'],
 /// ).signWith(signer);
 /// ```
 class PartialPollResponse extends RegularPartialModel<PollResponse>
@@ -96,11 +105,13 @@ class PartialPollResponse extends RegularPartialModel<PollResponse>
   /// Creates a new poll response (vote)
   ///
   /// [poll] - The poll being voted on (required)
-  /// [selectedOptionIds] - Set of selected option IDs (required)
+  /// [selectedOptionIds] - List of selected option IDs (order matters for singlechoice)
   /// [createdAt] - Optional creation timestamp
+  ///
+  /// Note: For singlechoice polls, only the first option ID will be counted per NIP-88.
   PartialPollResponse({
     required Poll poll,
-    required Set<String> selectedOptionIds,
+    required Iterable<String> selectedOptionIds,
     DateTime? createdAt,
   }) {
     // Content is empty for poll responses per NIP-88
@@ -113,7 +124,7 @@ class PartialPollResponse extends RegularPartialModel<PollResponse>
     // Reference the poll event
     event.addTag('e', [poll.event.id]);
 
-    // Add response tags for each selected option
+    // Add response tags for each selected option (order preserved)
     for (final optionId in selectedOptionIds) {
       event.addTag('response', [optionId]);
     }
@@ -122,7 +133,7 @@ class PartialPollResponse extends RegularPartialModel<PollResponse>
   /// Creates a poll response by poll ID (when you don't have the full Poll model)
   PartialPollResponse.byPollId({
     required String pollId,
-    required Set<String> selectedOptionIds,
+    required Iterable<String> selectedOptionIds,
     DateTime? createdAt,
   }) {
     event.content = '';
@@ -134,7 +145,7 @@ class PartialPollResponse extends RegularPartialModel<PollResponse>
     // Reference the poll event by ID
     event.addTag('e', [pollId]);
 
-    // Add response tags
+    // Add response tags (order preserved)
     for (final optionId in selectedOptionIds) {
       event.addTag('response', [optionId]);
     }
