@@ -26,10 +26,10 @@ class PollResponse extends RegularModel<PollResponse> {
   /// For singlechoice polls, only the first response is considered valid.
   /// For multiplechoice polls, all unique response IDs are valid.
   Set<String> get selectedOptionIds {
-    final responseTags = event.getTagValues('response');
+    final responseTags = event.getTagSet('response');
     return responseTags
-        .where((values) => values.isNotEmpty)
-        .map((values) => values[0])
+        .where((tag) => tag.length >= 2)
+        .map((tag) => tag[1]) // tag is ["response", "option_id"]
         .toSet();
   }
 
@@ -48,10 +48,10 @@ mixin PartialPollResponseMixin on RegularPartialModel<PollResponse> {
   String? get pollId => event.getFirstTagValue('e');
 
   Set<String> get selectedOptionIds {
-    final responseTags = event.getTagValues('response');
+    final responseTags = event.getTagSet('response');
     return responseTags
-        .where((values) => values.isNotEmpty)
-        .map((values) => values[0])
+        .where((tag) => tag.length >= 2)
+        .map((tag) => tag[1]) // tag is ["response", "option_id"]
         .toSet();
   }
 

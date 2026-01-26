@@ -68,10 +68,11 @@ class Poll extends RegularModel<Poll> {
 
   /// Poll options extracted from option tags
   List<PollOption> get options {
-    final optionTags = event.getTagValues('option');
-    return optionTags.map((values) {
-      if (values.length >= 2) {
-        return PollOption(id: values[0], label: values[1]);
+    final optionTags = event.getTagSet('option');
+    return optionTags.map((tag) {
+      // tag is ["option", "id", "label"]
+      if (tag.length >= 3) {
+        return PollOption(id: tag[1], label: tag[2]);
       }
       return null;
     }).whereType<PollOption>().toList();
@@ -107,10 +108,11 @@ mixin PartialPollMixin on RegularPartialModel<Poll> {
   set content(String? value) => event.content = value ?? '';
 
   List<PollOption> get options {
-    final optionTags = event.getTagValues('option');
-    return optionTags.map((values) {
-      if (values.length >= 2) {
-        return PollOption(id: values[0], label: values[1]);
+    final optionTags = event.getTagSet('option');
+    return optionTags.map((tag) {
+      // tag is ["option", "id", "label"]
+      if (tag.length >= 3) {
+        return PollOption(id: tag[1], label: tag[2]);
       }
       return null;
     }).whereType<PollOption>().toList();
