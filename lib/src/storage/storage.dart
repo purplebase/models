@@ -164,6 +164,17 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       constructor: ShortFormPortraitVideo.fromMap,
       partialConstructor: PartialShortFormPortraitVideo.fromMap,
     );
+    // NIP-88: Polls
+    Model.register(
+      kind: 1018,
+      constructor: PollResponse.fromMap,
+      partialConstructor: PartialPollResponse.fromMap,
+    );
+    Model.register(
+      kind: 1068,
+      constructor: Poll.fromMap,
+      partialConstructor: PartialPoll.fromMap,
+    );
     Model.register(
       kind: 1063,
       constructor: FileMetadata.fromMap,
