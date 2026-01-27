@@ -447,8 +447,11 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
         source: LocalSource(),
       );
 
-      if (results.isNotEmpty && results.first is RelayList) {
-        return _resolveRelayIterable((results.first as RelayList).relays);
+      if (results.isNotEmpty) {
+        if (results.first case RelayList(:final relays, :final hasRelays)
+            when hasRelays) {
+          return _resolveRelayIterable(relays);
+        }
       }
     }
 
