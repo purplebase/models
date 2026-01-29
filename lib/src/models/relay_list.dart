@@ -116,12 +116,58 @@ class PartialSocialRelayList extends PartialRelayList<SocialRelayList> {
 ///
 /// Relays specifically for discovering and publishing app catalog entries,
 /// such as Zapstore applications.
-class AppCatalogRelayList extends RelayList<AppCatalogRelayList> {
+///
+/// **Encryption Strategy:**
+/// - Public relays are stored in `r` tags (visible to everyone)
+/// - Private relays are stored encrypted in `content` field (NIP-44)
+/// - Content is always encrypted AFTER signing (locally and on relays)
+/// - To read private relays: must explicitly decrypt using signer
+class AppCatalogRelayList extends RelayList<AppCatalogRelayList>
+    with EncryptableModel<AppCatalogRelayList> {
   AppCatalogRelayList.fromMap(super.map, super.ref) : super.fromMap();
+
+  @override
+  String getEncryptionPubkey() => event.pubkey; // Self-encryption
+
+  /// Private relay URLs (content is encrypted - will fail if not decrypted first)
+  ///
+  /// Returns empty set if content is empty or cannot be parsed.
+  /// To read after loading from storage, must decrypt first using signer.
+  Set<String> get privateRelays {
+    if (content.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(content);
+      return decoded is List ? decoded.cast<String>().toSet() : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  /// All relays (public + private, if decrypted)
+  Set<String> get allRelays => {...relays, ...privateRelays};
 }
 
 /// Manage your app catalog relay configuration.
-class PartialAppCatalogRelayList extends PartialRelayList<AppCatalogRelayList> {
+///
+/// Supports both public relays (stored in `r` tags) and private relays
+/// (encrypted in `content` field using NIP-44).
+///
+/// Example usage:
+/// ```dart
+/// // Create a public-only relay list
+/// final relayList = PartialAppCatalogRelayList(
+///   relays: {'wss://relay.zapstore.dev'},
+/// );
+///
+/// // Create a relay list with private relays
+/// final privateRelays = PartialAppCatalogRelayList.withEncryptedRelays(
+///   publicRelays: {'wss://public.relay.com'},
+///   privateRelays: {'wss://private.relay.com'},
+/// );
+/// await privateRelays.signWith(signer);
+/// ```
+class PartialAppCatalogRelayList extends PartialRelayList<AppCatalogRelayList>
+    with EncryptablePartialModel<AppCatalogRelayList> {
   PartialAppCatalogRelayList.fromMap(super.map) : super.fromMap();
 
   /// Creates a new app catalog relay list configuration
@@ -132,5 +178,60 @@ class PartialAppCatalogRelayList extends PartialRelayList<AppCatalogRelayList> {
       }
     }
   }
+
+  /// Creates a relay list with encrypted (private) relays
+  ///
+  /// [publicRelays] - Relays visible to everyone (stored in `r` tags)
+  /// [privateRelays] - Relays encrypted using NIP-44 (stored in `content`)
+  ///
+  /// The private relays will be encrypted when signed.
+  PartialAppCatalogRelayList.withEncryptedRelays({
+    Set<String>? publicRelays,
+    required Set<String> privateRelays,
+  }) {
+    if (publicRelays != null) {
+      for (final relay in publicRelays) {
+        addRelay(relay);
+      }
+    }
+    setContent(privateRelays.toList());
+  }
+
+  @override
+  String getEncryptionPubkey(Signer signer) => signer.pubkey; // Self-encryption
+
+  /// Private relay URLs (plaintext before signing, encrypted after)
+  Set<String> get privateRelays {
+    if (content.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(content);
+      return decoded is List ? decoded.cast<String>().toSet() : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  /// Set private relay URLs (plaintext until signing, then encrypted)
+  void setPrivateRelays(Set<String> relays) => setContent(relays.toList());
+
+  /// Add a relay to the private list
+  void addPrivateRelay(String relay) {
+    final current = Set<String>.from(privateRelays);
+    if (!current.contains(relay)) {
+      current.add(relay);
+      setContent(current.toList());
+    }
+  }
+
+  /// Remove a relay from the private list
+  void removePrivateRelay(String relay) {
+    final current = Set<String>.from(privateRelays);
+    if (current.remove(relay)) {
+      setContent(current.toList());
+    }
+  }
+
+  /// Clear all private relays
+  void clearPrivateRelays() => clearContent();
 }
 

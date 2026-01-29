@@ -164,6 +164,136 @@ void main() {
       expect(retrieved, hasLength(1));
       expect(retrieved.first.relays, contains('wss://stored.relay.com'));
     });
+
+    test('encrypted relay list creation with dummy signing', () {
+      final partial = PartialAppCatalogRelayList.withEncryptedRelays(
+        publicRelays: {'wss://public.relay.com'},
+        privateRelays: {'wss://private1.relay.com', 'wss://private2.relay.com'},
+      );
+
+      // Before signing: content is plaintext, privateRelays works
+      expect(partial.privateRelays, {
+        'wss://private1.relay.com',
+        'wss://private2.relay.com',
+      });
+      expect(partial.relays, {'wss://public.relay.com'});
+
+      final relayList = partial.dummySign(nielPubkey);
+
+      expect(relayList.event.kind, 10067);
+      expect(relayList.relays, {'wss://public.relay.com'});
+
+      // After signing: content is encrypted
+      expect(relayList.content.isNotEmpty, true);
+      expect(relayList.content, contains('dummy_nip44_encrypted'));
+    });
+
+    test('private relay management methods', () {
+      final partial = PartialAppCatalogRelayList();
+
+      // Add private relays
+      partial.addPrivateRelay('wss://private1.com');
+      partial.addPrivateRelay('wss://private2.com');
+
+      expect(partial.privateRelays, {
+        'wss://private1.com',
+        'wss://private2.com',
+      });
+
+      // Add duplicate (should not add again)
+      partial.addPrivateRelay('wss://private1.com');
+      expect(partial.privateRelays.length, 2);
+
+      // Remove a private relay
+      partial.removePrivateRelay('wss://private1.com');
+      expect(partial.privateRelays, {'wss://private2.com'});
+
+      // Clear all private relays
+      partial.clearPrivateRelays();
+      expect(partial.privateRelays, isEmpty);
+    });
+
+    test('mixed public and private relays', () {
+      final partial = PartialAppCatalogRelayList(
+        relays: {'wss://public.relay.com'},
+      );
+      partial.addPrivateRelay('wss://private.relay.com');
+
+      // Before signing: can access both
+      expect(partial.relays, {'wss://public.relay.com'});
+      expect(partial.privateRelays, {'wss://private.relay.com'});
+
+      final relayList = partial.dummySign(nielPubkey);
+
+      // After signing: public relays in tags, private encrypted in content
+      expect(relayList.relays, {'wss://public.relay.com'});
+      expect(relayList.content, contains('dummy_nip44_encrypted'));
+    });
+
+    test('privateRelays returns empty set when no content', () {
+      final relayList = PartialAppCatalogRelayList(
+        relays: {'wss://public.relay.com'},
+      ).dummySign(nielPubkey);
+
+      expect(relayList.privateRelays, isEmpty);
+      expect(relayList.content, isEmpty);
+    });
+
+    test('allRelays combines public and private (when decrypted)', () {
+      final partial = PartialAppCatalogRelayList.withEncryptedRelays(
+        publicRelays: {'wss://public.relay.com'},
+        privateRelays: {'wss://private.relay.com'},
+      );
+
+      // Before signing: allRelays combines both
+      // Note: After signing, privateRelays won't be accessible without decryption
+      expect(partial.relays, {'wss://public.relay.com'});
+      expect(partial.privateRelays, {'wss://private.relay.com'});
+    });
+
+    test('save and query encrypted relay list', () async {
+      final partial = PartialAppCatalogRelayList.withEncryptedRelays(
+        publicRelays: {'wss://public.relay.com'},
+        privateRelays: {'wss://secret.relay.com'},
+      );
+
+      // Before signing: privateRelays accessible
+      expect(partial.privateRelays, {'wss://secret.relay.com'});
+
+      final relayList = partial.dummySign(nielPubkey);
+
+      // After signing: content is encrypted
+      expect(relayList.content, contains('dummy_nip44_encrypted'));
+
+      await storage.save({relayList});
+
+      final retrieved = await storage.query(
+        RequestFilter<AppCatalogRelayList>(authors: {nielPubkey}).toRequest(),
+      );
+
+      expect(retrieved, hasLength(1));
+      expect(retrieved.first.relays, {'wss://public.relay.com'});
+      // Content still encrypted after loading
+      expect(retrieved.first.content, contains('dummy_nip44_encrypted'));
+    });
+
+    test('setPrivateRelays replaces all private relays', () {
+      final partial = PartialAppCatalogRelayList();
+
+      partial.addPrivateRelay('wss://old.relay.com');
+      expect(partial.privateRelays, {'wss://old.relay.com'});
+
+      partial.setPrivateRelays({
+        'wss://new1.relay.com',
+        'wss://new2.relay.com',
+      });
+
+      expect(partial.privateRelays, {
+        'wss://new1.relay.com',
+        'wss://new2.relay.com',
+      });
+      expect(partial.privateRelays, isNot(contains('wss://old.relay.com')));
+    });
   });
 
   group('RelayList.labels registry', () {
