@@ -27,6 +27,9 @@ class AppStack extends ParameterizableReplaceableModel<AppStack>
   /// The name of this app stack
   String? get name => event.getFirstTagValue('name');
 
+  /// The platform this app stack is for
+  String? get platform => event.getFirstTagValue('f');
+
   /// Get private app IDs (content is encrypted - will fail if not decrypted first)
   List<String> get privateAppIds {
     if (content.isEmpty) return [];
@@ -78,6 +81,10 @@ class PartialAppStack extends ParameterizableReplaceablePartialModel<AppStack>
   String? get description => event.getFirstTagValue('description');
   set description(String? value) => event.setTagValue('description', value);
 
+  /// The platform this app stack is for
+  String? get platform => event.getFirstTagValue('f');
+  set platform(String? value) => event.setTagValue('f', value);
+
   /// Public app IDs (addressable event IDs) in this stack - only kind 32267
   Set<String> get publicApps =>
       event.getTagSetValues('a').where((id) => id.startsWith('32267:')).toSet();
@@ -96,16 +103,19 @@ class PartialAppStack extends ParameterizableReplaceablePartialModel<AppStack>
   /// [identifier] - Unique identifier (auto-generated if not provided)
   /// [description] - Optional description
   /// [publicApps] - Initial set of app IDs to include
+  /// [platform] - Platform this stack was created for (e.g., 'android-arm64-v8a')
   PartialAppStack({
     required String name,
     String? identifier,
     String? description,
     Set<String>? publicApps,
+    String? platform,
   }) {
     this.name = name;
     event.setTagValue('d', identifier ?? _generateIdentifier());
     if (description != null) this.description = description;
     if (publicApps != null) this.publicApps = publicApps;
+    if (platform != null) this.platform = platform;
   }
 
   /// Creates an app stack with encrypted (private) apps
@@ -114,6 +124,7 @@ class PartialAppStack extends ParameterizableReplaceablePartialModel<AppStack>
   /// [identifier] - Unique identifier (auto-generated if not provided)
   /// [description] - Optional description
   /// [apps] - List of app IDs to encrypt (e.g., ['32267:pubkey:id'])
+  /// [platform] - Platform this stack was created for (e.g., 'android-arm64-v8a')
   ///
   /// The apps will be encrypted using NIP-44 when signed.
   PartialAppStack.withEncryptedApps({
@@ -121,11 +132,13 @@ class PartialAppStack extends ParameterizableReplaceablePartialModel<AppStack>
     String? identifier,
     String? description,
     required List<String> apps,
+    String? platform,
   }) {
     this.name = name;
     event.setTagValue('d', identifier ?? _generateIdentifier());
     if (description != null) this.description = description;
     setContent(apps);
+    if (platform != null) this.platform = platform;
   }
 
   /// Get the current private app IDs (plaintext before signing).
