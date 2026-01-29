@@ -617,7 +617,7 @@ void main() {
       // Verify the FileMetadata request was actually created
       final hasFileMetadataRequest = notifier.relationshipRequests.any(
         (req) => req.filters.any(
-          (f) => f.ids?.contains(metadata.event.id) ?? false,
+          (f) => f.ids.contains(metadata.event.id),
         ),
       );
       expect(

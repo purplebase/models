@@ -31,7 +31,7 @@ T runSync<T>(Future<T> Function() fn) {
   var completed = false;
 
   // Create a zone that executes microtasks immediately and catches errors
-  runZoned(
+  runZonedGuarded(
     () {
       try {
         fn().then<void>(
@@ -52,6 +52,14 @@ T runSync<T>(Future<T> Function() fn) {
         completed = true;
       }
     },
+    // Catch any uncaught errors in the zone
+    (e, st) {
+      if (!completed) {
+        error = e;
+        stackTrace = st;
+        completed = true;
+      }
+    },
     zoneSpecification: ZoneSpecification(
       scheduleMicrotask: (self, parent, zone, f) {
         // Execute microtasks immediately instead of queuing them
@@ -66,14 +74,6 @@ T runSync<T>(Future<T> Function() fn) {
         }
       },
     ),
-    onError: (e, st) {
-      // Catch any uncaught errors in the zone
-      if (!completed) {
-        error = e;
-        stackTrace = st;
-        completed = true;
-      }
-    },
   );
 
   if (!completed) {
@@ -100,7 +100,7 @@ T runSyncRecursive<T>(Future<T> Function() fn) {
   var completed = false;
   final microtasks = <void Function()>[];
 
-  runZoned(
+  runZonedGuarded(
     () {
       try {
         fn().then<void>(
@@ -121,6 +121,13 @@ T runSyncRecursive<T>(Future<T> Function() fn) {
         completed = true;
       }
     },
+    (e, st) {
+      if (!completed) {
+        error = e;
+        stackTrace = st;
+        completed = true;
+      }
+    },
     zoneSpecification: ZoneSpecification(
       scheduleMicrotask: (self, parent, zone, f) {
         // Collect and execute microtasks
@@ -136,13 +143,6 @@ T runSyncRecursive<T>(Future<T> Function() fn) {
         }
       },
     ),
-    onError: (e, st) {
-      if (!completed) {
-        error = e;
-        stackTrace = st;
-        completed = true;
-      }
-    },
   );
 
   if (!completed) {
