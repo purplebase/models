@@ -27,6 +27,9 @@ class AppStack extends ParameterizableReplaceableModel<AppStack>
   /// The name of this app stack
   String? get name => event.getFirstTagValue('name');
 
+  /// The description of this app stack (plain text, no markdown)
+  String? get description => event.getFirstTagValue('description');
+
   /// The platform this app stack is for
   String? get platform => event.getFirstTagValue('f');
 
