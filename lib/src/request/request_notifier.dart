@@ -393,8 +393,19 @@ class RequestNotifier<E extends Model<dynamic>>
       }
 
       switch (source) {
-        // LocalAndRemoteSource must come before RemoteSource (it's a subclass)
-        case LocalSource() || LocalAndRemoteSource():
+        // LocalSource and LocalAndRemoteSource have different semantics:
+        // - LocalSource: purely reactive, must refresh on ANY update to discover new data
+        // - LocalAndRemoteSource: has subscription tracking, can be more selective
+        case LocalSource():
+          // LocalSource is purely reactive to local DB changes.
+          // Always refresh on any update to discover new data that matches our filter.
+          // This is essential because:
+          // 1. We need to find NEW data, not just updates to existing models
+          // 2. We can't predict which saves might match our filter
+          // 3. Relationship data may arrive after the main data
+          await _refreshFromLocal();
+
+        case LocalAndRemoteSource():
           // Refresh from local on our subscription or general updates
           if (isOurSubscription || isGeneralUpdate) {
             await _refreshFromLocal();
@@ -614,7 +625,23 @@ class RequestNotifier<E extends Model<dynamic>>
     // Resolve source: explicit > parent > outer
     final nestedSource = nq.source ?? parentResolvedSource ?? source;
 
-    // Only execute remote queries
+    // For LocalSource: track the relationship request so we refresh when
+    // related data is saved. No remote query needed - data is already local.
+    if (nestedSource is LocalSource) {
+      final prefix = nq.subscriptionPrefix ?? '$_parentSubscriptionId--rel';
+      final prefixedRequest = request.filters.toRequest(
+        subscriptionPrefix: prefix,
+      );
+      // Track for relationship update detection (used by _isRelationshipUpdate)
+      if (!_relationshipRequests.any(
+        (r) => r.subscriptionId == prefixedRequest.subscriptionId,
+      )) {
+        _relationshipRequests.add(prefixedRequest);
+      }
+      return;
+    }
+
+    // Only execute remote queries beyond this point
     if (nestedSource is! RemoteSource) return;
 
     final isStreaming = nestedSource.stream;

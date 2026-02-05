@@ -151,7 +151,7 @@ void main() {
       sub.close();
     });
 
-    test('nested queries with LocalSource outer do not issue remote requests', () async {
+    test('nested queries with LocalSource outer track relationships for refresh', () async {
       final partialApp = PartialApp()
         ..identifier = 'com.example.local'
         ..description = 'Test local source';
@@ -159,7 +159,9 @@ void main() {
 
       await storage.save({app});
 
-      // Outer source is LocalSource - nested should inherit and not issue remote
+      // Outer source is LocalSource - nested should inherit LocalSource
+      // and track relationships (for refresh when related data arrives)
+      // but not issue remote queries
       final provider = model<App>(
         app,
         and: (a) => {a.latestRelease.query()}, // Inherits LocalSource
@@ -172,8 +174,11 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 50));
 
       final notifier = container.read(provider.notifier);
-      // LocalSource doesn't issue remote requests
-      expect(notifier.relationshipRequests, isEmpty);
+      // LocalSource relationships ARE tracked (for refresh purposes)
+      // This enables re-emission when related data is saved
+      expect(notifier.relationshipRequests, isNotEmpty);
+      // But the total queries issued counter should be 0 (no remote queries)
+      expect(notifier.totalRelationshipQueriesIssued, equals(0));
 
       sub.close();
     });
@@ -772,6 +777,85 @@ void main() {
         notifier.relationshipRequests.length,
         greaterThan(initialCount),
       );
+
+      sub.close();
+    });
+
+    test('LocalSource cold start: relationships resolve after related data saved', () async {
+      // This tests the cold start scenario where:
+      // 1. Apps are saved first
+      // 2. Releases are saved later
+      // 3. The LocalSource query should re-emit so new model instances
+      //    can find the releases via .value
+
+      final pubkey = franzapPubkey;
+
+      // Create App
+      final app = (PartialApp()
+            ..identifier = 'com.example.coldstart'
+            ..description = 'Test cold start')
+          .dummySign(pubkey);
+
+      // Create Release that links to the app
+      final partialRelease = PartialRelease()
+        ..identifier = 'com.example.coldstart@1.0.0';
+      partialRelease.event.addTag('i', ['com.example.coldstart']);
+      partialRelease.event.addTag('version', ['1.0.0']);
+      final release = partialRelease.dummySign(pubkey);
+
+      // Step 1: Save only the app (simulates cold start where apps arrive first)
+      await storage.save({app});
+
+      // Set up LocalSource query with relationship tracking
+      final emissions = <StorageState<App>>[];
+      final provider = query<App>(
+        ids: {app.id},
+        source: LocalSource(),
+        and: (a) => {a.latestRelease.query(source: LocalSource())},
+      );
+
+      final sub = container.listen(provider, (_, state) {
+        emissions.add(state);
+      });
+      container.read(provider);
+
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // Verify initial state: app exists, no release yet
+      expect(emissions, isNotEmpty);
+      final initialState = emissions.last;
+      expect(initialState, isA<StorageData<App>>());
+      expect((initialState as StorageData<App>).models, hasLength(1));
+      expect(
+        initialState.models.first.latestRelease.value,
+        isNull,
+        reason: 'Release not saved yet',
+      );
+
+      final emissionsBeforeRelease = emissions.length;
+
+      // Step 2: Save the release (simulates release data arriving later)
+      await storage.save({release});
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Should have re-emitted because we track the relationship
+      expect(
+        emissions.length,
+        greaterThan(emissionsBeforeRelease),
+        reason: 'LocalSource query should re-emit when related data arrives',
+      );
+
+      // Step 3: The new model instance should find the release
+      final finalState = emissions.last;
+      expect(finalState, isA<StorageData<App>>());
+      final latestRelease =
+          (finalState as StorageData<App>).models.first.latestRelease.value;
+      expect(
+        latestRelease,
+        isNotNull,
+        reason: 'latestRelease.value should find the release after re-emission',
+      );
+      expect(latestRelease!.version, equals('1.0.0'));
 
       sub.close();
     });

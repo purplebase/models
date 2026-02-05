@@ -31,6 +31,8 @@ sealed class Relationship<E extends Model<dynamic>> {
   final StorageNotifier storage;
 
   /// Cached query result to avoid repeated SQLite queries within same storage state.
+  /// Only non-empty results are cached - empty results always re-query since
+  /// related data may arrive later within the same cache version.
   List<E>? _cachedModels;
   int? _cachedAtVersion;
 
@@ -45,7 +47,17 @@ sealed class Relationship<E extends Model<dynamic>> {
     if (req == null) return [];
 
     final currentVersion = storage.cacheVersion;
-    if (_cachedModels != null && _cachedAtVersion == currentVersion) {
+
+    // Only use cache if:
+    // 1. We have cached results
+    // 2. The cached results are non-empty (empty results always re-query)
+    // 3. Cache version matches current version
+    //
+    // This ensures that "not found yet" cases always re-query, handling
+    // cold start scenarios where related data arrives after the parent model.
+    if (_cachedModels != null &&
+        _cachedModels!.isNotEmpty &&
+        _cachedAtVersion == currentVersion) {
       return _cachedModels!;
     }
 
