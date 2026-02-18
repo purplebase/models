@@ -22,7 +22,7 @@ void main() {
     test('can create and parse a Repost (kind 6)', () async {
       // Create a note to repost
       final originalNote = PartialNote('This is the original note content');
-      final signedNote = originalNote.dummySign(nielPubkey);
+      final signedNote = originalNote.dummySign(container.storage, nielPubkey);
 
       // Create a repost of the note
       final repost = PartialRepost(
@@ -32,7 +32,7 @@ void main() {
         repostedNote: signedNote,
         relayUrl: 'wss://relay.example.com',
       );
-      final signedRepost = repost.dummySign(verbirichaPubkey);
+      final signedRepost = repost.dummySign(container.storage, verbirichaPubkey);
 
       // Verify the repost has correct properties
       expect(signedRepost.event.kind, equals(6));
@@ -56,14 +56,14 @@ void main() {
     test('can create and parse a GenericRepost (kind 16)', () async {
       // Create a note first (needed for reaction)
       final noteToReactTo = PartialNote('Note to react to');
-      final signedNoteToReactTo = noteToReactTo.dummySign(franzapPubkey);
+      final signedNoteToReactTo = noteToReactTo.dummySign(container.storage, franzapPubkey);
 
       // Create a reaction to repost (any non-kind-1 event)
       final originalReaction = PartialReaction(
         content: '+',
         reactedOn: signedNoteToReactTo,
       );
-      final signedReaction = originalReaction.dummySign(nielPubkey);
+      final signedReaction = originalReaction.dummySign(container.storage, nielPubkey);
 
       // Create a generic repost of the reaction
       final genericRepost = PartialGenericRepost(
@@ -72,7 +72,7 @@ void main() {
         relayUrl: 'wss://relay.example.com',
         repostedEventKind: 7, // reaction kind
       );
-      final signedGenericRepost = genericRepost.dummySign(verbirichaPubkey);
+      final signedGenericRepost = genericRepost.dummySign(container.storage, verbirichaPubkey);
 
       // Verify the generic repost has correct properties
       expect(signedGenericRepost.event.kind, equals(16));
@@ -105,11 +105,11 @@ void main() {
     test('Repost relationships work correctly', () async {
       // Create a note
       final originalNote = PartialNote('Test note for repost relationships');
-      final signedNote = originalNote.dummySign(nielPubkey);
+      final signedNote = originalNote.dummySign(container.storage, nielPubkey);
 
       // Create a repost
       final repost = PartialRepost(repostedNote: signedNote);
-      final signedRepost = repost.dummySign(verbirichaPubkey);
+      final signedRepost = repost.dummySign(container.storage, verbirichaPubkey);
 
       // Save both to storage
       await container.read(storageNotifierProvider.notifier).save({
@@ -127,18 +127,18 @@ void main() {
     test('GenericRepost relationships work correctly', () async {
       // Create a note first (needed for reaction)
       final noteToReactTo = PartialNote('Note to react to');
-      final signedNoteToReactTo = noteToReactTo.dummySign(franzapPubkey);
+      final signedNoteToReactTo = noteToReactTo.dummySign(container.storage, franzapPubkey);
 
       // Create a reaction
       final originalReaction = PartialReaction(
         content: '❤️',
         reactedOn: signedNoteToReactTo,
       );
-      final signedReaction = originalReaction.dummySign(nielPubkey);
+      final signedReaction = originalReaction.dummySign(container.storage, nielPubkey);
 
       // Create a generic repost
       final genericRepost = PartialGenericRepost(repostedEvent: signedReaction);
-      final signedGenericRepost = genericRepost.dummySign(verbirichaPubkey);
+      final signedGenericRepost = genericRepost.dummySign(container.storage, verbirichaPubkey);
 
       // Save both to storage
       await container.read(storageNotifierProvider.notifier).save({

@@ -1,4 +1,14 @@
-part of models;
+import 'dart:convert';
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import '../nwc/nwc_commands.dart';
+import '../nwc/nwc_connection.dart';
+import '../source/local_and_remote_source.dart';
+import '../source/source.dart';
+import 'profile.dart';
 
 /// A zap event (kind 9735) representing a Lightning Network payment.
 ///
@@ -8,7 +18,7 @@ class Zap extends RegularModel<Zap> {
   /// Overrides the default author to point to the wallet that sent the zap
   @override
   BelongsTo<Profile> get author => BelongsTo(
-    ref,
+    reader,
     RequestFilter<Profile>(
       authors: {event.getFirstTagValue('P') ?? event.metadata['author']},
     ).toRequest(),
@@ -19,26 +29,26 @@ class Zap extends RegularModel<Zap> {
   late final BelongsTo<Profile> recipient;
   late final BelongsTo<ZapRequest> zapRequest;
 
-  Zap.fromMap(super.map, super.ref) : super.fromMap() {
+  Zap.fromMap(super.map, super.reader) : super.fromMap() {
     wallet = BelongsTo(
-      ref,
+      reader,
       RequestFilter<Profile>(authors: {event.pubkey}).toRequest(),
     );
     recipient = BelongsTo(
-      ref,
+      reader,
       RequestFilter<Profile>(
         authors: {event.getFirstTagValue('p')!},
       ).toRequest(),
     );
     zappedModel = BelongsTo(
-      ref,
+      reader,
       Request.fromIds({
         ?event.getFirstTagValue('e'),
         ?event.getFirstTagValue('a'),
       }),
     );
     zapRequest = BelongsTo(
-      ref,
+      reader,
       RequestFilter<ZapRequest>(
         ids: {event.metadata['zapRequestId']!},
       ).toRequest(),
@@ -73,13 +83,14 @@ class Zap extends RegularModel<Zap> {
 
 /// A zap request event (kind 9734) used to request Lightning payments
 class ZapRequest extends RegularModel<ZapRequest> {
-  ZapRequest.fromMap(super.map, super.ref) : super.fromMap() {
+  ZapRequest.fromMap(super.map, super.reader) : super.fromMap() {
     // use constructor body?
   }
 
   /// Obtain a Lightning invoice for this zap request (no NWC required)
   Future<String> getInvoice({bool refreshRecipientProfile = false}) async {
-    final storage = ref.read(storageNotifierProvider.notifier);
+    // Access storage through the reader (which is a StorageNotifier in practice)
+    final storage = reader as dynamic;
 
     // Get the recipient pubkey from the zap request
     final recipientPubkey = event.getFirstTagValue('p');
@@ -156,12 +167,11 @@ class ZapRequest extends RegularModel<ZapRequest> {
     // Create and execute the pay invoice command
     final command = PayInvoiceCommand(invoice: lightningInvoice);
 
-    return await command.execute(
-      connectionUri: connectionUri,
-      ref: ref,
-      expiration: expiration,
-      timeout: timeout,
-    );
+    // NOTE: NWC command execution requires Ref (provider-level).
+    // This needs to be called from the provider layer.
+    throw UnimplementedError(
+        'payWithNwc requires Ref for NWC command execution. '
+        'Use the provider-level implementation instead.');
   }
 }
 

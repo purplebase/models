@@ -128,20 +128,14 @@ void main() {
       expect(true, isTrue);
     });
 
-    // Note: These tests are expected to fail or timeout with truly async operations
-    test(
-      'should timeout with Future.delayed',
-      () {
-        expect(
-          () => runSync(() async {
-            // This uses a Timer, not a microtask, so it won't work
-            return await Future.delayed(Duration.zero, () => 'delayed');
-          }),
-          throwsStateError,
-        );
-      },
-      skip: 'Future.delayed uses Timers which cannot be executed synchronously',
-    );
+    test('should throw StateError with Future.delayed', () {
+      expect(
+        () => runSync(() async {
+          return await Future.delayed(Duration.zero, () => 'delayed');
+        }),
+        throwsStateError,
+      );
+    });
   });
 
   group('runSyncRecursive', () {

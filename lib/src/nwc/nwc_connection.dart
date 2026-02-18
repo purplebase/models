@@ -1,4 +1,6 @@
-part of models;
+
+
+import '../utils/utils.dart';
 
 /// A Nostr Wallet Connect (NWC) connection for interacting with Lightning wallets.
 ///

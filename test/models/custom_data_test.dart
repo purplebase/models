@@ -31,7 +31,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'user-preferences',
         content: testContent,
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(customData.event.kind, 30078);
       expect(customData.content, equals(testContent));
@@ -43,7 +43,7 @@ void main() {
       final jsonData = PartialCustomData(
         identifier: 'json-data',
         content: '{"key": "value", "number": 42}',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(jsonData.content, contains('"key": "value"'));
 
@@ -51,7 +51,7 @@ void main() {
       final textData = PartialCustomData(
         identifier: 'text-data',
         content: 'This is plain text content',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(textData.content, equals('This is plain text content'));
 
@@ -59,7 +59,7 @@ void main() {
       final emptyData = PartialCustomData(
         identifier: 'empty-data',
         content: '',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(emptyData.content, isEmpty);
     });
@@ -68,7 +68,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'test-data',
         content: 'test content',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(customData.event.kind, 30078);
       expect(customData.event.getFirstTagValue('d'), equals('test-data'));
@@ -86,7 +86,7 @@ void main() {
       partial.setProperty('priority', 'high');
       partial.setProperty('expires', '2024-12-31');
 
-      final customData = partial.dummySign(nielPubkey);
+      final customData = partial.dummySign(storage, nielPubkey);
 
       // Verify properties are stored as tags
       expect(
@@ -109,7 +109,7 @@ void main() {
       final data1 = PartialCustomData(
         identifier: 'shared-id',
         content: 'version 1',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({data1});
 
@@ -117,7 +117,7 @@ void main() {
       final data2 = PartialCustomData(
         identifier: 'shared-id',
         content: 'version 2',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({data2});
 
@@ -136,7 +136,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'stored-data',
         content: '{"important": "information"}',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({customData});
 
@@ -155,17 +155,17 @@ void main() {
       final data1 = PartialCustomData(
         identifier: 'data-1',
         content: 'content 1',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       final data2 = PartialCustomData(
         identifier: 'data-2',
         content: 'content 2',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       final data3 = PartialCustomData(
         identifier: 'data-3',
         content: 'content 3',
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       await storage.save({data1, data2, data3});
 
@@ -189,17 +189,17 @@ void main() {
       final data1 = PartialCustomData(
         identifier: 'user-prefs',
         content: 'theme: dark',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       final data2 = PartialCustomData(
         identifier: 'user-prefs',
         content: 'theme: light',
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       final data3 = PartialCustomData(
         identifier: 'app-config',
         content: 'version: 2.0',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({data1, data2, data3});
 
@@ -220,11 +220,11 @@ void main() {
 
   group('CustomData Relationships', () {
     test('author relationship', () async {
-      final profile = PartialProfile(name: 'Data Owner').dummySign(nielPubkey);
+      final profile = PartialProfile(name: 'Data Owner').dummySign(storage, nielPubkey);
       final customData = PartialCustomData(
         identifier: 'owned-data',
         content: 'belongs to user',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({profile, customData});
 
@@ -242,7 +242,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'test-identifier',
         content: 'test content',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(customData.event.kind, 30078);
       expect(customData.event.getFirstTagValue('d'), equals('test-identifier'));
@@ -260,7 +260,7 @@ void main() {
       partial.setProperty('version', '1.2.3');
       partial.event.addTagValue('custom', 'value');
 
-      final customData = partial.dummySign(nielPubkey);
+      final customData = partial.dummySign(storage, nielPubkey);
 
       expect(customData.event.getFirstTagValue('d'), equals('tagged-data'));
       expect(
@@ -275,7 +275,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'shareable-test',
         content: 'test',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       final shareableId = customData.event.shareableId;
       expect(shareableId, startsWith('naddr1'));
@@ -288,7 +288,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'large-data',
         content: largeContent,
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(customData.content.length, equals(10000));
       expect(customData.content, equals(largeContent));
@@ -299,7 +299,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'unicode-data',
         content: unicodeContent,
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(customData.content, equals(unicodeContent));
     });
@@ -318,7 +318,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'json-config',
         content: jsonEncode(jsonContent),
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       final parsed = jsonDecode(customData.content);
       expect(parsed['app'], equals('test-app'));
@@ -332,7 +332,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: 'binary-data',
         content: base64Content,
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(customData.content, equals(base64Content));
     });
@@ -357,7 +357,7 @@ void main() {
       expect(partial.getProperty('nonexistent'), isNull);
 
       // After signing, properties should still be accessible
-      final signed = partial.dummySign(nielPubkey);
+      final signed = partial.dummySign(storage, nielPubkey);
       expect(
         signed.event.getFirstTagValue('string-prop'),
         equals('string-value'),
@@ -373,7 +373,7 @@ void main() {
       partial.setProperty('important', 'value');
       partial.setProperty('metadata', 'info');
 
-      final customData = partial.dummySign(nielPubkey);
+      final customData = partial.dummySign(storage, nielPubkey);
       await storage.save({customData});
 
       final retrieved = await storage.query(
@@ -405,7 +405,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: '',
         content: 'content',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(customData.identifier, isEmpty);
       expect(customData.event.getFirstTagValue('d'), isEmpty);
@@ -416,7 +416,7 @@ void main() {
       final customData = PartialCustomData(
         identifier: specialId,
         content: 'content',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(customData.identifier, equals(specialId));
       expect(customData.event.getFirstTagValue('d'), equals(specialId));
@@ -438,7 +438,7 @@ void main() {
       prefs.setProperty('app', 'my-app');
       prefs.setProperty('version', '2.1.0');
 
-      final signedPrefs = prefs.dummySign(nielPubkey);
+      final signedPrefs = prefs.dummySign(storage, nielPubkey);
       expect(signedPrefs.identifier, equals('user-preferences'));
       expect(signedPrefs.event.getFirstTagValue('app'), equals('my-app'));
     });
@@ -457,7 +457,7 @@ void main() {
       config.setProperty('environment', 'production');
       config.setProperty('lastUpdated', DateTime.now().toIso8601String());
 
-      final signedConfig = config.dummySign(nielPubkey);
+      final signedConfig = config.dummySign(storage, nielPubkey);
       expect(signedConfig.identifier, equals('app-config'));
       expect(
         signedConfig.event.getFirstTagValue('environment'),
@@ -479,7 +479,7 @@ void main() {
       saveData.setProperty('game', 'adventure-quest');
       saveData.setProperty('character', 'hero');
 
-      final signedSave = saveData.dummySign(nielPubkey);
+      final signedSave = saveData.dummySign(storage, nielPubkey);
       expect(signedSave.identifier, equals('game-save-1'));
       expect(
         signedSave.event.getFirstTagValue('game'),

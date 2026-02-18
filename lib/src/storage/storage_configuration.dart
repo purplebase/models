@@ -1,13 +1,9 @@
-part of models;
+import 'package:equatable/equatable.dart';
 
-/// Initialization provider that MUST be called from any client
-/// application, with a [StorageConfiguration]
-final initializationProvider =
-    FutureProvider.family<void, StorageConfiguration>((ref, config) async {
-      _dummySigner = DummySigner(ref);
-      await ref.read(storageNotifierProvider.notifier).initialize(config);
-    });
+import '../source/source.dart';
+import '../source/local_and_remote_source.dart';
 
+/// Configuration for storage initialization.
 class StorageConfiguration extends Equatable {
   /// Path to the database (write to memory if absent)
   final String? databasePath;
@@ -20,19 +16,8 @@ class StorageConfiguration extends Equatable {
 
   /// Default relay URLs keyed by label.
   ///
-  /// These are used as fallbacks when no signed [RelayList] exists for a label.
+  /// These are used as fallbacks when no signed RelayList exists for a label.
   /// Once a user's signed RelayList is available, it takes precedence over defaults.
-  ///
-  /// Values are not normalized at configuration time; relay targets are
-  /// normalized when [StorageNotifier.resolveRelays] is invoked.
-  ///
-  /// Example:
-  /// ```dart
-  /// defaultRelays: {
-  ///   'default': {'wss://relay.damus.io', 'wss://nos.lol'},
-  ///   'AppCatalog': {'wss://relay.zapstore.dev'},
-  /// }
-  /// ```
   final Map<String, Set<String>> defaultRelays;
 
   /// The default source for query when absent from query()
@@ -41,10 +26,11 @@ class StorageConfiguration extends Equatable {
   /// After this inactivity duration, relays disconnect
   final Duration idleTimeout;
 
-  /// Duration to wait for relays to respond (final timeout)
+  /// Notifier-level safety-net timeout for multi-relay queries.
+  /// Must be > PoolConfiguration.eoseTimeout to avoid races.
   final Duration responseTimeout;
 
-  /// How often event updates are emitted from [StorageNotifier]
+  /// How often event updates are emitted from StorageNotifier
   final Duration streamingBufferDuration;
 
   /// Maximum amount of recent models to keep in the database,
@@ -52,11 +38,6 @@ class StorageConfiguration extends Equatable {
   final int keepMaxModels;
 
   /// Duration to buffer remote requests before merging and sending.
-  ///
-  /// When multiple queries arrive within this window, they are collected,
-  /// merged into fewer relay requests, and sent together. This prevents
-  /// N+1 query problems when many providers are created simultaneously.
-  /// Defaults to 16ms.
   final Duration requestBufferDuration;
 
   /// Storage configuration
@@ -75,14 +56,14 @@ class StorageConfiguration extends Equatable {
 
   @override
   List<Object?> get props => [
-    databasePath,
-    keepSignatures,
-    skipVerification,
-    defaultRelays,
-    idleTimeout,
-    responseTimeout,
-    streamingBufferDuration,
-    keepMaxModels,
-    requestBufferDuration,
-  ];
+        databasePath,
+        keepSignatures,
+        skipVerification,
+        defaultRelays,
+        idleTimeout,
+        responseTimeout,
+        streamingBufferDuration,
+        keepMaxModels,
+        requestBufferDuration,
+      ];
 }

@@ -1,10 +1,13 @@
-part of models;
+import 'dart:convert';
+
+import '../core/model.dart';
+import 'dvm.dart';
 
 /// A DVM error event (kind 7000) indicating an error in DVM processing.
 ///
 /// DVM errors provide status information when DVM requests fail.
 class DVMError extends RegularModel<DVMError> {
-  DVMError.fromMap(super.map, super.ref) : super.fromMap();
+  DVMError.fromMap(super.map, super.reader) : super.fromMap();
 
   /// Error status message
   String? get status => event.getFirstTagValue('status');
@@ -16,7 +19,7 @@ class DVMError extends RegularModel<DVMError> {
 /// DVMs process the request and return verification responses.
 class VerifyReputationRequest extends RegularModel<VerifyReputationRequest>
     with DVMRequest<VerifyReputationRequest> {
-  VerifyReputationRequest.fromMap(super.map, super.ref) : super.fromMap();
+  VerifyReputationRequest.fromMap(super.map, super.reader) : super.fromMap();
 
   @override
   int get responseKind => 6312;
@@ -50,7 +53,7 @@ class PartialVerifyReputationRequest
 /// This event contains the response from DVMs after processing reputation
 /// verification requests.
 class VerifyReputationResponse extends RegularModel<VerifyReputationResponse> {
-  VerifyReputationResponse.fromMap(super.map, super.ref) : super.fromMap();
+  VerifyReputationResponse.fromMap(super.map, super.reader) : super.fromMap();
 
   /// Set of public keys returned in the verification response
   Set<String> get pubkeys => (jsonDecode(event.content) as Iterable)

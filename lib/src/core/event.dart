@@ -1,23 +1,26 @@
-part of models;
+
+import 'package:collection/collection.dart';
+
+import 'model.dart';
+import 'model_registry.dart';
+import '../utils/utils.dart';
+import '../utils/extensions.dart';
+import '../utils/encoding.dart';
 
 /// Base class for all Nostr events, both mutable and immutable.
-///
-/// Provides common functionality for event handling, tag manipulation,
-/// and data access patterns used across all event types.
 sealed class EventBase<E extends Model<dynamic>> {
   /// The Nostr event kind number.
   late final int kind;
 
   EventBase([Map<String, dynamic>? map, int? kindOverride])
-    : content = map?['content'] ?? '',
-      createdAt = (map?['created_at'] as int?)?.toDate() ?? DateTime.now(),
-      tags = [
-        for (final tag in map?['tags'] ?? [])
-          if (tag is Iterable && tag.length > 1)
-            [for (final e in tag) e.toString()],
-      ] {
-    // Priority: explicit override > map kind > type parameter derivation
-    kind = kindOverride ?? map?['kind'] ?? Model._kindFor<E>();
+      : content = map?['content'] ?? '',
+        createdAt = (map?['created_at'] as int?)?.toDate() ?? DateTime.now(),
+        tags = [
+          for (final tag in map?['tags'] ?? [])
+            if (tag is Iterable && tag.length > 1)
+              [for (final e in tag) e.toString()],
+        ] {
+    kind = kindOverride ?? map?['kind'] ?? ModelRegistry.instance.kindFor<E>();
   }
 
   /// When this event was created.
@@ -27,9 +30,6 @@ sealed class EventBase<E extends Model<dynamic>> {
   String content;
 
   /// Tags associated with this event.
-  ///
-  /// Tags are arrays of strings where the first element is the tag name
-  /// and subsequent elements are the tag values.
   List<List<String>> tags;
 
   Map<String, dynamic> toMap();
@@ -59,10 +59,6 @@ sealed class EventBase<E extends Model<dynamic>> {
 }
 
 /// A finalized (signed) Nostr event that cannot be modified.
-///
-/// This represents a complete, immutable Nostr event with a signature
-/// and event ID. All [Model] instances wrap an [ImmutableEvent].
-/// ```
 final class ImmutableEvent<E extends Model<dynamic>> extends EventBase<E> {
   /// The unique event ID (hex-encoded SHA256 hash).
   final String id;
@@ -74,7 +70,6 @@ final class ImmutableEvent<E extends Model<dynamic>> extends EventBase<E> {
   String get content;
   @override
   List<List<String>> get tags;
-  // Signature is nullable as it may be removed as optimization
   final String? signature;
 
   /// Metadata is used to hold additional arbitrary data/metadata,
@@ -85,12 +80,12 @@ final class ImmutableEvent<E extends Model<dynamic>> extends EventBase<E> {
   final Set<String> relays;
 
   ImmutableEvent(Map<String, dynamic> map)
-    : id = map['id'],
-      pubkey = map['pubkey'],
-      signature = map['sig'],
-      metadata = Map<String, dynamic>.from(map['metadata'] ?? {}),
-      relays = <String>{...?map['relays']},
-      super(map);
+      : id = map['id'],
+        pubkey = map['pubkey'],
+        signature = map['sig'],
+        metadata = Map<String, dynamic>.from(map['metadata'] ?? {}),
+        relays = <String>{...?map['relays']},
+        super(map);
 
   /// Addressable event ID to use in tags
   String get addressableId {
@@ -106,23 +101,20 @@ final class ImmutableEvent<E extends Model<dynamic>> extends EventBase<E> {
       this is ImmutableReplaceableEvent ? 'a' : 'e';
 
   Map<String, Set<String>> get addressableIdTagMap => {
-    '#$addressableIdTagLetter': {addressableId},
-  };
+        '#$addressableIdTagLetter': {addressableId},
+      };
 
   /// NIP-19
   String get shareableId {
     switch (this) {
       case ImmutableParameterizableReplaceableEvent(:final identifier):
-        // naddr
         return Utils.encodeShareableIdentifier(
           AddressInput(identifier: identifier, author: pubkey, kind: kind),
         );
       default:
-        // nprofile
         if (kind == 0) {
           return Utils.encodeShareableIdentifier(ProfileInput(pubkey: pubkey));
         }
-        // nevent
         return Utils.encodeShareableIdentifier(EventInput(eventId: id));
     }
   }
@@ -159,31 +151,24 @@ final class ImmutableParameterizableReplaceableEvent<E extends Model<dynamic>>
 /// A partial, mutable, unsigned nostr event
 final class PartialEvent<E extends Model<dynamic>> extends EventBase<E> {
   PartialEvent([Map<String, dynamic>? map, int? kindOverride])
-    : metadata = map?['metadata'] != null
-          ? Map<String, dynamic>.from(map!['metadata'])
-          : {},
-      super(_prepareMapForPartial(map), kindOverride) {
-    // If there's cached plaintext in metadata, use it as content
+      : metadata = map?['metadata'] != null
+            ? Map<String, dynamic>.from(map!['metadata'])
+            : {},
+        super(_prepareMapForPartial(map), kindOverride) {
     if (metadata.containsKey('_plaintext')) {
       content = metadata['_plaintext'] as String;
-      // Remove _plaintext from metadata to avoid confusion
       metadata.remove('_plaintext');
     }
   }
 
-  /// Prepare the map for PartialEvent construction.
-  /// If metadata contains _plaintext, use it for content.
   static Map<String, dynamic>? _prepareMapForPartial(
     Map<String, dynamic>? map,
   ) {
     if (map == null) return null;
-
-    // If there's plaintext in metadata, use it for content
     final metadata = map['metadata'];
     if (metadata is Map && metadata.containsKey('_plaintext')) {
       return {...map, 'content': metadata['_plaintext']};
     }
-
     return map;
   }
 
@@ -191,7 +176,6 @@ final class PartialEvent<E extends Model<dynamic>> extends EventBase<E> {
 
   String? get id => pubkey != null ? Utils.getEventId(this, pubkey!) : null;
 
-  // Metadata
   final Map<String, dynamic> metadata;
 
   @override

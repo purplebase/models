@@ -30,7 +30,7 @@ void main() {
 
       final partial = PartialPinList();
       partial.pinnedContent = {event1, event2};
-      final pinList = partial.dummySign(nielPubkey);
+      final pinList = partial.dummySign(storage, nielPubkey);
 
       expect(pinList.pinnedContent, {event1, event2});
     });
@@ -41,7 +41,7 @@ void main() {
 
       final partial = PartialPinList();
       partial.pinnedContent = {testEvent};
-      final pinList = partial.dummySign(nielPubkey);
+      final pinList = partial.dummySign(storage, nielPubkey);
 
       expect(pinList.event.kind, 10001);
 

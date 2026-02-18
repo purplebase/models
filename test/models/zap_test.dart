@@ -27,11 +27,11 @@ void main() {
 
   group('Zap', () {
     test('creates zap from JSON and validates relationships', () async {
-      final author = PartialProfile().dummySign(
+      final author = PartialProfile().dummySign(storage, 
         'd3f94b353542a632962062f3c914638d0deeba64af1f980d93907ee1b3e0d4f9',
       );
-      final zap = Zap.fromMap(jsonDecode(zapJson), ref);
-      final note = Note.fromMap(jsonDecode(zappedEventJson), ref);
+      final zap = Zap.fromMap(jsonDecode(zapJson), storage);
+      final note = Note.fromMap(jsonDecode(zappedEventJson), storage);
       await storage.save({note, zap, author});
 
       // As config is keepSignatures=false, it should come back as null
@@ -41,7 +41,7 @@ void main() {
     });
 
     test('calculates amount from bolt11 correctly', () {
-      final zap = Zap.fromMap(jsonDecode(zapJson), ref);
+      final zap = Zap.fromMap(jsonDecode(zapJson), storage);
       expect(zap.amount, equals(10)); // 100 nanosats = 10 sats
     });
 
@@ -56,14 +56,14 @@ void main() {
         }
       }
 
-      final zap = Zap.fromMap(invalidZapJson, ref);
+      final zap = Zap.fromMap(invalidZapJson, storage);
       expect(zap.amount, equals(0)); // Should return 0 for invalid bolt11
     });
   });
 
   group('ZapRequest', () {
     test('creates zap request from map', () {
-      final zapRequest = ZapRequest.fromMap(jsonDecode(zapRequestJson), ref);
+      final zapRequest = ZapRequest.fromMap(jsonDecode(zapRequestJson), storage);
       expect(zapRequest.event.kind, equals(9734));
       expect(
         zapRequest.event.pubkey,

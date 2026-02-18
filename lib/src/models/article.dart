@@ -1,4 +1,11 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import '../utils/utils.dart';
+import '../utils/extensions.dart';
+import 'generic_repost.dart';
+import 'highlight.dart';
 
 /// A long-form article event (kind 30023) for publishing structured content.
 ///
@@ -6,9 +13,9 @@ part of models;
 /// with titles, summaries, images, and markdown formatting. They're designed
 /// for blog posts, documentation, and other long-form content.
 class Article extends ParameterizableReplaceableModel<Article> {
-  Article.fromMap(super.map, super.ref) : super.fromMap() {
+  Article.fromMap(super.map, super.reader) : super.fromMap() {
     highlights = HasMany(
-      ref,
+      reader,
       RequestFilter<Highlight>(
         tags: {
           'a': {event.id},
@@ -17,7 +24,7 @@ class Article extends ParameterizableReplaceableModel<Article> {
     );
 
     reposts = HasMany(
-      ref,
+      reader,
       RequestFilter<GenericRepost>(
         tags: {
           '#a': {event.id},

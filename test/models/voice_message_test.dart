@@ -5,14 +5,12 @@ import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late Ref ref;
   late DummyStorageNotifier storage;
 
   setUp(() async {
     container = await createTestContainer(
       config: StorageConfiguration(keepSignatures: false),
     );
-    ref = container.read(refProvider);
     storage =
         container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
   });
@@ -38,7 +36,7 @@ void main() {
         audioHash: 'abc123',
         waveform: 'waveform_data',
         summary: 'A test voice message',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(voiceMessage.event.kind, 1222);
       expect(
@@ -71,7 +69,7 @@ void main() {
     test('creates minimal voice message with only required fields', () async {
       final voiceMessage = PartialVoiceMessage(
         audioUrl: 'https://example.com/voice.wav',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(voiceMessage.event.kind, 1222);
       expect(voiceMessage.audioUrl, 'https://example.com/voice.wav');
@@ -114,7 +112,7 @@ void main() {
         'sig': 'signature',
       };
 
-      final voiceMessage = VoiceMessage.fromMap(eventMap, ref);
+      final voiceMessage = VoiceMessage.fromMap(eventMap, storage);
 
       expect(
         voiceMessage.description,
@@ -187,7 +185,7 @@ void main() {
           ['url', 'https://example.com/original.mp3'],
         ],
         'sig': 'signature',
-      }, ref);
+      }, storage);
 
       final voiceComment = PartialVoiceMessageComment(
         audioUrl: 'https://example.com/comment.mp3',
@@ -202,7 +200,7 @@ void main() {
         fileSize: 256000,
         audioHash: 'def456',
         waveform: 'comment_waveform',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(voiceComment.event.kind, 1244);
       expect(
@@ -232,7 +230,7 @@ void main() {
     test('creates minimal voice comment without original message', () async {
       final voiceComment = PartialVoiceMessageComment(
         audioUrl: 'https://example.com/comment.wav',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(voiceComment.event.kind, 1244);
       expect(voiceComment.audioUrl, 'https://example.com/comment.wav');
@@ -267,7 +265,7 @@ void main() {
         'sig': 'signature',
       };
 
-      final voiceComment = VoiceMessageComment.fromMap(eventMap, ref);
+      final voiceComment = VoiceMessageComment.fromMap(eventMap, storage);
 
       expect(
         voiceComment.description,
@@ -328,7 +326,7 @@ void main() {
           ['url', 'https://example.com/voice.mp3'],
         ],
         'sig': 'signature',
-      }, ref);
+      }, storage);
 
       expect(voiceMessage.referencingNotes, isA<HasMany<Note>>());
       expect(voiceMessage.comments, isA<HasMany<Comment>>());
@@ -348,7 +346,7 @@ void main() {
           ['url', 'https://example.com/comment.mp3'],
         ],
         'sig': 'signature',
-      }, ref);
+      }, storage);
 
       expect(voiceComment.originalVoiceMessage, isA<BelongsTo<VoiceMessage>>());
       expect(voiceComment.referencingNotes, isA<HasMany<Note>>());
@@ -381,7 +379,7 @@ void main() {
             ['duration', seconds.toString()],
           ],
           'sig': 'signature',
-        }, ref);
+        }, storage);
 
         expect(
           voiceMessage.formattedDuration,
@@ -402,7 +400,7 @@ void main() {
           ['url', 'https://example.com/voice.mp3'],
         ],
         'sig': 'signature',
-      }, ref);
+      }, storage);
 
       expect(voiceMessage.formattedDuration, null);
     });

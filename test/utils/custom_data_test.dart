@@ -22,7 +22,7 @@ void main() {
 
   group('CustomData', () {
     test('should create CustomData from map', () {
-      final ref = container.read(refProvider);
+      final storage = container.storage;
 
       final customDataMap = {
         'id': 'test_id',
@@ -36,7 +36,7 @@ void main() {
         'sig': 'test_sig',
       };
 
-      final customData = CustomData.fromMap(customDataMap, ref);
+      final customData = CustomData.fromMap(customDataMap, storage);
 
       expect(customData.content, '{"key": "value"}');
       expect(customData.identifier, 'test_identifier');

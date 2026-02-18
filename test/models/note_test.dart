@@ -62,14 +62,14 @@ void main() {
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
-      a = PartialNote('Note A', createdAt: yesterday).dummySign(nielPubkey);
-      b = PartialNote('Note B', createdAt: lastMonth).dummySign(nielPubkey);
-      c = PartialNote('Note C').dummySign(nielPubkey);
-      d = PartialNote('Note D', tags: {'nostr'}).dummySign(nielPubkey);
-      e = PartialNote('Note E').dummySign(franzapPubkey);
-      f = PartialNote('Note F', tags: {'nostr'}).dummySign(franzapPubkey);
-      g = PartialNote('Note G').dummySign(verbirichaPubkey);
-      profile = PartialProfile(name: 'neil').dummySign(nielPubkey);
+      a = PartialNote('Note A', createdAt: yesterday).dummySign(storage, nielPubkey);
+      b = PartialNote('Note B', createdAt: lastMonth).dummySign(storage, nielPubkey);
+      c = PartialNote('Note C').dummySign(storage, nielPubkey);
+      d = PartialNote('Note D', tags: {'nostr'}).dummySign(storage, nielPubkey);
+      e = PartialNote('Note E').dummySign(storage, franzapPubkey);
+      f = PartialNote('Note F', tags: {'nostr'}).dummySign(storage, franzapPubkey);
+      g = PartialNote('Note G').dummySign(storage, verbirichaPubkey);
+      profile = PartialProfile(name: 'neil').dummySign(storage, nielPubkey);
 
       await storage.save({a, b, c, d, e, f, g, profile});
 
@@ -79,13 +79,13 @@ void main() {
       final replyNote = PartialNote(
         'replying',
         replyTo: c,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       final replyToReplyNote = PartialNote(
         'replying to reply',
         replyTo: replyNote,
         root: c,
-      ).dummySign(verbirichaPubkey);
+      ).dummySign(storage, verbirichaPubkey);
 
       await container.read(storageNotifierProvider.notifier).save({
         replyNote,
@@ -116,13 +116,13 @@ void main() {
               as DummyStorageNotifier;
 
       // Create a root note
-      rootNote = PartialNote('Root note content').dummySign(nielPubkey);
+      rootNote = PartialNote('Root note content').dummySign(storage, nielPubkey);
 
       // Create an intermediate note that replies to root
       intermediateNote = PartialNote(
         'Intermediate reply',
         replyTo: rootNote,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       await storage.save({rootNote, intermediateNote});
 
@@ -134,7 +134,7 @@ void main() {
       complexReply.event.addTag('e', [rootNote.event.id, '', 'root']);
       complexReply.event.addTag('e', [intermediateNote.event.id, '', 'reply']);
 
-      complexReplyNote = complexReply.dummySign(verbirichaPubkey);
+      complexReplyNote = complexReply.dummySign(storage, verbirichaPubkey);
 
       await storage.save({complexReplyNote});
 

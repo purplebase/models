@@ -1,4 +1,10 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'app_stack.dart';
+import 'release.dart';
 
 /// An application event (kind 32267) representing a software application.
 ///
@@ -10,13 +16,13 @@ class App extends ParameterizableReplaceableModel<App> {
   late final BelongsTo<Release> latestRelease;
   late final HasMany<AppStack> appStacks;
 
-  App.fromMap(super.map, super.ref) : super.fromMap() {
+  App.fromMap(super.map, super.reader) : super.fromMap() {
     releases = HasMany(
-      ref,
+      reader,
       RequestFilter<Release>(tags: event.addressableIdTagMap).toRequest(),
     );
     latestRelease = BelongsTo(
-      ref,
+      reader,
       // Legacy format
       event.containsTag('a')
           ? Request<Release>.fromIds({event.getFirstTagValue('a')!})
@@ -30,7 +36,7 @@ class App extends ParameterizableReplaceableModel<App> {
             ).toRequest(),
     );
     appStacks = HasMany(
-      ref,
+      reader,
       RequestFilter<AppStack>(
         tags: {
           '#a': {event.addressableId},

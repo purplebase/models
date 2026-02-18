@@ -100,7 +100,7 @@ class TestDataGenerator {
       name: faker.person.name(),
       nip05: faker.internet.freeEmail(),
       pictureUrl: faker.internet.httpsUrl(),
-    ).dummySign(pubkey);
+    ).dummySign(ref.storage, pubkey);
   }
 
   /// Generates a fake model, supported kinds: 0, 1, 3, 7, 9735
@@ -117,20 +117,20 @@ class TestDataGenerator {
       1 => PartialNote(
         faker.lorem.sentence(),
         createdAt: createdAt,
-      ).dummySign(pubkey),
-      3 => PartialContactList(followPubkeys: pTags).dummySign(pubkey),
+      ).dummySign(ref.storage, pubkey),
+      3 => PartialContactList(followPubkeys: pTags).dummySign(ref.storage, pubkey),
       7 =>
         parentId == null
             ? null
-            : (PartialReaction()..event.addTag('e', [parentId])).dummySign(
+            : (PartialReaction()..event.addTag('e', [parentId])).dummySign(ref.storage, 
                 pubkey,
               ),
-      9 => PartialChatMessage(faker.lorem.sentence()).dummySign(pubkey),
+      9 => PartialChatMessage(faker.lorem.sentence()).dummySign(ref.storage, pubkey),
       9735 =>
         parentId != null
             ? Zap.fromMap(
                 _sampleZap(zapperPubkey: pubkey, eventId: parentId),
-                ref,
+                const NullStorageReader(),
               )
             : null,
       _ => null,

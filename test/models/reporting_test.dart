@@ -33,7 +33,7 @@ void main() {
         authorPubkey: authorPubkey,
         violationType: ReportType.spam,
         reason: 'Repeated promotional posts',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(report.reason, 'Repeated promotional posts');
       expect(report.reportedContentId, contentId);
@@ -52,7 +52,7 @@ void main() {
         userPubkey: userPubkey,
         violationType: ReportType.impersonation,
         reason: 'Pretending to be a celebrity',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(report.reason, 'Pretending to be a celebrity');
       expect(report.reportedUserPubkey, userPubkey);
@@ -75,7 +75,7 @@ void main() {
         violationType: ReportType.malware,
         reason: 'Contains malicious software',
         serverUrl: 'https://malicious-server.example.com',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(report.reason, 'Contains malicious software');
       expect(report.reportedFileHash, fileHash);
@@ -93,7 +93,7 @@ void main() {
       final report = PartialReport(
         reason: 'General violation',
         reportedUserPubkey: userPubkey,
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(report.reason, 'General violation');
       expect(report.reportedUserPubkey, userPubkey);
@@ -134,7 +134,7 @@ void main() {
         contentId: contentId,
         authorPubkey: authorPubkey,
         violationType: ReportType.illegal,
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(report.violationType, ReportType.illegal);
     });
@@ -160,10 +160,10 @@ void main() {
       const validUserPubkey =
           'ef123456789abcdef123456789abcdef123456789abcdef123456789abcdef12';
 
-      final note = PartialNote('Test content').dummySign(validUserPubkey);
+      final note = PartialNote('Test content').dummySign(storage, validUserPubkey);
       final profile = PartialProfile(
         name: 'Test User',
-      ).dummySign(validUserPubkey);
+      ).dummySign(storage, validUserPubkey);
 
       await storage.save({note, profile});
 
@@ -172,7 +172,7 @@ void main() {
         authorPubkey: validUserPubkey,
         violationType: ReportType.spam,
         reason: 'This is spam',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({report});
 
@@ -194,7 +194,7 @@ void main() {
         authorPubkey: authorPubkey,
         violationType: ReportType.profanity,
         reason: 'Offensive language',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(report.event.kind, 1984);
       expect(report.event.content, 'Offensive language');
@@ -224,7 +224,7 @@ void main() {
         contentId: contentId,
         violationType: ReportType.nudity,
         serverUrl: 'https://server.example.com',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       // Check x tag (file hash)
       final xTags = report.event.getTagSet('x');
@@ -250,7 +250,7 @@ void main() {
     });
 
     test('empty report', () {
-      final report = PartialReport().dummySign(nielPubkey);
+      final report = PartialReport().dummySign(storage, nielPubkey);
 
       expect(report.reason, '');
       expect(report.reportedUserPubkey, null);
@@ -271,7 +271,7 @@ void main() {
         userPubkey: userPubkey,
         violationType: ReportType.spam,
         reason: 'Test report',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       final partial = report.toPartial() as PartialReport;
       expect(partial.reason, 'Test report');

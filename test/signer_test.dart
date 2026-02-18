@@ -275,7 +275,7 @@ void main() {
       final dm1 = PartialDirectMessage(
         content: 'Hello world',
         receiver: recipientNpub,
-      ).dummySign();
+      ).dummySign(container.storage);
 
       expect(dm1.content, isNotEmpty);
       expect(
@@ -287,7 +287,7 @@ void main() {
       final dm2 = PartialDirectMessage(
         content: 'Another message',
         receiver: recipientNpub,
-      ).dummySign();
+      ).dummySign(container.storage);
 
       expect(dm2.content, isNotEmpty);
       expect(
@@ -318,7 +318,7 @@ void main() {
 
     test('dummySign method for regular models', () {
       final partialNote = PartialNote('Test note content');
-      final signedNote = partialNote.dummySign();
+      final signedNote = partialNote.dummySign(container.storage);
 
       expect(signedNote.event.content, 'Test note content');
       expect(signedNote.event.pubkey, isNotNull);
@@ -363,7 +363,7 @@ void main() {
         receiver: recipientNpub,
       );
 
-      final signedDM = partialDM.dummySign();
+      final signedDM = partialDM.dummySign(container.storage);
 
       // Content is encrypted after signing (using NIP-44)
       expect(signedDM.content, isNot(message)); // Not plaintext
@@ -394,7 +394,7 @@ void main() {
       testProfile = PartialProfile(
         name: 'Test User',
         about: 'Test bio',
-      ).dummySign(signer.pubkey);
+      ).dummySign(storage, signer.pubkey);
       await storage.save({testProfile});
     });
 
@@ -430,7 +430,7 @@ void main() {
         final secondProfile = PartialProfile(
           name: 'Second User',
           about: 'Second bio',
-        ).dummySign(secondSigner.pubkey);
+        ).dummySign(storage, secondSigner.pubkey);
         await storage.save({secondProfile});
 
         await profileTester.expect(equals(secondProfile));

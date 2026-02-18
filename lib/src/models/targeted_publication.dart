@@ -1,4 +1,10 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import '../utils/utils.dart';
+import 'community.dart';
 
 /// A targeted publication event (kind 30222) for publishing content to specific communities.
 ///
@@ -9,9 +15,9 @@ class TargetedPublication
   late final BelongsTo<Model> model;
   late final HasMany<Community> communities;
 
-  TargetedPublication.fromMap(super.map, super.ref) : super.fromMap() {
+  TargetedPublication.fromMap(super.map, super.reader) : super.fromMap() {
     model = BelongsTo(
-      ref,
+      reader,
       Request.fromIds({
         ?event.getFirstTagValue('e'),
         ?event.getFirstTagValue('a'),
@@ -20,7 +26,7 @@ class TargetedPublication
 
     // This is only possible because communities are replaceable events (without a d tag)
     final req = RequestFilter<Community>(authors: communityPubkeys).toRequest();
-    communities = HasMany(ref, req);
+    communities = HasMany(reader, req);
   }
 
   /// The kind number of the content being targeted for publication

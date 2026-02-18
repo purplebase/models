@@ -1,4 +1,8 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'profile.dart';
 
 /// A reaction event (kind 7) representing a user's response to another event.
 ///
@@ -8,10 +12,10 @@ class Reaction extends RegularModel<Reaction> with EmojiMixin {
   late final BelongsTo<Model> reactedOn;
   late final BelongsTo<Profile> reactedOnAuthor;
 
-  Reaction.fromMap(super.map, super.ref) : super.fromMap() {
-    reactedOn = BelongsTo(ref, Request.fromIds({?event.getFirstTagValue('e')}));
+  Reaction.fromMap(super.map, super.reader) : super.fromMap() {
+    reactedOn = BelongsTo(reader, Request.fromIds({?event.getFirstTagValue('e')}));
     reactedOnAuthor = BelongsTo(
-      ref,
+      reader,
       Request.fromIds({?event.getFirstTagValue('p')}),
     );
   }
@@ -54,7 +58,7 @@ class PartialReaction extends RegularPartialModel<Reaction>
       linkModel(reactedOn);
     }
     if (reactedOnAuthor != null) {
-      linkProfile(reactedOnAuthor);
+      linkProfileByPubkey(reactedOnAuthor.pubkey);
     }
   }
 }

@@ -1,8 +1,28 @@
-part of models;
+import 'dart:convert';
+
+import 'package:equatable/equatable.dart';
+import 'package:meta/meta.dart';
+
+import 'encryptable.dart';
+import 'event.dart';
+import 'null_storage_reader.dart';
+import 'storage_reader.dart';
+import 'model_registry.dart';
+import '../relationship/relationship.dart';
+import '../filter/request_filter.dart';
+import '../signer/signer.dart';
+import '../utils/utils.dart';
+
+// Model type imports for generic relationships defined on base Model.
+import '../models/profile.dart';
+import '../models/reaction.dart';
+import '../models/zap.dart';
+import '../models/targeted_publication.dart';
+import '../models/generic_repost.dart';
+
+export 'storage_reader.dart';
 
 /// Base mixin for all domain model entities.
-///
-/// Provides the fundamental interface that all models must implement.
 mixin ModelBase<E extends Model<dynamic>> {
   EventBase get event;
   Map<String, dynamic> toMap();
@@ -10,18 +30,18 @@ mixin ModelBase<E extends Model<dynamic>> {
 
 /// A domain model entity that wraps a signed, finalized Nostr event.
 ///
-/// This is the base abstract class for all Nostr models and provides common functionality
-/// like relationships, metadata processing, and storage access.
-sealed class Model<E extends Model<dynamic>>
+/// This is the base abstract class for all Nostr models. Models are pure data
+/// objects that use [StorageReader] for relationship resolution instead of Riverpod.
+abstract class Model<E extends Model<dynamic>>
     with EquatableMixin
     implements ModelBase<E> {
-  final Ref ref;
-  final StorageNotifier storage;
+  final StorageReader _reader;
 
   @override
-  /// Internal representation of the Nostr event
-  /// to be accessed mostly through this Model class
   final ImmutableEvent event;
+
+  /// Access the storage reader for relationship resolution.
+  StorageReader get reader => _reader;
 
   /// The author (profile) of this model.
   late final BelongsTo<Profile> author;
@@ -38,8 +58,7 @@ sealed class Model<E extends Model<dynamic>>
   /// All generic reposts of this model.
   late final HasMany<GenericRepost> genericReposts;
 
-  Model._(this.ref, this.event)
-    : storage = ref.read(storageNotifierProvider.notifier) {
+  Model._(this._reader, this.event) {
     // Process metadata every time we construct
     if (event.metadata.isEmpty) {
       event.metadata.addAll(processMetadata());
@@ -61,19 +80,19 @@ sealed class Model<E extends Model<dynamic>>
 
     // Set up generic relationships
     author = BelongsTo(
-      ref,
+      _reader,
       RequestFilter<Profile>(authors: {event.pubkey}).toRequest(),
     );
     reactions = HasMany(
-      ref,
+      _reader,
       RequestFilter<Reaction>(tags: event.addressableIdTagMap).toRequest(),
     );
     zaps = HasMany(
-      ref,
+      _reader,
       RequestFilter<Zap>(tags: event.addressableIdTagMap).toRequest(),
     );
     targetedPublications = HasMany(
-      ref,
+      _reader,
       RequestFilter<TargetedPublication>(
         tags: {
           '#d': {id},
@@ -81,7 +100,7 @@ sealed class Model<E extends Model<dynamic>>
       ).toRequest(),
     );
     genericReposts = HasMany(
-      ref,
+      _reader,
       RequestFilter<GenericRepost>(
         tags: {
           '#e': {event.id},
@@ -90,8 +109,8 @@ sealed class Model<E extends Model<dynamic>>
     );
   }
 
-  Model.fromMap(Map<String, dynamic> map, Ref ref)
-    : this._(ref, ImmutableEvent<E>(map));
+  Model.fromMap(Map<String, dynamic> map, StorageReader reader)
+      : this._(reader, ImmutableEvent<E>(map));
 
   // General wrapper getters
 
@@ -107,23 +126,15 @@ sealed class Model<E extends Model<dynamic>>
   /// Topic tags (hashtags) for this model.
   Set<String> get tags => event.getTagSetValues('t');
 
-  /// Parse once in-event data that requires expensive decoding,
-  /// for instance zap amounts.
-  ///
-  /// Override this method to process metadata specific to your model type.
+  /// Parse once in-event data that requires expensive decoding.
   Map<String, dynamic> processMetadata() {
     return {};
   }
 
-  /// Map transformations before the event is fed into the constructor,
-  /// for instance to strip signatures.
-  ///
-  /// Override this method to transform the incoming map data before construction.
+  /// Map transformations before the event is fed into the constructor.
+  /// Override in subclasses for model-specific transformations.
   @mustCallSuper
   Map<String, dynamic> transformMap(Map<String, dynamic> map) {
-    if (!storage.config.keepSignatures) {
-      map['sig'] = null;
-    }
     return map;
   }
 
@@ -133,10 +144,8 @@ sealed class Model<E extends Model<dynamic>>
   }
 
   /// Convert this model to its partial representation.
-  ///
-  /// Partial models are lightweight versions used for creation and updates.
   P toPartial<P extends PartialModel<dynamic>>() {
-    return Model._getPartialConstructorFor<E>()!.call(toMap()) as P;
+    return ModelRegistry.instance.getPartialConstructorFor<E>()!.call(toMap()) as P;
   }
 
   /// Models are equal when their raw event IDs match.
@@ -147,138 +156,32 @@ sealed class Model<E extends Model<dynamic>>
   String toString() {
     return toMap().toString();
   }
-
-  // Storage-related
-
-  /// Save this model to local storage.
-  Future<void> save() async {
-    await storage.save({this});
-  }
-
-  /// Publish this model to relays. This does NOT save to local storage.
-  Future<void> publish({RemoteSource source = const RemoteSource()}) async {
-    await storage.publish({this}, source: source);
-  }
-
-  // Registry-related
-
-  static final Map<
-    String,
-    ({
-      int kind,
-      ModelConstructor constructor,
-      PartialModelConstructor? partialConstructor,
-    })
-  >
-  _modelRegistry = {};
-
-  /// Maps partial type names to their corresponding kind numbers.
-  /// Used to resolve the correct kind when creating new partial models
-  /// that inherit from other models.
-  static final Map<String, int> _partialTypeToKind = {};
-
-  /// Registers a new kind and associates it with its domain model.
-  ///
-  /// Uses looser constraint `Model<dynamic>` to allow model inheritance
-  /// (e.g., SoftwareAsset extends FileMetadata).
-  static void register<E extends Model<dynamic>>({
-    required int kind,
-    required ModelConstructor<E> constructor,
-    PartialModelConstructor? partialConstructor,
-  }) {
-    final typeName = E.toString();
-    _modelRegistry[typeName] = (
-      kind: kind,
-      constructor: constructor,
-      partialConstructor: partialConstructor,
-    );
-    // Also register partial type name -> kind mapping
-    _partialTypeToKind['Partial$typeName'] = kind;
-  }
-
-  /// Looks up kind by partial type name (e.g., "PartialSoftwareAsset" -> 3063)
-  static int? _kindForPartialType(String partialTypeName) {
-    return _partialTypeToKind[partialTypeName];
-  }
-
-  static Exception _unregisteredException<T>() => Exception(
-    'Type $T has not been registered. Are you sure you initialized the storage? Otherwise register it with Model.registerModel.',
-  );
-
-  static int _kindFor<E extends Model<dynamic>>() {
-    final kind = Model._modelRegistry[E.toString()]?.kind;
-    if (kind == null) {
-      throw _unregisteredException<E>();
-    }
-    return kind;
-  }
-
-  /// Finds the constructor for type parameter [E].
-  static ModelConstructor<E>? getConstructorFor<E extends Model<dynamic>>() {
-    final constructor =
-        _modelRegistry[E.toString()]?.constructor as ModelConstructor<E>?;
-    if (constructor == null) {
-      throw _unregisteredException();
-    }
-    return constructor;
-  }
-
-  /// Finds the constructor for the given Nostr event kind.
-  static ModelConstructor<Model<dynamic>>? getConstructorForKind(int kind) {
-    final constructor = _modelRegistry.values
-        .firstWhereOrNull((v) => v.kind == kind)
-        ?.constructor;
-    if (constructor == null) {
-      throw Exception('Could not find constructor for kind $kind');
-    }
-    return constructor;
-  }
-
-  /// Finds the partial constructor for type parameter [E].
-  static PartialModelConstructor<E>?
-  _getPartialConstructorFor<E extends Model<dynamic>>() {
-    final constructor =
-        _modelRegistry[E.toString()]?.partialConstructor
-            as PartialModelConstructor<E>?;
-    if (constructor == null) {
-      throw _unregisteredException();
-    }
-    return constructor;
-  }
 }
 
-/// Abstract interface for a mutable domain model entity that wraps a partial Nostr event
-/// which is meant to be signed.
-///
-/// Partial models are used for creating new events before they are signed
-/// and become immutable [Model] instances.
-sealed class PartialModel<E extends Model<dynamic>>
+/// Abstract interface for a mutable domain model entity that wraps a partial
+/// Nostr event which is meant to be signed.
+abstract class PartialModel<E extends Model<dynamic>>
     with Signable<E>
     implements ModelBase<E> {
   @override
   late final PartialEvent event;
 
+  /// Transient data that doesn't get included in the event.
+  final transientData = <String, dynamic>{};
+
   PartialModel() {
-    // Look up kind by runtime type name to support model inheritance
     final typeName = runtimeType.toString().split('<').first;
-    final kind = Model._kindForPartialType(typeName);
+    final kind = ModelRegistry.instance.kindForPartialType(typeName);
     event = PartialEvent<E>(null, kind);
   }
 
   PartialModel.fromMap(Map<String, dynamic> map) {
-    // Look up kind by runtime type name to support model inheritance
     final typeName = runtimeType.toString().split('<').first;
-    final kind = Model._kindForPartialType(typeName);
+    final kind = ModelRegistry.instance.kindForPartialType(typeName);
     event = PartialEvent<E>(map, kind);
   }
 
-  /// Transient data that doesn't get included in the event.
-  final transientData = <String, dynamic>{};
-
   /// Add an a/e tag referencing the passed model.
-  ///
-  /// This creates a link to another Nostr event, using the appropriate
-  /// tag type based on whether the model is replaceable or not.
   void linkModel(
     Model model, {
     String? relayUrl,
@@ -295,9 +198,6 @@ sealed class PartialModel<E extends Model<dynamic>>
   }
 
   /// Add an a/e tag referencing a model by its ID.
-  ///
-  /// Use [isReplaceable] to specify whether to use an 'a' tag (replaceable)
-  /// or 'e' tag (regular event).
   void linkModelById(
     String modelId, {
     bool isReplaceable = false,
@@ -308,8 +208,6 @@ sealed class PartialModel<E extends Model<dynamic>>
     if (isReplaceable) {
       event.addTag('a', [modelId, if (relayUrl != null) relayUrl]);
     } else {
-      // Need to construct array such that nulls are "" until the last non-null value
-      // e.g. ["id", "", "reply"]
       final value = [modelId, relayUrl ?? '', marker ?? '', pubkey ?? ''];
       for (final e in value.reversed.toList()) {
         if (e == '') {
@@ -331,14 +229,7 @@ sealed class PartialModel<E extends Model<dynamic>>
     event.removeTagWithValue(isReplaceable ? 'a' : 'e', modelId);
   }
 
-  /// Add p tag of the passed profile
-  void linkProfile(Profile p) => linkProfileByPubkey(p.pubkey);
-
   void linkProfileByPubkey(String p) => event.setTagValue('p', p);
-
-  /// Remove p tag of the passed profile
-  void unlinkProfile(Profile p) => unlinkProfileByPubkey(p.pubkey);
-
   void unlinkProfileByPubkey(String p) => event.removeTagWithValue('p', p);
 
   Set<String> get tags => event.getTagSetValues('t');
@@ -347,13 +238,7 @@ sealed class PartialModel<E extends Model<dynamic>>
   }
 
   /// Hook method called before signing to prepare the event.
-  ///
-  /// Override this method in subclasses to perform model-specific
-  /// preparation like encryption. This is called automatically by
-  /// the [Signable] mixin before signing.
-  Future<void> prepareForSigning(Signer signer) async {
-    // Default implementation does nothing
-  }
+  Future<void> prepareForSigning(Signer signer) async {}
 
   @override
   Map<String, dynamic> toMap() {
@@ -366,9 +251,8 @@ sealed class PartialModel<E extends Model<dynamic>>
   }
 }
 
-// Event types
+// Event type classes
 
-// Create an empty mixin in order to use the = class definitions
 mixin _EmptyMixin {}
 
 /// A base domain model class of a regular event
@@ -389,11 +273,11 @@ abstract class ReplaceableModel<E extends Model<dynamic>> extends Model<E> {
   ImmutableReplaceableEvent<E> get event =>
       super.event as ImmutableReplaceableEvent<E>;
 
-  ReplaceableModel.fromMap(Map<String, dynamic> map, Ref ref)
-    : this._(ref, ImmutableReplaceableEvent<E>(map));
+  ReplaceableModel.fromMap(Map<String, dynamic> map, StorageReader reader)
+      : this._(reader, ImmutableReplaceableEvent<E>(map));
 
-  ReplaceableModel._(Ref ref, ImmutableReplaceableEvent event)
-    : super._(ref, event);
+  ReplaceableModel._(StorageReader reader, ImmutableReplaceableEvent event)
+      : super._(reader, event);
 }
 
 abstract class ReplaceablePartialModel<E extends Model<dynamic>>
@@ -409,8 +293,9 @@ abstract class ParameterizableReplaceableModel<E extends Model<dynamic>>
   ImmutableParameterizableReplaceableEvent<E> get event =>
       super.event as ImmutableParameterizableReplaceableEvent<E>;
 
-  ParameterizableReplaceableModel.fromMap(Map<String, dynamic> map, Ref ref)
-    : super._(ref, ImmutableParameterizableReplaceableEvent<E>(map)) {
+  ParameterizableReplaceableModel.fromMap(
+      Map<String, dynamic> map, StorageReader reader)
+      : super._(reader, ImmutableParameterizableReplaceableEvent<E>(map)) {
     if (!event.containsTag('d')) {
       throw Exception('Model must contain a `d` tag');
     }
@@ -428,13 +313,40 @@ abstract class ParameterizableReplaceablePartialModel<E extends Model<dynamic>>
   set identifier(String? value) => event.setTagValue('d', value);
 }
 
-typedef ModelConstructor<E extends Model<dynamic>> =
-    E Function(Map<String, dynamic>, Ref ref);
+/// Signable mixin to make the [signWith] method available on all partial models
+mixin Signable<E extends Model<dynamic>> {
+  Future<E> signWith(Signer signer) async {
+    final partialModel = this as PartialModel<E>;
+    await partialModel.prepareForSigning(signer);
+    final signed = await signer.sign<E>([partialModel]);
+    return signed.first;
+  }
 
-typedef PartialModelConstructor<E extends Model<dynamic>> =
-    PartialModel<E> Function(Map<String, dynamic>);
+  E dummySign([StorageReader? reader, String? pubkey]) {
+    pubkey ??= Utils.generateRandomHex64();
+    reader ??= const NullStorageReader();
+    final partialModel = this as PartialModel<E>;
 
-// ======================================================================
-// Relay Collection Mixins
-// ======================================================================
+    // Handle encryption for encryptable models (DirectMessage, AppStack, etc.)
+    if (partialModel is EncryptablePartialModel &&
+        partialModel.event.content.isNotEmpty) {
+      partialModel.event.content =
+          'dummy_nip44_encrypted_${partialModel.event.content.hashCode}_$pubkey';
+    }
 
+    final constructor =
+        ModelRegistry.instance.getConstructorForKind(partialModel.event.kind)!;
+    return constructor.call({
+      'id': Utils.getEventId(partialModel.event, pubkey),
+      'pubkey': pubkey,
+      ...partialModel.toMap(),
+    }, reader) as E;
+  }
+}
+
+extension SignerExtension<E extends Model<dynamic>>
+    on Iterable<PartialModel<Model>> {
+  Future<List<E>> signWith(Signer signer) async {
+    return await signer.sign<E>(toList());
+  }
+}

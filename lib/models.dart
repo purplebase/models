@@ -1,86 +1,106 @@
-library models;
+/// Nostr models in Dart — pure data with StorageReader for relationship resolution.
+library;
 
-import 'dart:async';
-import 'dart:math' as math;
+// Core
+export 'src/core/event.dart';
+export 'src/core/model.dart';
+export 'src/core/model_registry.dart';
+export 'src/core/null_storage_reader.dart';
+export 'src/core/storage_reader.dart';
+export 'src/core/types.dart';
+export 'src/core/encryptable.dart';
+export 'src/core/verifier.dart';
+export 'src/core/http.dart';
 
-import 'package:http/http.dart' as http;
-// NIP-44 encryption implementation copied from https://github.com/paulmillr/nip44
-import 'src/nip44/nip44.dart' as nip44;
-import 'package:pointycastle/export.dart' as pc;
-import 'package:riverpod/riverpod.dart';
-import 'package:meta/meta.dart';
-import 'package:collection/collection.dart';
-import 'package:equatable/equatable.dart';
-import 'dart:convert';
-import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
-import 'package:bip340/bip340.dart' as bip340;
-import 'package:bech32/bech32.dart';
-import 'package:convert/convert.dart';
-import 'src/utils/async.dart';
+// Filter
+export 'src/filter/request_filter.dart';
+export 'src/filter/query_options.dart';
+export 'src/filter/request.dart';
 
-// Relay classes are available as parts of this library
+// Query
+export 'src/query/query_phase.dart';
+export 'src/query/request_notifier.dart';
+export 'src/query/source_handler.dart';
+export 'src/query/nested_query_manager.dart';
+export 'src/query/remote_query_buffer.dart';
 
-part 'src/utils/encoding.dart';
-part 'src/core/http.dart';
-part 'src/core/model.dart';
-part 'src/core/event.dart';
-part 'src/core/internal_models.dart';
-part 'src/core/relationship.dart';
-part 'src/core/signer.dart';
-part 'src/core/verifier.dart';
-part 'src/core/encryptable.dart';
+// Relationship
+export 'src/relationship/relationship.dart';
+export 'src/relationship/nested_query.dart';
 
-part 'src/models/app.dart';
-part 'src/models/article.dart';
-part 'src/models/blossom_authorization.dart';
-part 'src/models/bunker_authorization.dart';
-part 'src/models/chat_message.dart';
-part 'src/models/community.dart';
-part 'src/models/contact_list.dart';
-part 'src/models/direct_message.dart';
-part 'src/models/file_metadata.dart';
-part 'src/models/highlight.dart';
-part 'src/models/relay_list.dart';
-part 'src/models/mute_list.dart';
-part 'src/models/pin_list.dart';
-part 'src/models/follow_sets.dart';
-part 'src/models/bookmark_set.dart';
-part 'src/models/app_stack.dart';
-part 'src/models/note.dart';
-part 'src/models/profile.dart';
-part 'src/models/reaction.dart';
-part 'src/models/release.dart';
-part 'src/models/comment.dart';
-part 'src/models/asset.dart';
-part 'src/models/targeted_publication.dart';
-part 'src/models/dvm.dart';
-part 'src/models/verify_reputation_dvm.dart';
-part 'src/models/zap.dart';
-part 'src/models/custom_data.dart';
-part 'src/models/repost.dart';
-part 'src/models/generic_repost.dart';
-part 'src/models/event_deletion.dart';
-part 'src/models/picture.dart';
-part 'src/models/video.dart';
-part 'src/models/reporting.dart';
-part 'src/models/calendar_events.dart';
-part 'src/models/voice_message.dart';
-part 'src/models/poll.dart';
-part 'src/models/poll_response.dart';
+// Source
+export 'src/source/source.dart';
+export 'src/source/remote_source.dart';
+export 'src/source/local_and_remote_source.dart';
 
-part 'src/models/nwc.dart';
-part 'src/nwc/nwc_connection.dart';
-part 'src/nwc/nwc_commands.dart';
+// Storage
+export 'src/storage/storage_state.dart';
+export 'src/storage/storage_configuration.dart';
+export 'src/storage/storage_notifier.dart';
+export 'src/storage/dummy_storage.dart';
+export 'src/storage/connectivity.dart';
 
-part 'src/nip04/nip04.dart';
+// Signer
+export 'src/signer/signer.dart';
+export 'src/signer/bip340_signer.dart';
+export 'src/signer/dummy_signer.dart';
 
-part 'src/request/request_notifier.dart';
-part 'src/request/request.dart';
+// Providers
+export 'src/providers/query_providers.dart';
+export 'src/providers/initialization.dart';
 
-part 'src/storage/initialization.dart';
-part 'src/storage/storage.dart';
-part 'src/storage/dummy_storage.dart';
+// Models
+export 'src/models/app.dart';
+export 'src/models/article.dart';
+export 'src/models/blossom_authorization.dart';
+export 'src/models/bunker_authorization.dart';
+export 'src/models/chat_message.dart';
+export 'src/models/community.dart';
+export 'src/models/contact_list.dart';
+export 'src/models/direct_message.dart';
+export 'src/models/file_metadata.dart';
+export 'src/models/highlight.dart';
+export 'src/models/relay_list.dart';
+export 'src/models/mute_list.dart';
+export 'src/models/pin_list.dart';
+export 'src/models/follow_sets.dart';
+export 'src/models/bookmark_set.dart';
+export 'src/models/app_stack.dart';
+export 'src/models/note.dart';
+export 'src/models/profile.dart';
+export 'src/models/reaction.dart';
+export 'src/models/release.dart';
+export 'src/models/comment.dart';
+export 'src/models/asset.dart';
+export 'src/models/targeted_publication.dart';
+export 'src/models/dvm.dart';
+export 'src/models/verify_reputation_dvm.dart';
+export 'src/models/zap.dart';
+export 'src/models/custom_data.dart';
+export 'src/models/repost.dart';
+export 'src/models/generic_repost.dart';
+export 'src/models/event_deletion.dart';
+export 'src/models/picture.dart';
+export 'src/models/video.dart';
+export 'src/models/reporting.dart';
+export 'src/models/calendar_events.dart';
+export 'src/models/voice_message.dart';
+export 'src/models/poll.dart';
+export 'src/models/poll_response.dart';
 
-part 'src/utils/extensions.dart';
-part 'src/utils/utils.dart';
+// NWC
+export 'src/models/nwc.dart';
+export 'src/nwc/nwc_connection.dart';
+export 'src/nwc/nwc_commands.dart';
+
+// NIP-04
+export 'src/nip04/nip04.dart';
+
+// NIP-44
+export 'src/nip44/nip44.dart';
+
+// Utils
+export 'src/utils/extensions.dart';
+export 'src/utils/utils.dart';
+export 'src/utils/encoding.dart';
+export 'src/utils/async.dart';

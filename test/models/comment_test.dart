@@ -29,22 +29,22 @@ void main() {
         'Article content for testing comments',
         slug: 'test-article',
         summary: 'Test article summary',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
-      final fileMetadata = PartialFileMetadata().dummySign(franzapPubkey);
+      final fileMetadata = PartialFileMetadata().dummySign(storage, franzapPubkey);
 
       // Create comments on different content types
       final articleComment = PartialComment(
         content: 'Comment on an article',
         rootModel: article,
         parentModel: article,
-      ).dummySign(verbirichaPubkey);
+      ).dummySign(storage, verbirichaPubkey);
 
       final fileComment = PartialComment(
         content: 'Comment on a file',
         rootModel: fileMetadata,
         parentModel: fileMetadata,
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       // Save base models first
       await storage.save({article, fileMetadata});
@@ -57,7 +57,7 @@ void main() {
         content: 'Reply to the article comment',
         rootModel: article,
         parentModel: articleComment,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       // Save nested comment separately
       await storage.save({nestedComment});
@@ -114,7 +114,7 @@ void main() {
         content: 'Comment on external content',
         externalRootUri: 'https://example.com/article/123',
         externalParentUri: 'https://example.com/article/123',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({externalComment});
 

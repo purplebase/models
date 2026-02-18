@@ -1,4 +1,11 @@
-part of models;
+import 'dart:convert';
+
+import '../core/model.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import '../core/encryptable.dart';
+import '../signer/signer.dart';
+import 'app.dart';
 
 /// A named collection of apps (Kind 30267) from NIP-51.
 ///
@@ -15,13 +22,13 @@ class AppStack extends ParameterizableReplaceableModel<AppStack>
     with EncryptableModel<AppStack> {
   late final HasMany<App> apps;
 
-  AppStack.fromMap(super.map, super.ref) : super.fromMap() {
+  AppStack.fromMap(super.map, super.reader) : super.fromMap() {
     // Only include addressable events that are kind 32267 (App)
     final appIds = event
         .getTagSetValues('a')
         .where((id) => id.startsWith('32267:'))
         .toSet();
-    apps = HasMany(ref, Request<App>.fromIds(appIds));
+    apps = HasMany(reader, Request<App>.fromIds(appIds));
   }
 
   /// The name of this app stack
@@ -181,6 +188,7 @@ class PartialAppStack extends ParameterizableReplaceablePartialModel<AppStack>
   @override
   String getEncryptionPubkey(Signer signer) => signer.pubkey; // Encrypt to self
 
+  static int _idCounter = 0;
   String _generateIdentifier() =>
-      DateTime.now().millisecondsSinceEpoch.toString();
+      '${DateTime.now().millisecondsSinceEpoch}-${++_idCounter}';
 }

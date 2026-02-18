@@ -33,7 +33,7 @@ void main() {
         identifier: 'dev-tools',
         description: 'Essential tools for developers',
         publicApps: {app1, app2},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(appStack.name, 'Developer Tools');
       expect(appStack.identifier, 'dev-tools');
@@ -56,7 +56,7 @@ void main() {
         name: 'Test Pack',
         identifier: 'test-pack',
         publicApps: {testApp},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(appStack.event.kind, 30267);
       expect(appStack.event.getFirstTagValue('d'), 'test-pack');
@@ -121,7 +121,7 @@ void main() {
         '32267:pubkey456:otherapp',
       ]);
 
-      final appStack = partial.dummySign(nielPubkey);
+      final appStack = partial.dummySign(storage, nielPubkey);
 
       expect(appStack.name, 'Private Apps');
       expect(appStack.identifier, 'private');
@@ -152,7 +152,7 @@ void main() {
       // Before signing: privateAppIds works
       expect(partial.privateAppIds, ['32267:pubkey:app1', '32267:pubkey:app2']);
 
-      final appStack = partial.dummySign(nielPubkey);
+      final appStack = partial.dummySign(storage, nielPubkey);
 
       expect(appStack.name, 'Private Pack');
       // After signing: content is encrypted
@@ -164,7 +164,7 @@ void main() {
       final appStack = PartialAppStack(
         name: 'Empty Pack',
         identifier: 'empty',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(appStack.name, 'Empty Pack');
       final publicApps = appStack.event
@@ -176,12 +176,8 @@ void main() {
     });
 
     test('automatic identifier generation', () async {
-      final appStack1 = PartialAppStack(name: 'Pack 1').dummySign(nielPubkey);
-
-      // Ensure different timestamps by waiting a brief moment
-      await Future.delayed(Duration(milliseconds: 1));
-
-      final appStack2 = PartialAppStack(name: 'Pack 2').dummySign(nielPubkey);
+      final appStack1 = PartialAppStack(name: 'Pack 1').dummySign(storage, nielPubkey);
+      final appStack2 = PartialAppStack(name: 'Pack 2').dummySign(storage, nielPubkey);
 
       expect(appStack1.identifier, isNotEmpty);
       expect(appStack2.identifier, isNotEmpty);
@@ -195,7 +191,7 @@ void main() {
         publicApps: {
           '32267:test1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab:app1',
         },
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(appStack.privateAppIds, isEmpty);
     });
@@ -214,7 +210,7 @@ void main() {
       ]);
 
       // After signing: content is encrypted
-      final signed = partial.dummySign(nielPubkey);
+      final signed = partial.dummySign(storage, nielPubkey);
       expect(signed.content, contains('dummy_nip44_encrypted'));
     });
 
@@ -223,12 +219,12 @@ void main() {
       final app1Partial = PartialApp()
         ..name = 'Test App 1'
         ..event.setTagValue('d', 'test-app-1');
-      final app1 = app1Partial.dummySign(nielPubkey);
+      final app1 = app1Partial.dummySign(storage, nielPubkey);
 
       final app2Partial = PartialApp()
         ..name = 'Test App 2'
         ..event.setTagValue('d', 'test-app-2');
-      final app2 = app2Partial.dummySign(nielPubkey);
+      final app2 = app2Partial.dummySign(storage, nielPubkey);
 
       await storage.save({app1, app2});
 
@@ -241,7 +237,7 @@ void main() {
       partial.addApp(app1.id);
       partial.addApp(app2.id);
 
-      final appStack = partial.dummySign(nielPubkey);
+      final appStack = partial.dummySign(storage, nielPubkey);
       await storage.save({appStack});
 
       // Test the apps relationship
@@ -267,7 +263,7 @@ void main() {
           '32267:abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab:myapp';
       partial.linkModelById(appId, isReplaceable: true);
 
-      final appStack = partial.dummySign(nielPubkey);
+      final appStack = partial.dummySign(storage, nielPubkey);
 
       // Check that a-tag was added
       final aTags = appStack.event.getTagSet('a');
@@ -280,20 +276,20 @@ void main() {
       final appPartial = PartialApp()
         ..name = 'My App'
         ..event.setTagValue('d', 'my-app');
-      final app = appPartial.dummySign(nielPubkey);
+      final app = appPartial.dummySign(storage, nielPubkey);
       await storage.save({app});
 
       // Create app packs that include this app
       final pack1Partial = PartialAppStack(name: 'Tools', identifier: 'tools');
       pack1Partial.addApp(app.id);
-      final pack1 = pack1Partial.dummySign(nielPubkey);
+      final pack1 = pack1Partial.dummySign(storage, nielPubkey);
 
       final pack2Partial = PartialAppStack(
         name: 'Favorites',
         identifier: 'favorites',
       );
       pack2Partial.addApp(app.id);
-      final pack2 = pack2Partial.dummySign(nielPubkey);
+      final pack2 = pack2Partial.dummySign(storage, nielPubkey);
 
       await storage.save({pack1, pack2});
 
@@ -317,7 +313,7 @@ void main() {
         name: 'Saved Pack',
         identifier: 'saved-pack',
         publicApps: {testApp},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({appStack});
 
@@ -345,18 +341,15 @@ void main() {
         name: 'Version 1',
         identifier: 'my-apps',
         publicApps: {testApp1},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({appStack1});
-
-      // Wait to ensure different timestamp
-      await Future.delayed(Duration(milliseconds: 1));
 
       final appStack2 = PartialAppStack(
         name: 'Version 2',
         identifier: 'my-apps', // Same identifier
         publicApps: {testApp2},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({appStack2});
 
@@ -394,7 +387,7 @@ void main() {
       expect(partial.privateAppIds, containsAll([app1, app2]));
 
       // Sign it (this encrypts the content)
-      final appStack = partial.dummySign(nielPubkey);
+      final appStack = partial.dummySign(storage, nielPubkey);
 
       // After signing: content is encrypted
       expect(appStack.content.isNotEmpty, true);
@@ -428,7 +421,7 @@ void main() {
       expect(partial2.privateAppIds, containsAll([app2, app3]));
       expect(partial2.privateAppIds, isNot(contains(app1)));
 
-      final updated = partial2.dummySign(nielPubkey);
+      final updated = partial2.dummySign(storage, nielPubkey);
 
       // After signing: content is encrypted
       expect(updated.content, contains('dummy_nip44_encrypted'));

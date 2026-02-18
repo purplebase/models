@@ -1,4 +1,9 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'profile.dart';
 
 /// A content report used to flag objectionable material for moderation.
 ///
@@ -12,12 +17,12 @@ class Report extends RegularModel<Report> {
   /// The reported content (if reporting a specific post)
   late final BelongsTo<Model> reportedContent;
 
-  Report.fromMap(super.map, super.ref) : super.fromMap() {
+  Report.fromMap(super.map, super.reader) : super.fromMap() {
     final validUserPubkey = reportedUserPubkey?.length == 64
         ? reportedUserPubkey
         : null;
     reportedUser = BelongsTo(
-      ref,
+      reader,
       validUserPubkey != null
           ? RequestFilter<Profile>(authors: {validUserPubkey}).toRequest()
           : null,
@@ -27,7 +32,7 @@ class Report extends RegularModel<Report> {
         ? reportedContentId
         : null;
     reportedContent = BelongsTo(
-      ref,
+      reader,
       validContentId != null ? Request.fromIds({validContentId}) : null,
     );
   }

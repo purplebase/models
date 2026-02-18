@@ -1,4 +1,8 @@
-part of models;
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
+
+import 'package:pointycastle/export.dart' as pc;
 
 /// NIP-04 encryption/decryption implementation
 /// Uses AES-256-CBC with ECDH shared secret on secp256k1

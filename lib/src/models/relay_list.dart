@@ -1,4 +1,8 @@
-part of models;
+import 'dart:convert';
+
+import '../core/model.dart';
+import '../core/encryptable.dart';
+import '../signer/signer.dart';
 
 // ======================================================================
 // Relay List Models (1xxxx kinds)
@@ -10,7 +14,7 @@ part of models;
 /// configurations for various purposes. Each concrete class represents
 /// a specific use case (social relays, app catalogs, etc.).
 abstract class RelayList<E extends RelayList<E>> extends ReplaceableModel<E> {
-  RelayList.fromMap(super.map, super.ref) : super.fromMap();
+  RelayList.fromMap(super.map, super.reader) : super.fromMap();
 
   /// Registry: Label → Kind mapping for relay list types
   static const labels = <String, int>{
@@ -81,7 +85,7 @@ abstract class PartialRelayList<E extends RelayList<E>>
 /// A user's preferred relay configuration for social interactions
 /// (reading and writing notes, mentions, replies, etc.).
 class SocialRelayList extends RelayList<SocialRelayList> {
-  SocialRelayList.fromMap(super.map, super.ref) : super.fromMap();
+  SocialRelayList.fromMap(super.map, super.reader) : super.fromMap();
 }
 
 /// Manage your social relay configuration.
@@ -124,7 +128,7 @@ class PartialSocialRelayList extends PartialRelayList<SocialRelayList> {
 /// - To read private relays: must explicitly decrypt using signer
 class AppCatalogRelayList extends RelayList<AppCatalogRelayList>
     with EncryptableModel<AppCatalogRelayList> {
-  AppCatalogRelayList.fromMap(super.map, super.ref) : super.fromMap();
+  AppCatalogRelayList.fromMap(super.map, super.reader) : super.fromMap();
 
   @override
   String getEncryptionPubkey() => event.pubkey; // Self-encryption
@@ -234,4 +238,3 @@ class PartialAppCatalogRelayList extends PartialRelayList<AppCatalogRelayList>
   /// Clear all private relays
   void clearPrivateRelays() => clearContent();
 }
-

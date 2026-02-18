@@ -1,4 +1,8 @@
-part of models;
+import 'dart:convert';
+
+import '../core/model.dart';
+import '../core/encryptable.dart';
+import '../signer/signer.dart';
 
 /// A named collection of bookmarks (Kind 30003) from NIP-51.
 ///
@@ -13,7 +17,7 @@ part of models;
 /// (private) and public bookmarks.
 class BookmarkSet extends ParameterizableReplaceableModel<BookmarkSet>
     with EncryptableModel<BookmarkSet> {
-  BookmarkSet.fromMap(super.map, super.ref) : super.fromMap();
+  BookmarkSet.fromMap(super.map, super.reader) : super.fromMap();
 
   /// The name of this bookmark set
   String? get name => event.getFirstTagValue('name');
@@ -204,6 +208,7 @@ class PartialBookmarkSet
   @override
   String getEncryptionPubkey(Signer signer) => signer.pubkey; // Encrypt to self
 
+  static int _idCounter = 0;
   String _generateIdentifier() =>
-      DateTime.now().millisecondsSinceEpoch.toString();
+      '${DateTime.now().millisecondsSinceEpoch}-${++_idCounter}';
 }

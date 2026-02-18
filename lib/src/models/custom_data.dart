@@ -1,11 +1,12 @@
-part of models;
+
+import '../core/model.dart';
 
 /// A custom data event (kind 30078) for storing arbitrary application data.
 ///
 /// Custom data events provide a way to store application-specific data
 /// on Nostr relays. They are parameterizable replaceable events.
 class CustomData extends ParameterizableReplaceableModel<CustomData> {
-  CustomData.fromMap(super.map, super.ref) : super.fromMap();
+  CustomData.fromMap(super.map, super.reader) : super.fromMap();
 
   /// The custom data content (arbitrary JSON or text)
   String get content => event.content;

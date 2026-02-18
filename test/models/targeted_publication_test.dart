@@ -5,14 +5,12 @@ import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late Ref ref;
   late DummyStorageNotifier storage;
 
   setUp(() async {
     container = await createTestContainer(
       config: StorageConfiguration(keepSignatures: false),
     );
-    ref = container.read(refProvider);
     storage =
         container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
   });
@@ -27,16 +25,16 @@ void main() {
       // Create related models first
       final authorProfile = PartialProfile(
         name: 'Community Creator',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
       await storage.save({authorProfile});
 
       final community = PartialCommunity(
         name: 'Test Community',
         relayUrls: {'wss://test.relay'},
         description: 'A community for testing',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
-      final note = PartialNote('Test content').dummySign();
+      final note = PartialNote('Test content').dummySign(storage);
       await storage.save({community, note});
 
       // Test the main constructor
@@ -45,7 +43,7 @@ void main() {
         communities: {community},
         relayUrls: {'wss://distribute.relay'},
         identifier: 'test-identifier',
-      ).dummySign();
+      ).dummySign(storage);
 
       await storage.save({targetedPublication});
 
@@ -62,7 +60,7 @@ void main() {
       // Test serialization roundtrip
       final targetedPublication2 = TargetedPublication.fromMap(
         targetedPublication.toMap(),
-        ref,
+        storage,
       );
       expect(targetedPublication.toMap(), targetedPublication2.toMap());
     });
@@ -71,16 +69,16 @@ void main() {
       // Create related models first
       final authorProfile = PartialProfile(
         name: 'Community Creator',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
       await storage.save({authorProfile});
 
       final community = PartialCommunity(
         name: 'Test Community',
         relayUrls: {'wss://test.relay'},
         description: 'A community for testing',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
-      final note = PartialNote('Test content').dummySign();
+      final note = PartialNote('Test content').dummySign(storage);
       await storage.save({community, note});
 
       // Test the forExistingEvent constructor
@@ -90,7 +88,7 @@ void main() {
         communities: {community},
         relayUrls: {'wss://distribute.relay'},
         identifier: 'existing-event-identifier',
-      ).dummySign();
+      ).dummySign(storage);
 
       await storage.save({targetedPublication});
 
@@ -116,24 +114,24 @@ void main() {
       final community1 = PartialCommunity(
         name: 'Community 1',
         relayUrls: {'wss://relay1.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       final community2 =
           PartialCommunity(
             name: 'Community 2',
             relayUrls: {'wss://relay2.com'},
-          ).dummySign(
+          ).dummySign(storage, 
             'b9434ee165ed01b286becfc2771ef1705d3537d051b387288898cc00d5c885bf',
           );
 
-      final note = PartialNote('Multi-community content').dummySign();
+      final note = PartialNote('Multi-community content').dummySign(storage);
       await storage.save({community1, community2, note});
 
       final targetedPublication = PartialTargetedPublication(
         note,
         communities: {community1, community2},
         relayUrls: {'wss://distribute.relay'},
-      ).dummySign();
+      ).dummySign(storage);
 
       await storage.save({targetedPublication});
 
@@ -154,9 +152,9 @@ void main() {
       final community = PartialCommunity(
         name: 'Test Community',
         relayUrls: {'wss://test.relay'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
-      final note = PartialNote('Test content').dummySign();
+      final note = PartialNote('Test content').dummySign(storage);
       await storage.save({community, note});
 
       final customIdentifier = 'custom-identifier-123';
@@ -164,7 +162,7 @@ void main() {
         note,
         communities: {community},
         identifier: customIdentifier,
-      ).dummySign();
+      ).dummySign(storage);
 
       await storage.save({targetedPublication});
 
@@ -178,15 +176,15 @@ void main() {
         final community = PartialCommunity(
           name: 'Test Community',
           relayUrls: {'wss://test.relay'},
-        ).dummySign(nielPubkey);
+        ).dummySign(storage, nielPubkey);
 
-        final note = PartialNote('Test content').dummySign();
+        final note = PartialNote('Test content').dummySign(storage);
         await storage.save({community, note});
 
         final targetedPublication = PartialTargetedPublication(
           note,
           communities: {community},
-        ).dummySign();
+        ).dummySign(storage);
 
         await storage.save({targetedPublication});
 
@@ -203,22 +201,22 @@ void main() {
       final community = PartialCommunity(
         name: 'Test Community',
         relayUrls: {'wss://test.relay'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
-      final note = PartialNote('Test content').dummySign();
+      final note = PartialNote('Test content').dummySign(storage);
       await storage.save({community, note});
 
       final targetedPublication = PartialTargetedPublication(
         note,
         communities: {community},
-      ).dummySign();
+      ).dummySign(storage);
 
       await storage.save({targetedPublication});
 
       // Test that relationships are properly established
       final loadedPublication = TargetedPublication.fromMap(
         targetedPublication.toMap(),
-        ref,
+        storage,
       );
 
       // Test model relationship

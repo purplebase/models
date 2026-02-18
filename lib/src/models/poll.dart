@@ -1,4 +1,11 @@
-part of models;
+
+import 'package:equatable/equatable.dart';
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'poll_response.dart';
 
 /// Poll option with ID and label
 class PollOption extends Equatable {
@@ -28,12 +35,12 @@ class Poll extends RegularModel<Poll> {
   late final HasMany<PollResponse> responses;
   late final BelongsTo<Model> targetModel;
 
-  Poll.fromMap(super.map, super.ref) : super.fromMap() {
+  Poll.fromMap(super.map, super.reader) : super.fromMap() {
     // Note: author relationship is inherited from Model base class
 
     // All responses to this poll
     responses = HasMany(
-      ref,
+      reader,
       RequestFilter<PollResponse>(
         tags: {
           '#e': {event.id},
@@ -45,16 +52,16 @@ class Poll extends RegularModel<Poll> {
     // Target model (what this poll is about - e.g., an App)
     if (event.containsTag('a')) {
       targetModel = BelongsTo(
-        ref,
+        reader,
         Request.fromIds({event.getFirstTagValue('a')!}),
       );
     } else if (event.containsTag('A')) {
       targetModel = BelongsTo(
-        ref,
+        reader,
         Request.fromIds({event.getFirstTagValue('A')!}),
       );
     } else {
-      targetModel = BelongsTo(ref, null);
+      targetModel = BelongsTo(reader, null);
     }
   }
 

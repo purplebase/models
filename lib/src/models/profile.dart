@@ -1,4 +1,12 @@
-part of models;
+import 'dart:convert';
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import '../utils/encoding.dart';
+import 'package:http/http.dart' as http;
+import 'contact_list.dart';
+import 'note.dart';
 
 /// A user profile event (kind 0) containing metadata about a Nostr user.
 ///
@@ -11,13 +19,13 @@ class Profile extends ReplaceableModel<Profile> {
   /// The contact list (following list) for this profile.
   late final BelongsTo<ContactList> contactList;
 
-  Profile.fromMap(super.map, super.ref) : super.fromMap() {
+  Profile.fromMap(super.map, super.reader) : super.fromMap() {
     notes = HasMany(
-      ref,
+      reader,
       RequestFilter<Note>(authors: {event.pubkey}).toRequest(),
     );
     contactList = BelongsTo(
-      ref,
+      reader,
       RequestFilter<ContactList>(authors: {event.pubkey}).toRequest(),
     );
   }
@@ -71,7 +79,7 @@ class Profile extends ReplaceableModel<Profile> {
   }
 
   /// The user's npub (Bech32-encoded public key)
-  String get npub => _bech32Encode('npub', pubkey);
+  String get npub => bech32Encode('npub', pubkey);
 
   /// The user's display name
   String? get name => event.metadata['name'];
@@ -138,27 +146,9 @@ class Profile extends ReplaceableModel<Profile> {
     );
   }
 
-  /// Load a Profile from a NIP-05 address (user@domain.com)
-  static Future<Profile?> fromNip05(String address, Ref ref) async {
-    try {
-      // Decode NIP-05 to get the pubkey
-      final pubkey = await Utils.decodeNip05(
-        address,
-        client: ref.read(httpClientProvider),
-      );
-
-      // Query storage for the profile with this pubkey
-      final storage = ref.read(storageNotifierProvider.notifier);
-      final profiles = await storage.query(
-        RequestFilter<Profile>(authors: {pubkey}, limit: 1).toRequest(),
-      );
-
-      return profiles.isNotEmpty ? profiles.first : null;
-    } catch (e) {
-      // Return null if NIP-05 resolution fails
-      return null;
-    }
-  }
+  // NOTE: fromNip05 has been removed from the model layer.
+  // Use the provider-level implementation instead, which has
+  // access to HTTP client and storage via Ref.
 
   /// Returns the BOLT11 invoice string or null if unable to generate
   /// For zap requests, pass the signed zap request in zapRequest parameter

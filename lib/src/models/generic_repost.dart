@@ -1,4 +1,9 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'profile.dart';
 
 /// A generic repost event (kind 16) for sharing any type of event.
 ///
@@ -37,15 +42,15 @@ class GenericRepost extends RegularModel<GenericRepost> {
   /// The author of the reposted event
   late final BelongsTo<Profile> repostedEventAuthor;
 
-  GenericRepost.fromMap(super.map, super.ref) : super.fromMap() {
+  GenericRepost.fromMap(super.map, super.reader) : super.fromMap() {
     // According to NIP-18, generic repost event MUST include an 'e' tag with the id of the event being reposted
     final eTag = event.getFirstTagValue('e');
-    repostedEvent = BelongsTo(ref, Request.fromIds({?eTag}));
+    repostedEvent = BelongsTo(reader, Request.fromIds({?eTag}));
 
     // Should include a 'p' tag with the pubkey of the event being reposted
     final pTag = event.getFirstTagValue('p');
     repostedEventAuthor = BelongsTo(
-      ref,
+      reader,
       RequestFilter<Profile>(ids: {if (pTag != null) pTag}).toRequest(),
     );
   }

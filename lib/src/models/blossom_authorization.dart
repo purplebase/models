@@ -1,11 +1,14 @@
-part of models;
+import 'dart:convert';
+
+import '../core/model.dart';
+import '../utils/extensions.dart';
 
 /// A blossom authorization event (kind 24242) for file server authentication.
 ///
 /// Blossom authorization events provide authentication tokens for
 /// uploading and managing files on Blossom file servers.
 class BlossomAuthorization extends EphemeralModel<BlossomAuthorization> {
-  BlossomAuthorization.fromMap(super.map, super.ref) : super.fromMap();
+  BlossomAuthorization.fromMap(super.map, super.reader) : super.fromMap();
 
   /// Authorization content (token data)
   String get content => event.content;

@@ -25,7 +25,7 @@ void main() {
         slug: 'yo',
         summary: 'summary',
         publishedAt: DateTime.now().subtract(const Duration(minutes: 10)),
-      ).dummySign(verbirichaPubkey);
+      ).dummySign(container.storage, verbirichaPubkey);
       expect(article.imageUrl, isNull);
       expect(article.slug, 'yo');
       expect(article.title, 'title');

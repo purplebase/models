@@ -1,11 +1,12 @@
-part of models;
+
+import '../core/model.dart';
 
 /// A bunker authorization event (kind 24133) for NIP-46 remote signing.
 ///
 /// Bunker authorization events handle permissions for remote signing
 /// operations through the NIP-46 protocol (Nostr Connect).
 class BunkerAuthorization extends EphemeralModel<BunkerAuthorization> {
-  BunkerAuthorization.fromMap(super.map, super.ref) : super.fromMap();
+  BunkerAuthorization.fromMap(super.map, super.reader) : super.fromMap();
 
   /// Authorization content (permission details)
   String get content => event.content;

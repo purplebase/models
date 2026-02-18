@@ -1,9 +1,13 @@
-part of models;
+import 'dart:convert';
+
+import '../core/model.dart';
+import '../core/encryptable.dart';
+import '../signer/signer.dart';
 
 /// NWC Info Event (NIP-47 kind 13194)
 /// Published by wallet service to indicate which capabilities it supports
 class NwcInfo extends ReplaceableModel<NwcInfo> {
-  NwcInfo.fromMap(super.map, super.ref) : super.fromMap();
+  NwcInfo.fromMap(super.map, super.reader) : super.fromMap();
 
   /// List of supported NWC methods (space-separated in content)
   List<String> get supportedMethods {
@@ -97,16 +101,14 @@ class PartialNwcInfo extends ReplaceablePartialModel<NwcInfo>
 /// - Content is always encrypted after signing
 class NwcResponse extends EphemeralModel<NwcResponse>
     with EncryptableModel<NwcResponse> {
-  NwcResponse.fromMap(super.map, super.ref) : super.fromMap();
-
-  /// The client public key this response is directed to
-  String get clientPubkey {
-    final pTag = event.getFirstTagValue('p');
-    if (pTag == null) {
+  NwcResponse.fromMap(super.map, super.reader) : super.fromMap() {
+    if (event.getFirstTagValue('p') == null) {
       throw Exception('NWC response missing client pubkey (p tag)');
     }
-    return pTag;
   }
+
+  /// The client public key this response is directed to
+  String get clientPubkey => event.getFirstTagValue('p')!;
 
   /// The request event ID this response is replying to
   String? get requestEventId {
@@ -352,16 +354,14 @@ class PartialNwcResponse extends EphemeralPartialModel<NwcResponse>
 /// - Content is always encrypted after signing
 class NwcNotification extends EphemeralModel<NwcNotification>
     with EncryptableModel<NwcNotification> {
-  NwcNotification.fromMap(super.map, super.ref) : super.fromMap();
-
-  /// The client public key this notification is directed to
-  String get clientPubkey {
-    final pTag = event.getFirstTagValue('p');
-    if (pTag == null) {
+  NwcNotification.fromMap(super.map, super.reader) : super.fromMap() {
+    if (event.getFirstTagValue('p') == null) {
       throw Exception('NWC notification missing client pubkey (p tag)');
     }
-    return pTag;
   }
+
+  /// The client public key this notification is directed to
+  String get clientPubkey => event.getFirstTagValue('p')!;
 
   /// Get the notification content as a map (already plaintext)
   Map<String, dynamic> getContentMap() {
@@ -535,16 +535,14 @@ class PartialNwcNotification extends EphemeralPartialModel<NwcNotification>
 /// - Content is always encrypted after signing
 class NwcRequest extends EphemeralModel<NwcRequest>
     with EncryptableModel<NwcRequest> {
-  NwcRequest.fromMap(super.map, super.ref) : super.fromMap();
-
-  /// The wallet service public key this request is directed to
-  String get walletPubkey {
-    final pTag = event.getFirstTagValue('p');
-    if (pTag == null) {
+  NwcRequest.fromMap(super.map, super.reader) : super.fromMap() {
+    if (event.getFirstTagValue('p') == null) {
       throw Exception('NWC request missing wallet pubkey (p tag)');
     }
-    return pTag;
   }
+
+  /// The wallet service public key this request is directed to
+  String get walletPubkey => event.getFirstTagValue('p')!;
 
   /// Optional expiration timestamp for this request
   DateTime? get expiration {

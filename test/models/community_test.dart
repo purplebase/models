@@ -8,14 +8,12 @@ import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late Ref ref;
   late DummyStorageNotifier storage;
 
   setUp(() async {
     container = await createTestContainer(
       config: StorageConfiguration(keepSignatures: false),
     );
-    ref = container.read(refProvider);
     storage =
         container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
   });
@@ -28,7 +26,7 @@ void main() {
   group('Community', () {
     test('community', () async {
       // Create author profile first
-      final authorProfile = PartialProfile(name: 'neil').dummySign(nielPubkey);
+      final authorProfile = PartialProfile(name: 'neil').dummySign(storage, nielPubkey);
       await storage.save({authorProfile});
 
       final community = PartialCommunity(
@@ -51,20 +49,20 @@ void main() {
           ),
         },
         termsOfService: 'https://tos',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({community});
       expect(community.author.value!.pubkey, nielPubkey);
 
-      final community2 = Community.fromMap(community.toMap(), ref);
+      final community2 = Community.fromMap(community.toMap(), storage);
       expect(community.toMap(), community2.toMap());
       expect(jsonDecode(communityJson), community2.toMap());
 
-      final note = PartialNote('test').dummySign();
+      final note = PartialNote('test').dummySign(storage);
       final targetedPublication = PartialTargetedPublication(
         note,
         communities: {community},
-      ).dummySign();
+      ).dummySign(storage);
       await storage.save({community, note, targetedPublication});
       expect(targetedPublication.communities.toList(), [community]);
       expect(targetedPublication.model.value, note);
@@ -77,18 +75,18 @@ void main() {
         name: 'Test Community',
         relayUrls: {'wss://test.relay'},
         description: 'Test community for chat messages',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       // Create chat messages for the community
       final chatMessage1 = PartialChatMessage(
         'Hello community!',
         community: community,
-      ).dummySign();
+      ).dummySign(storage);
 
       final chatMessage2 = PartialChatMessage(
         'Another message',
         community: community,
-      ).dummySign();
+      ).dummySign(storage);
 
       // Save all to storage
       await storage.save({community, chatMessage1, chatMessage2});

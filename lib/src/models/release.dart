@@ -1,4 +1,11 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'app.dart';
+import 'asset.dart';
+import 'file_metadata.dart';
 
 /// A software release event (kind 30063) representing a version of an application.
 ///
@@ -12,9 +19,9 @@ class Release extends ParameterizableReplaceableModel<Release> {
   late final HasMany<SoftwareAsset> softwareAssets;
   late final BelongsTo<SoftwareAsset> latestAsset;
 
-  Release.fromMap(super.map, super.ref) : super.fromMap() {
+  Release.fromMap(super.map, super.reader) : super.fromMap() {
     app = BelongsTo(
-      ref,
+      reader,
       event.containsTag('a')
           ? Request<App>.fromIds({event.getFirstTagValue('a')!})
           // New format
@@ -27,26 +34,26 @@ class Release extends ParameterizableReplaceableModel<Release> {
             ).toRequest(),
     );
     fileMetadatas = HasMany(
-      ref,
+      reader,
       RequestFilter<FileMetadata>(
         ids: event.getTagSetValues('e').toSet(),
       ).toRequest(),
     );
     latestMetadata = BelongsTo(
-      ref,
+      reader,
       RequestFilter<FileMetadata>(
         ids: {?event.getFirstTagValue('e')},
         limit: 1,
       ).toRequest(),
     );
     softwareAssets = HasMany(
-      ref,
+      reader,
       RequestFilter<SoftwareAsset>(
         ids: event.getTagSetValues('e').toSet(),
       ).toRequest(),
     );
     latestAsset = BelongsTo(
-      ref,
+      reader,
       RequestFilter<SoftwareAsset>(
         ids: {?event.getFirstTagValue('e')},
         limit: 1,
@@ -79,14 +86,14 @@ class Release extends ParameterizableReplaceableModel<Release> {
   String get appIdentifier {
     // With fallback to legacy method
     return event.getFirstTagValue('i') ??
-        _getNullableSplit(event.identifier).$1!;
+        getNullableSplit(event.identifier).$1!;
   }
 
   /// The version string for this release
   String get version {
     // With fallback to legacy method
     return event.getFirstTagValue('version') ??
-        _getNullableSplit(event.identifier).$2!;
+        getNullableSplit(event.identifier).$2!;
   }
 }
 
@@ -157,7 +164,7 @@ class PartialRelease extends ParameterizableReplaceablePartialModel<Release>
     if (!newFormat) {
       // Legacy
       final value = event.identifier != null
-          ? _getNullableSplit(event.identifier!).$1
+          ? getNullableSplit(event.identifier!).$1
           : null;
       if (value == null) return null;
       return value.isEmpty ? null : value;
@@ -169,7 +176,7 @@ class PartialRelease extends ParameterizableReplaceablePartialModel<Release>
   String? get version {
     if (!newFormat) {
       final value = event.identifier != null
-          ? _getNullableSplit(event.identifier!).$2
+          ? getNullableSplit(event.identifier!).$2
           : null;
       if (value == null) return null;
       return value.isEmpty ? null : value;
@@ -197,7 +204,7 @@ class PartialRelease extends ParameterizableReplaceablePartialModel<Release>
   set url(String? value) => event.setTagValue('url', value);
 }
 
-(String? identifier, String? version) _getNullableSplit(String str) {
+(String? identifier, String? version) getNullableSplit(String str) {
   final r = str.split('@');
   String? identifier;
   String? version;

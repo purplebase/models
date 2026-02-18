@@ -1,4 +1,8 @@
-part of models;
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:bech32/bech32.dart';
+import 'package:convert/convert.dart';
 
 /// Sealed class representing different types of shareable identifier inputs
 sealed class ShareableIdentifierInput {
@@ -9,7 +13,6 @@ sealed class ShareableIdentifierInput {
   final int? kind;
 }
 
-/// Input for encoding a profile (nprofile)
 class ProfileInput extends ShareableIdentifierInput {
   const ProfileInput({
     required this.pubkey,
@@ -17,11 +20,9 @@ class ProfileInput extends ShareableIdentifierInput {
     super.author,
     super.kind,
   });
-
   final String pubkey;
 }
 
-/// Input for encoding an event (nevent)
 class EventInput extends ShareableIdentifierInput {
   const EventInput({
     required this.eventId,
@@ -29,11 +30,9 @@ class EventInput extends ShareableIdentifierInput {
     super.author,
     super.kind,
   });
-
   final String eventId;
 }
 
-/// Input for encoding an addressable event (naddr)
 class AddressInput extends ShareableIdentifierInput {
   const AddressInput({
     required this.identifier,
@@ -41,23 +40,19 @@ class AddressInput extends ShareableIdentifierInput {
     super.author,
     super.kind,
   });
-
   final String identifier;
 }
 
-/// Input for encoding a public key (npub)
 class NpubInput extends ShareableIdentifierInput {
   const NpubInput({required this.value}) : super();
   final String value;
 }
 
-/// Input for encoding a private key (nsec)
 class NsecInput extends ShareableIdentifierInput {
   const NsecInput({required this.value}) : super();
   final String value;
 }
 
-/// Input for encoding a note/event id (note)
 class NoteInput extends ShareableIdentifierInput {
   const NoteInput({required this.value}) : super();
   final String value;
@@ -76,7 +71,6 @@ sealed class ShareableIdentifierData {
   final int? kind;
 }
 
-/// Decoded profile data (nprofile, npub)
 class ProfileData extends ShareableIdentifierData {
   const ProfileData({
     required this.pubkey,
@@ -84,11 +78,9 @@ class ProfileData extends ShareableIdentifierData {
     super.author,
     super.kind,
   });
-
   final String pubkey;
 }
 
-/// Decoded event data (nevent, note)
 class EventData extends ShareableIdentifierData {
   const EventData({
     required this.eventId,
@@ -96,11 +88,9 @@ class EventData extends ShareableIdentifierData {
     super.author,
     super.kind,
   });
-
   final String eventId;
 }
 
-/// Decoded address data (naddr)
 class AddressData extends ShareableIdentifierData {
   const AddressData({
     required this.identifier,
@@ -108,20 +98,18 @@ class AddressData extends ShareableIdentifierData {
     super.author,
     super.kind,
   });
-
   final String identifier;
 }
 
-/// Internal function to encode shareable identifiers (nprofile, nevent, naddr) as TLV data
-/// Credit: https://github.com/ethicnology/dart-nostr/blob/master/lib/src/nips/nip_019.dart
-String _encodeShareableIdentifiers({
+// Package-visible encoding functions (no underscore prefix)
+
+String encodeShareableIdentifiers({
   required String prefix,
   required String special,
   List<String>? relays,
   String? author,
   int? kind,
 }) {
-  // 0: special
   if (prefix == 'naddr') {
     special = special.codeUnits
         .map((number) => number.toRadixString(16).padLeft(2, '0'))
@@ -130,7 +118,6 @@ String _encodeShareableIdentifiers({
   var result =
       '00${hex.decode(special).length.toRadixString(16).padLeft(2, '0')}$special';
 
-  // 1: relay
   if (relays != null) {
     for (final relay in relays) {
       result = '${result}01';
@@ -142,14 +129,12 @@ String _encodeShareableIdentifiers({
     }
   }
 
-  // 2: author
   if (author != null) {
     result = '${result}02';
     result =
         '$result${hex.decode(author).length.toRadixString(16).padLeft(2, '0')}$author';
   }
 
-  // 3: kind
   if (kind != null) {
     result = '${result}03';
     final byteData = ByteData(4);
@@ -161,66 +146,56 @@ String _encodeShareableIdentifiers({
     result =
         '$result${hex.decode(value).length.toRadixString(16).padLeft(2, '0')}$value';
   }
-  return _bech32Encode(prefix, result, maxLength: result.length + 90);
+  return bech32Encode(prefix, result, maxLength: result.length + 90);
 }
 
-/// Internal function to decode shareable identifiers (nprofile, nevent, naddr) from TLV data
-/// Returns a map with decoded values based on the identifier type
-Map<String, dynamic> _decodeShareableIdentifier(String identifier) {
-  // Extract prefix and data
+Map<String, dynamic> decodeShareableIdentifierRaw(String identifier) {
   final parts = identifier.split('1');
   if (parts.length != 2) {
     throw Exception('Invalid shareable identifier format');
   }
 
   final prefix = parts[0];
+  final hexData = bech32Decode(identifier, maxLength: identifier.length);
 
-  // Decode the bech32 data with appropriate maxLength
-  final hexData = _bech32Decode(identifier, maxLength: identifier.length);
-
-  // Parse TLV data
   final result = <String, dynamic>{};
   var offset = 0;
 
   while (offset < hexData.length) {
     if (offset + 2 > hexData.length) break;
 
-    // Read type (1 byte)
     final type = int.parse(hexData.substring(offset, offset + 2), radix: 16);
     offset += 2;
 
     if (offset + 2 > hexData.length) break;
 
-    // Read length (1 byte)
     final length = int.parse(hexData.substring(offset, offset + 2), radix: 16);
     offset += 2;
 
     if (offset + length * 2 > hexData.length) break;
 
-    // Read value
     final valueHex = hexData.substring(offset, offset + length * 2);
     offset += length * 2;
 
     switch (type) {
-      case 0: // special (pubkey for nprofile, event id for nevent, etc.)
-        // For naddr, decode the hex back to string
+      case 0:
         if (prefix == 'naddr') {
           result['special'] = utf8.decode(hex.decode(valueHex));
         } else {
           result['special'] = valueHex;
         }
         break;
-      case 1: // relay
+      case 1:
         final relay = utf8.decode(hex.decode(valueHex));
         if (result['relays'] == null) {
           result['relays'] = <String>[];
         }
         result['relays'].add(relay);
         break;
-      case 2: // author
+      case 2:
         result['author'] = valueHex;
         break;
-      case 3: // kind
+      case 3:
         final bytes = hex.decode(valueHex);
         if (bytes.length == 4) {
           final byteData = ByteData.view(Uint8List.fromList(bytes).buffer);
@@ -233,8 +208,7 @@ Map<String, dynamic> _decodeShareableIdentifier(String identifier) {
   return result;
 }
 
-String _bech32Encode(String prefix, String hexData, {int? maxLength}) {
-  // Left pad hexData with '0' to ensure it is 64 characters long
+String bech32Encode(String prefix, String hexData, {int? maxLength}) {
   if (hexData.length < 64) {
     hexData = hexData.padLeft(64, '0');
   }
@@ -245,7 +219,7 @@ String _bech32Encode(String prefix, String hexData, {int? maxLength}) {
   return bech32.encode(bech32Data);
 }
 
-String _bech32Decode(String bech32Data, {int? maxLength}) {
+String bech32Decode(String bech32Data, {int? maxLength}) {
   final decodedData = maxLength != null
       ? bech32.decode(bech32Data, maxLength)
       : bech32.decode(bech32Data);

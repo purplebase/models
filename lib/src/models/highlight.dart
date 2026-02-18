@@ -1,4 +1,10 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'article.dart';
+import 'note.dart';
 
 /// A highlight event (kind 9802) for highlighting portions of content.
 ///
@@ -43,17 +49,17 @@ class Highlight extends RegularModel<Highlight> {
   /// Whether this highlight references an external URL
   bool get isUrlHighlight => referencedUrl != null;
 
-  Highlight.fromMap(super.map, super.ref) : super.fromMap() {
+  Highlight.fromMap(super.map, super.reader) : super.fromMap() {
     // Set up relationship to referenced note if it's a regular event
     referencedNote = BelongsTo(
-      ref,
+      reader,
       referencedEventId != null
           ? RequestFilter<Note>(ids: {referencedEventId!}).toRequest()
           : null,
     );
 
     // Set up relationship to referenced article if it's an addressable event
-    referencedArticle = BelongsTo(ref, Request.fromIds({?referencedAddress}));
+    referencedArticle = BelongsTo(reader, Request.fromIds({?referencedAddress}));
   }
 }
 

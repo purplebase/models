@@ -1,14 +1,18 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import 'poll.dart';
 
 /// PollResponse represents a poll vote/response event (kind 1018) as specified in NIP-88.
 /// It contains the user's selected option(s) for a poll.
 class PollResponse extends RegularModel<PollResponse> {
   late final BelongsTo<Poll> poll;
 
-  PollResponse.fromMap(super.map, super.ref) : super.fromMap() {
+  PollResponse.fromMap(super.map, super.reader) : super.fromMap() {
     // Reference to the poll being responded to
     poll = BelongsTo(
-      ref,
+      reader,
       event.containsTag('e')
           ? RequestFilter<Poll>(
               ids: {event.getFirstTagValue('e')!},

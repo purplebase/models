@@ -1,15 +1,23 @@
-part of models;
+import 'dart:async';
 
-/// Pure in-memory storage for testing with streaming simulation.
+import '../core/model.dart';
+import '../core/model_registry.dart';
+import '../filter/request.dart';
+import '../filter/request_filter.dart';
+import '../source/source.dart';
+import '../source/remote_source.dart';
+import '../utils/utils.dart';
+import 'storage_notifier.dart';
+import 'storage_state.dart';
+import 'storage_configuration.dart';
+
+/// Pure in-memory storage for testing.
 ///
-/// Fast, isolated, and supports parallel test execution.
-/// Simulates relay streaming by tracking subscriptions and pushing
-/// matching events when saved.
+/// No relay simulation. No subscription tracking.
+/// Tests model logic, relationship resolution, filter matching,
+/// and state transitions — not relay behavior.
 class DummyStorageNotifier extends StorageNotifier {
-  final List<Map<String, dynamic>> _events = [];
-
-  /// Active streaming subscriptions: subscriptionId -> Request
-  final Map<String, Request> _subscriptions = {};
+  final Map<String, Map<String, dynamic>> _events = {};
 
   DummyStorageNotifier(super.ref);
 
@@ -27,52 +35,18 @@ class DummyStorageNotifier extends StorageNotifier {
     invalidateQueryCache();
     invalidateCacheForModels(models);
 
-    final savedEvents = <Map<String, dynamic>>[];
+    final updatedIds = <String>{};
 
     for (final model in models) {
-      final map = model.toMap();
+      final map = Map<String, dynamic>.from(model.toMap());
       map['sig'] ??= Utils.generateRandomHex64() + Utils.generateRandomHex64();
       _addEvent(map);
-      savedEvents.add(map);
+      updatedIds.add(model.id);
     }
 
     if (!mounted) return true;
 
-    // Collect all updates first to avoid concurrent modification
-    // when listeners modify _subscriptions
-    final updates = <InternalStorageData>[];
-
-    // Simulate streaming: notify subscriptions that match the saved events
-    for (final entry in _subscriptions.entries.toList()) {
-      final req = entry.value;
-
-      final matchingIds = <String>{};
-      for (final event in savedEvents) {
-        if (_eventMatchesRequest(event, req)) {
-          // Use addressable ID for replaceable events, event ID otherwise
-          final addressableId = _computeAddressableId(event);
-          matchingIds.add(addressableId ?? event['id'] as String);
-        }
-      }
-
-      if (matchingIds.isNotEmpty) {
-        updates.add(InternalStorageData(req: req, updatedIds: matchingIds));
-      }
-    }
-
-    // Add general update for non-streaming queries
-    updates.add(
-      InternalStorageData(
-        req: null,
-        updatedIds: {for (final model in models) model.id},
-      ),
-    );
-
-    // Emit all updates
-    for (final update in updates) {
-      if (!mounted) return true;
-      state = update;
-    }
+    state = InternalStorageData(req: null, updatedIds: updatedIds);
 
     return true;
   }
@@ -82,7 +56,6 @@ class DummyStorageNotifier extends StorageNotifier {
     final pubkey = event['pubkey'] as String;
 
     if (Utils.isEventReplaceable(kind)) {
-      // Remove older version of replaceable event
       String? dTag;
       if (kind >= 30000 && kind < 40000) {
         final tags = event['tags'] as List?;
@@ -96,12 +69,12 @@ class DummyStorageNotifier extends StorageNotifier {
         }
       }
 
-      _events.removeWhere((existing) {
-        if (existing['kind'] != kind || existing['pubkey'] != pubkey) {
-          return false;
-        }
+      // Remove older version of replaceable event
+      final keysToRemove = <String>[];
+      for (final entry in _events.entries) {
+        final existing = entry.value;
+        if (existing['kind'] != kind || existing['pubkey'] != pubkey) continue;
         if (kind >= 30000 && kind < 40000) {
-          // Parameterized replaceable - match by d tag
           String? existingDTag;
           final existingTags = existing['tags'] as List?;
           if (existingTags != null) {
@@ -112,17 +85,18 @@ class DummyStorageNotifier extends StorageNotifier {
               }
             }
           }
-          return existingDTag == dTag;
+          if (existingDTag == dTag) keysToRemove.add(entry.key);
+        } else {
+          keysToRemove.add(entry.key);
         }
-        // Regular replaceable (0, 3, 10000-19999)
-        return true;
-      });
-    } else {
-      // Regular event - just remove duplicates
-      _events.removeWhere((e) => e['id'] == event['id']);
+      }
+      for (final key in keysToRemove) {
+        _events.remove(key);
+      }
     }
 
-    _events.add(Map<String, dynamic>.from(event));
+    final storageId = _computeAddressableId(event) ?? event['id'] as String;
+    _events[storageId] = Map<String, dynamic>.from(event);
   }
 
   @override
@@ -152,27 +126,22 @@ class DummyStorageNotifier extends StorageNotifier {
     Source? source,
     String? subscriptionPrefix,
   }) async {
-    // Register subscription for streaming if enabled
-    if (source is RemoteSource && source.stream) {
-      _subscriptions[req.subscriptionId] = req;
-    }
-
     final results = querySync(req);
 
-    // For pure RemoteSource (not LocalAndRemoteSource), simulate "data arrived
-    // via subscription" by emitting InternalStorageData. This allows RequestNotifier
-    // to track which models arrived via this exact subscription.
-    // LocalAndRemoteSource doesn't need this - it refreshes from local storage.
-    if (source is RemoteSource && source is! LocalAndRemoteSource) {
+    // For any source with a remote component, emit InternalStorageData
+    // to notify watchers (including RequestNotifier) that data is available.
+    if (source is RemoteSource) {
       final matchingIds = <String>{};
       for (final model in results) {
         final addressableId = _computeAddressableId(model.toMap());
         matchingIds.add(addressableId ?? model.event.id);
       }
-      // Use scheduleMicrotask to avoid modifying state during provider initialization
+      final emitReq = subscriptionPrefix != null
+          ? Request<E>(req.filters, subscriptionPrefix: subscriptionPrefix)
+          : Request<E>(req.filters, subscriptionPrefix: req.subscriptionPrefix);
       scheduleMicrotask(() {
         if (mounted) {
-          state = InternalStorageData(req: req, updatedIds: matchingIds);
+          state = InternalStorageData(req: emitReq, updatedIds: matchingIds);
         }
       });
     }
@@ -185,15 +154,6 @@ class DummyStorageNotifier extends StorageNotifier {
     return _materialize(req);
   }
 
-  /// Check if an event matches a request's filters
-  bool _eventMatchesRequest(Map<String, dynamic> event, Request req) {
-    for (final filter in req.filters) {
-      if (_eventMatchesFilter(event, filter)) return true;
-    }
-    return false;
-  }
-
-  /// Check if an event matches a single filter
   bool _eventMatchesFilter(Map<String, dynamic> event, RequestFilter filter) {
     final kind = event['kind'] as int;
     final pubkey = event['pubkey'] as String;
@@ -204,23 +164,18 @@ class DummyStorageNotifier extends StorageNotifier {
       final matchesRawId = filter.ids.contains(eventId);
       final matchesAddressable =
           addressableId != null && filter.ids.contains(addressableId);
-      if (!matchesRawId && !matchesAddressable) {
-        return false;
-      }
+      if (!matchesRawId && !matchesAddressable) return false;
     }
     if (filter.authors.isNotEmpty && !filter.authors.contains(pubkey)) {
       return false;
     }
-    if (filter.kinds.isNotEmpty && !filter.kinds.contains(kind)) {
-      return false;
-    }
+    if (filter.kinds.isNotEmpty && !filter.kinds.contains(kind)) return false;
     if (filter.tags.isNotEmpty) {
       final eventTags = event['tags'] as List?;
       if (eventTags == null) return false;
       for (final entry in filter.tags.entries) {
-        final tagKey = entry.key.startsWith('#')
-            ? entry.key.substring(1)
-            : entry.key;
+        final tagKey =
+            entry.key.startsWith('#') ? entry.key.substring(1) : entry.key;
         final tagValues = entry.value;
         final hasMatch = eventTags.any(
           (t) =>
@@ -252,44 +207,39 @@ class DummyStorageNotifier extends StorageNotifier {
     final results = <E>[];
 
     for (final filter in req.filters) {
-      var filtered = _events.where(
+      var filtered = _events.values.where(
         (event) => _eventMatchesFilter(event, filter),
       );
 
-      // Apply schemaFilter before model construction
-      // Events rejected by schemaFilter are deleted from local storage
+      // Apply schemaFilter before model construction, deleting rejected events
       if (filter.schemaFilter != null) {
-        final schemaFilter = filter.schemaFilter!;
-        final rejectedIds = <String>{};
+        final toDelete = <String>[];
         final accepted = <Map<String, dynamic>>[];
-
         for (final event in filtered) {
-          if (schemaFilter(event)) {
+          if (filter.schemaFilter!(event)) {
             accepted.add(event);
           } else {
-            rejectedIds.add(event['id'] as String);
+            toDelete.add(event['id'] as String);
           }
         }
-
-        // Delete rejected events from storage
-        if (rejectedIds.isNotEmpty) {
-          _events.removeWhere((e) => rejectedIds.contains(e['id']));
-          invalidateQueryCache();
+        for (final id in toDelete) {
+          _events.removeWhere((k, v) => v['id'] == id);
         }
-
         filtered = accepted;
       }
 
       var models = filtered
           .map((event) {
-            final constructor = Model.getConstructorForKind(event['kind']);
+            final constructor =
+                ModelRegistry.instance.getConstructorForKind(event['kind']);
             if (constructor == null) return null;
             final transformed = _applyTransformMap(event);
-            return constructor(transformed, ref) as Model;
+            return constructor(transformed, this) as Model;
           })
           .whereType<E>()
           .toList();
 
+      // Apply client-side where filter after model construction
       if (filter.where != null) {
         models = models.where((m) => filter.where!(m)).toList();
       }
@@ -345,7 +295,6 @@ class DummyStorageNotifier extends StorageNotifier {
     return event;
   }
 
-  /// Compute the addressable ID for replaceable events (kind:pubkey:d-tag).
   String? _computeAddressableId(Map<String, dynamic> event) {
     final kind = event['kind'] as int;
     if (!Utils.isEventReplaceable(kind)) return null;
@@ -353,7 +302,6 @@ class DummyStorageNotifier extends StorageNotifier {
     final pubkey = event['pubkey'] as String;
 
     if (kind >= 30000 && kind < 40000) {
-      // Parameterized replaceable - include d tag
       String dTag = '';
       final tags = event['tags'] as List?;
       if (tags != null) {
@@ -367,17 +315,14 @@ class DummyStorageNotifier extends StorageNotifier {
       return '$kind:$pubkey:$dTag';
     }
 
-    // Regular replaceable (0, 3, 10000-19999)
     return '$kind:$pubkey:';
   }
 
   @override
   Future<void> clear([Request? req]) async {
     invalidateQueryCache();
-
     if (req == null) {
       _events.clear();
-      _subscriptions.clear();
       if (mounted) {
         state = InternalStorageData(req: null, updatedIds: {});
       }
@@ -388,7 +333,7 @@ class DummyStorageNotifier extends StorageNotifier {
     if (matching.isEmpty) return;
 
     final idsToRemove = matching.map((m) => m.event.id).toSet();
-    _events.removeWhere((e) => idsToRemove.contains(e['id']));
+    _events.removeWhere((k, v) => idsToRemove.contains(v['id']));
 
     if (mounted) {
       state = InternalStorageData(req: null, updatedIds: idsToRemove);
@@ -401,26 +346,14 @@ class DummyStorageNotifier extends StorageNotifier {
   }
 
   @override
-  Future<void> cancel(Request req) async {
-    _subscriptions.remove(req.subscriptionId);
-  }
+  Future<void> cancel(Request req) async {}
 
   @override
-  Future<void> closeSubscriptions({required dynamic relays}) async {
-    // Resolve relay URLs - in dummy storage we just clear all subscriptions
-    // since we don't track per-relay state
-    final relayUrls = await resolveRelays(relays);
-    if (relayUrls.isNotEmpty) {
-      // For dummy storage, we don't track which relays each subscription uses,
-      // so we just clear all subscriptions when any relay is specified
-      _subscriptions.clear();
-    }
-  }
+  Future<void> closeSubscriptions({required dynamic relays}) async {}
 
   @override
   void dispose() {
     _events.clear();
-    _subscriptions.clear();
     super.dispose();
   }
 }

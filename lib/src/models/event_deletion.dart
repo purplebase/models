@@ -1,4 +1,9 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'profile.dart';
 
 /// An event deletion request (kind 5) used to request deletion of events.
 ///
@@ -12,19 +17,19 @@ class EventDeletionRequest extends RegularModel<EventDeletionRequest> {
   /// Authors of the events being deleted (for profile deletions)
   late final HasMany<Profile> deletedProfiles;
 
-  EventDeletionRequest.fromMap(super.map, super.ref) : super.fromMap() {
+  EventDeletionRequest.fromMap(super.map, super.reader) : super.fromMap() {
     final validEventIds = deletedEventIds
         .where((id) => id.length == 64)
         .toSet();
     deletedEvents = HasMany(
-      ref,
+      reader,
       validEventIds.isNotEmpty ? Request.fromIds(validEventIds) : null,
     );
     final validPubkeys = deletedProfilePubkeys
         .where((pk) => pk.length == 64)
         .toSet();
     deletedProfiles = HasMany(
-      ref,
+      reader,
       validPubkeys.isNotEmpty
           ? RequestFilter<Profile>(authors: validPubkeys).toRequest()
           : null,

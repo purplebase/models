@@ -28,7 +28,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: 'Hello, Alice!',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       expect(dm.event.kind, 4);
       expect(dm.receiver, startsWith('npub1'));
@@ -51,7 +51,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: 'Hello!',
         receiver: receiverNpub, // Pass npub instead of hex
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       expect(dm.receiver, equals(receiverNpub));
       expect(dm.event.getFirstTagValue('p'), equals(nielPubkey)); // Stored as hex
@@ -62,7 +62,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: 'Hello!',
         receiver: 'invalid-receiver', // This gets stored as-is
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       // The invalid receiver gets stored in the p tag
       expect(dm.event.getFirstTagValue('p'), equals('invalid-receiver'));
@@ -90,7 +90,7 @@ void main() {
       // Before signing: content is plaintext
       expect(partial.content, equals('Plain text message'));
 
-      final signed = partial.dummySign(franzapPubkey);
+      final signed = partial.dummySign(storage, franzapPubkey);
 
       // After signing: content is encrypted
       expect(signed.content, isNot(equals('Plain text message')));
@@ -172,7 +172,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: 'Stored encrypted message',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       await storage.save({dm});
 
@@ -190,12 +190,12 @@ void main() {
       final dm1 = PartialDirectMessage(
         content: 'Message to Alice',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       final dm2 = PartialDirectMessage(
         content: 'Message to Bob',
         receiver: verbirichaPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       await storage.save({dm1, dm2});
 
@@ -214,11 +214,11 @@ void main() {
 
   group('DirectMessage Relationships', () {
     test('author relationship', () async {
-      final profile = PartialProfile(name: 'Alice').dummySign(franzapPubkey);
+      final profile = PartialProfile(name: 'Alice').dummySign(storage, franzapPubkey);
       final dm = PartialDirectMessage(
         content: 'Hello!',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       await storage.save({profile, dm});
 
@@ -229,17 +229,17 @@ void main() {
     });
 
     test('can query direct messages by author', () async {
-      final profile = PartialProfile(name: 'Alice').dummySign(franzapPubkey);
+      final profile = PartialProfile(name: 'Alice').dummySign(storage, franzapPubkey);
 
       final dm1 = PartialDirectMessage(
         content: 'First message',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       final dm2 = PartialDirectMessage(
         content: 'Second message',
         receiver: verbirichaPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       await storage.save({profile, dm1, dm2});
 
@@ -260,7 +260,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: 'Test message',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       expect(dm.event.kind, 4);
       expect(dm.event.getFirstTagValue('p'), equals(nielPubkey));
@@ -277,7 +277,7 @@ void main() {
       partial.event.addTagValue('subject', 'Important');
       partial.event.addTagValue('reply', 'previous-event-id');
 
-      final dm = partial.dummySign(franzapPubkey);
+      final dm = partial.dummySign(storage, franzapPubkey);
 
       expect(dm.event.getFirstTagValue('p'), equals(nielPubkey));
       expect(dm.event.getFirstTagValue('subject'), equals('Important'));
@@ -288,7 +288,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: 'Shareable test',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       final shareableId = dm.event.shareableId;
       expect(shareableId, startsWith('nevent1'));
@@ -322,7 +322,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: '',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       // Empty content doesn't get encrypted
       expect(dm.content, equals(''));
@@ -334,7 +334,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: longMessage,
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       // Content should be encrypted (contains dummy marker)
       expect(dm.content, contains('dummy'));
@@ -347,7 +347,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: specialMessage,
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       expect(dm.content, isNot(equals(specialMessage)));
       expect(dm.content, contains('dummy'));
@@ -360,7 +360,7 @@ void main() {
       final dm = PartialDirectMessage(
         content: 'NIP-44 test',
         receiver: nielPubkey,
-      ).dummySign(franzapPubkey);
+      ).dummySign(storage, franzapPubkey);
 
       // Dummy encryption happened
       expect(dm.content, isNot(equals('NIP-44 test')));

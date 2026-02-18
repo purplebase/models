@@ -32,7 +32,7 @@ void main() {
         name: 'Tech Influencers',
         identifier: 'tech-influencers',
         followedUsers: {user1, user2},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(followSet.name, 'Tech Influencers');
       expect(followSet.identifier, 'tech-influencers');
@@ -47,7 +47,7 @@ void main() {
         name: 'Test Set',
         identifier: 'test-set',
         followedUsers: {testUser},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(followSet.event.kind, 30000);
       expect(followSet.event.getFirstTagValue('d'), 'test-set');

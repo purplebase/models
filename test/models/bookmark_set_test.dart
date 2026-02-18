@@ -37,7 +37,7 @@ void main() {
         bookmarkedAddressableEvents: {addressable1},
         bookmarkedUrls: {'https://example1.com', 'https://example2.com'},
         bookmarkedHashtags: {'tech', 'programming'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(bookmarkSet.name, 'Tech Articles');
       expect(bookmarkSet.identifier, 'tech-articles');
@@ -61,7 +61,7 @@ void main() {
         identifier: 'test-set',
         bookmarkedEvents: {testEvent},
         bookmarkedUrls: {'https://test.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(bookmarkSet.event.kind, 30003);
       expect(bookmarkSet.event.getFirstTagValue('d'), 'test-set');
@@ -139,7 +139,7 @@ void main() {
       // Before signing: content contains the plaintext bookmarks
       expect(partial.content, isNotEmpty);
 
-      final bookmarkSet = partial.dummySign(nielPubkey);
+      final bookmarkSet = partial.dummySign(storage, nielPubkey);
 
       expect(bookmarkSet.name, 'Private Bookmarks');
       expect(bookmarkSet.identifier, 'private');
@@ -168,7 +168,7 @@ void main() {
       // Before signing: content contains the plaintext bookmarks
       expect(partial.content, isNotEmpty);
 
-      final bookmarkSet = partial.dummySign(nielPubkey);
+      final bookmarkSet = partial.dummySign(storage, nielPubkey);
 
       expect(bookmarkSet.name, 'Private Set');
       // After signing: content is encrypted
@@ -187,7 +187,7 @@ void main() {
 
       // Note: In real usage, you would NOT mix public and private bookmarks
       // But the model should handle it if someone does
-      final bookmarkSet = partial.dummySign(nielPubkey);
+      final bookmarkSet = partial.dummySign(storage, nielPubkey);
 
       expect(bookmarkSet.bookmarkedEvents, {'public_event123'});
       expect(bookmarkSet.bookmarkedUrls, {'https://public.com'});
@@ -198,7 +198,7 @@ void main() {
       final bookmarkSet = PartialBookmarkSet(
         name: 'Empty Set',
         identifier: 'empty',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(bookmarkSet.name, 'Empty Set');
       expect(bookmarkSet.hasBookmarks, false);
@@ -212,14 +212,11 @@ void main() {
     test('automatic identifier generation', () async {
       final bookmarkSet1 = PartialBookmarkSet(
         name: 'Set 1',
-      ).dummySign(nielPubkey);
-
-      // Ensure different timestamps by waiting a brief moment
-      await Future.delayed(Duration(milliseconds: 1));
+      ).dummySign(storage, nielPubkey);
 
       final bookmarkSet2 = PartialBookmarkSet(
         name: 'Set 2',
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(bookmarkSet1.identifier, isNotEmpty);
       expect(bookmarkSet2.identifier, isNotEmpty);
@@ -231,7 +228,7 @@ void main() {
         name: 'Public Only',
         identifier: 'public',
         bookmarkedEvents: {'event123'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(bookmarkSet.privateBookmarks, isEmpty);
     });
@@ -250,7 +247,7 @@ void main() {
       expect(partial.content, isNotEmpty);
 
       // After signing: content is encrypted
-      final signed = partial.dummySign(nielPubkey);
+      final signed = partial.dummySign(storage, nielPubkey);
       expect(signed.content, contains('dummy_nip44_encrypted'));
     });
 
@@ -260,7 +257,7 @@ void main() {
         identifier: 'saved-set',
         bookmarkedEvents: {'event123'},
         bookmarkedUrls: {'https://example.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({bookmarkSet});
 
@@ -280,18 +277,15 @@ void main() {
         name: 'Version 1',
         identifier: 'my-bookmarks',
         bookmarkedEvents: {'event1'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({bookmarkSet1});
-
-      // Wait to ensure different timestamp
-      await Future.delayed(Duration(milliseconds: 1));
 
       final bookmarkSet2 = PartialBookmarkSet(
         name: 'Version 2',
         identifier: 'my-bookmarks', // Same identifier
         bookmarkedEvents: {'event2'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({bookmarkSet2});
 

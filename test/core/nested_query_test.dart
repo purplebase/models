@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
@@ -31,7 +29,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       // Access the relationship and call query()
       final nq = app.latestRelease.query();
@@ -47,7 +45,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       final customSource = RemoteSource(relays: 'custom', stream: false);
       final nq = app.latestRelease.query(source: customSource);
@@ -59,7 +57,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       final nq = app.latestRelease.query(subscriptionPrefix: 'custom-prefix');
 
@@ -70,7 +68,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       // The callback receives Release directly - no cast needed
       final nq = app.latestRelease.query(
@@ -84,7 +82,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       final nq1 = app.latestRelease.query(source: LocalSource());
       final nq2 = app.latestRelease.query(source: RemoteSource(stream: true));
@@ -99,7 +97,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.callback'
         ..description = 'Test callback';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       await storage.save({app});
 
@@ -116,7 +114,7 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       expect(notifier.relationshipRequests, isNotEmpty);
@@ -128,7 +126,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.inherit'
         ..description = 'Test inheritance';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       await storage.save({app});
 
@@ -143,7 +141,7 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       expect(notifier.relationshipRequests, isNotEmpty);
@@ -155,7 +153,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.local'
         ..description = 'Test local source';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       await storage.save({app});
 
@@ -171,7 +169,7 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       // LocalSource relationships ARE tracked (for refresh purposes)
@@ -187,7 +185,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.override'
         ..description = 'Test override';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       await storage.save({app});
 
@@ -203,7 +201,7 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       // Should have issued remote request despite outer being LocalSource
@@ -218,7 +216,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.streaming'
         ..description = 'Test streaming';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       await storage.save({app});
 
@@ -231,14 +229,14 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       final initialCount = notifier.relationshipRequests.length;
 
       // Trigger another flush by saving the app again
       await storage.save({app});
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       // Streaming requests should not be re-issued
       expect(notifier.relationshipRequests.length, equals(initialCount));
@@ -250,7 +248,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.nonstreaming'
         ..description = 'Test non-streaming';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       await storage.save({app});
 
@@ -265,7 +263,7 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       final initialCount = notifier.relationshipRequests.length;
@@ -275,9 +273,9 @@ void main() {
       final updatedApp = (PartialApp()
             ..identifier = 'com.example.nonstreaming'
             ..description = 'Updated')
-          .dummySign(franzapPubkey);
+          .dummySign(storage, franzapPubkey);
       await storage.save({updatedApp});
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       // Non-streaming requests should be re-issued
       expect(notifier.relationshipRequests.length, greaterThan(initialCount));
@@ -294,13 +292,13 @@ void main() {
       final partialRelease = PartialRelease()..identifier = 'com.example.reemit@1.0.0';
       partialRelease.event.addTag('i', ['com.example.reemit']);
       partialRelease.event.addTag('version', ['1.0.0']);
-      final release = partialRelease.dummySign(pubkey);
+      final release = partialRelease.dummySign(storage, pubkey);
 
       // Create an App
       final partialApp = PartialApp()
         ..identifier = 'com.example.reemit'
         ..description = 'Test re-emission';
-      final app = partialApp.dummySign(pubkey);
+      final app = partialApp.dummySign(storage, pubkey);
 
       // Save the App first
       await storage.save({app});
@@ -323,7 +321,7 @@ void main() {
       });
 
       container.read(provider);
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final initialEmissions = emissionCount;
 
@@ -337,7 +335,7 @@ void main() {
 
       // Now save the Release - this should trigger re-emission
       await storage.save({release});
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       // Should have re-emitted
       expect(
@@ -368,7 +366,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.error'
         ..description = 'Test error handling';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
 
       await storage.save({app});
 
@@ -401,7 +399,7 @@ void main() {
         (i) => (PartialApp()
               ..identifier = 'buffered-app-$i'
               ..name = 'Buffered App $i')
-            .dummySign(franzapPubkey),
+            .dummySign(storage, franzapPubkey),
       );
 
       await storage.save(apps.toSet());
@@ -413,7 +411,7 @@ void main() {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
 
@@ -437,7 +435,7 @@ void main() {
       final partialApp1 = PartialApp()
         ..identifier = 'com.example.replaceable'
         ..description = 'Version 1';
-      final app1 = partialApp1.dummySign(pubkey);
+      final app1 = partialApp1.dummySign(storage, pubkey);
 
       await storage.save({app1});
 
@@ -450,7 +448,7 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       final initialCount = notifier.totalRelationshipQueriesIssued;
@@ -459,11 +457,11 @@ void main() {
       final partialApp2 = PartialApp()
         ..identifier = 'com.example.replaceable'
         ..description = 'Version 2';
-      final app2 = partialApp2.dummySign(pubkey);
+      final app2 = partialApp2.dummySign(storage, pubkey);
 
       // Save updated version
       await storage.save({app2});
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       // Updated replaceable should trigger re-query
       expect(
@@ -488,7 +486,7 @@ void main() {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       final state = container.read(provider);
       expect(state, isA<StorageData<App>>());
@@ -516,7 +514,7 @@ void main() {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       final state = container.read(provider);
       expect(state, isA<StorageData<App>>());
@@ -544,7 +542,7 @@ void main() {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(const Duration(milliseconds: 150));
+      await pumpEventQueue();
 
       final state = container.read(provider);
       expect(state, isA<StorageData<App>>());
@@ -560,20 +558,20 @@ void main() {
       final metadata = (PartialFileMetadata()
             ..version = '1.0.0'
             ..appIdentifier = 'com.test.nested')
-          .dummySign(pubkey);
+          .dummySign(storage, pubkey);
 
       // Create Release with 'e' tag pointing to FileMetadata
       final partialRelease = PartialRelease()..identifier = 'com.test.nested@1.0.0';
       partialRelease.event.addTag('i', ['com.test.nested']);
       partialRelease.event.addTag('version', ['1.0.0']);
       partialRelease.event.addTag('e', [metadata.event.id]); // Link to FileMetadata!
-      final release = partialRelease.dummySign(pubkey);
+      final release = partialRelease.dummySign(storage, pubkey);
 
       // Create App
       final app = (PartialApp()
             ..identifier = 'com.test.nested'
             ..description = 'Test nested callbacks')
-          .dummySign(pubkey);
+          .dummySign(storage, pubkey);
 
       // Only save App initially - Release and FileMetadata will come from "remote"
       await storage.save({app});
@@ -596,14 +594,14 @@ void main() {
 
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       final initialRequestCount = notifier.relationshipRequests.length;
 
       // Simulate Release arriving from relay
       await storage.save({release});
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       // The nested 'and' callback on latestRelease.query() should have been called
       expect(
@@ -648,7 +646,7 @@ void main() {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       final state = container.read(provider);
       expect(state, isA<StorageData<Note>>());
@@ -682,7 +680,7 @@ void main() {
       });
 
       container.read(provider);
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final initialEmissions = emissions.length;
 
@@ -691,7 +689,7 @@ void main() {
 
       // Now save releases - should trigger re-emission
       await storage.save(fixtures.releases);
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       expect(
         emissions.length,
@@ -701,7 +699,7 @@ void main() {
 
       // Now save profiles - should trigger another re-emission
       await storage.save(fixtures.profiles);
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       // Verify relationships are now populated
       final app1 = emissions.last.models
@@ -728,7 +726,7 @@ void main() {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
 
@@ -759,7 +757,7 @@ void main() {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       final initialCount = notifier.relationshipRequests.length;
@@ -768,9 +766,9 @@ void main() {
       final updatedApp = (PartialApp()
             ..identifier = 'com.alice.app1'
             ..description = 'Updated')
-          .dummySign(fixtures.author1);
+          .dummySign(storage, fixtures.author1);
       await storage.save({updatedApp});
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       // Both should be re-issued because the app was updated (new event.id)
       expect(
@@ -794,14 +792,14 @@ void main() {
       final app = (PartialApp()
             ..identifier = 'com.example.coldstart'
             ..description = 'Test cold start')
-          .dummySign(pubkey);
+          .dummySign(storage, pubkey);
 
       // Create Release that links to the app
       final partialRelease = PartialRelease()
         ..identifier = 'com.example.coldstart@1.0.0';
       partialRelease.event.addTag('i', ['com.example.coldstart']);
       partialRelease.event.addTag('version', ['1.0.0']);
-      final release = partialRelease.dummySign(pubkey);
+      final release = partialRelease.dummySign(storage, pubkey);
 
       // Step 1: Save only the app (simulates cold start where apps arrive first)
       await storage.save({app});
@@ -819,7 +817,7 @@ void main() {
       });
       container.read(provider);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       // Verify initial state: app exists, no release yet
       expect(emissions, isNotEmpty);
@@ -836,7 +834,7 @@ void main() {
 
       // Step 2: Save the release (simulates release data arriving later)
       await storage.save({release});
-      await Future.delayed(const Duration(milliseconds: 100));
+      await pumpEventQueue();
 
       // Should have re-emitted because we track the relationship
       expect(

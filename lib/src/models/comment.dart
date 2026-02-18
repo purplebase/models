@@ -1,4 +1,10 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import '../utils/extensions.dart';
+import 'profile.dart';
 
 /// Comment represents a comment (kind 1111) on various types of content as specified in NIP-22.
 /// It provides a structured approach for commenting on long-form articles, files,
@@ -11,25 +17,25 @@ class Comment extends RegularModel<Comment> {
   late final BelongsTo<Profile> parentAuthor;
   late final HasMany<Comment> replies;
 
-  Comment.fromMap(super.map, super.ref) : super.fromMap() {
+  Comment.fromMap(super.map, super.reader) : super.fromMap() {
     // Root reference
     if (event.containsTag('A')) {
       rootModel = BelongsTo(
-        ref,
+        reader,
         Request<Model>.fromIds({event.getFirstTagValue('A')!}),
       );
     } else if (event.containsTag('E')) {
       rootModel = BelongsTo(
-        ref,
+        reader,
         Request.fromIds({?event.getFirstTagValue('E')}),
       );
     } else {
-      rootModel = BelongsTo(ref, null);
+      rootModel = BelongsTo(reader, null);
     }
 
     // Parent article reference
     parentModel = BelongsTo(
-      ref,
+      reader,
       Request.fromIds({
         ?event.getFirstTagValue('e'),
         ?event.getFirstTagValue('a'),
@@ -37,13 +43,13 @@ class Comment extends RegularModel<Comment> {
     );
 
     quotedModel = BelongsTo(
-      ref,
+      reader,
       Request.fromIds({?event.getFirstTagValue('q')}),
     );
 
     // Root author relationship
     rootAuthor = BelongsTo(
-      ref,
+      reader,
       event.containsTag('P')
           ? RequestFilter<Profile>(
               authors: {event.getFirstTagValue('P')!},
@@ -53,7 +59,7 @@ class Comment extends RegularModel<Comment> {
 
     // Parent author relationship
     parentAuthor = BelongsTo(
-      ref,
+      reader,
       event.containsTag('p')
           ? RequestFilter<Profile>(
               authors: {event.getFirstTagValue('p')!},
@@ -63,7 +69,7 @@ class Comment extends RegularModel<Comment> {
 
     // Child replies to this comment
     replies = HasMany(
-      ref,
+      reader,
       RequestFilter<Comment>(
         tags: {
           '#e': {event.id},

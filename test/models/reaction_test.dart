@@ -19,14 +19,14 @@ void main() {
 
   group('Reaction', () {
     test('reaction', () async {
-      final a = PartialNote('Note A').dummySign(nielPubkey);
-      final profile = PartialProfile(name: 'neil').dummySign(nielPubkey);
+      final a = PartialNote('Note A').dummySign(container.storage, nielPubkey);
+      final profile = PartialProfile(name: 'neil').dummySign(container.storage, nielPubkey);
 
       await container.read(storageNotifierProvider.notifier).save({a, profile});
 
       final reaction =
           PartialReaction(reactedOn: a, emojiTag: ('test', 'test://t'))
-              .dummySign(nielPubkey);
+              .dummySign(container.storage, nielPubkey);
       expect(reaction.emojiTag, equals(('test', 'test://t')));
       expect(reaction.reactedOn.req!.filters.first.ids, {a.event.id});
       expect(reaction.reactedOn.value, a);

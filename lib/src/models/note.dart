@@ -1,4 +1,8 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import 'repost.dart';
 
 /// A text note event (kind 1) in the Nostr protocol.
 ///
@@ -26,14 +30,14 @@ class Note extends RegularModel<Note> {
   /// All reposts of this note.
   late final HasMany<Repost> reposts;
 
-  Note.fromMap(super.map, super.ref) : super.fromMap() {
+  Note.fromMap(super.map, super.reader) : super.fromMap() {
     final tagsWithRoot = event
         .getTagSet('e')
         .where((t) => t.length > 3 && t[3] == 'root');
     isRoot = tagsWithRoot.isEmpty;
 
     root = BelongsTo(
-      ref,
+      reader,
       isRoot
           ? null
           : RequestFilter<Note>(ids: {tagsWithRoot.first[1]}).toRequest(),
@@ -66,14 +70,14 @@ class Note extends RegularModel<Note> {
     }
 
     replyTo = BelongsTo(
-      ref,
+      reader,
       replyToId != null
           ? RequestFilter<Note>(ids: {replyToId}).toRequest()
           : null,
     );
 
     allReplies = HasMany(
-      ref,
+      reader,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -89,7 +93,7 @@ class Note extends RegularModel<Note> {
       ).toRequest(),
     );
     replies = HasMany(
-      ref,
+      reader,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -106,7 +110,7 @@ class Note extends RegularModel<Note> {
     );
 
     reposts = HasMany(
-      ref,
+      reader,
       RequestFilter<Repost>(
         tags: {
           '#e': {event.id},

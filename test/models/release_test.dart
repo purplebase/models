@@ -20,7 +20,7 @@ void main() {
     test('release', () {
       final partialRelease = PartialRelease()
         ..identifier = 'com.example.app@0.1.2';
-      final release = partialRelease.dummySign(
+      final release = partialRelease.dummySign(container.storage, 
         'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1',
       );
       expect(release.identifier, 'com.example.app@0.1.2');
@@ -29,7 +29,7 @@ void main() {
 
       final newPartialRelease = PartialRelease(newFormat: false)
         ..identifier = 'com.example.app@0.1.2';
-      final newRelease = newPartialRelease.dummySign(
+      final newRelease = newPartialRelease.dummySign(container.storage, 
         'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1',
       );
       expect(newRelease.identifier, 'com.example.app@0.1.2');
@@ -44,14 +44,14 @@ void main() {
       final partialFile = PartialFileMetadata()
         ..version = '1.0.0'
         ..appIdentifier = 'com.example.app';
-      final fileMetadata = partialFile.dummySign(pubkey);
+      final fileMetadata = partialFile.dummySign(container.storage, pubkey);
 
       // Create a Release that references the FileMetadata by id
       final partialRelease = PartialRelease()
         ..identifier = 'com.example.app@1.0.0';
       // Add the file metadata id as an 'e' tag (as per Release.fromMap)
       partialRelease.event.addTag('e', [fileMetadata.id]);
-      final release = partialRelease.dummySign(pubkey);
+      final release = partialRelease.dummySign(container.storage, pubkey);
 
       // Save both models to storage
       final storage =

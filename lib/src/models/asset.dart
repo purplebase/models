@@ -1,4 +1,5 @@
-part of models;
+
+import 'file_metadata.dart';
 
 /// A software asset event (kind 3063) containing downloadable software files.
 ///
@@ -7,7 +8,7 @@ part of models;
 ///
 /// Extends [FileMetadata] to inherit file metadata properties.
 class SoftwareAsset extends FileMetadata {
-  SoftwareAsset.fromMap(super.map, super.ref) : super.fromMap();
+  SoftwareAsset.fromMap(super.map, super.reader) : super.fromMap();
 
   /// Minimum platform version required to run the software
   String? get minPlatformVersion =>

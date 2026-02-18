@@ -1,19 +1,24 @@
-part of models;
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
+
+import 'package:bip340/bip340.dart' as bip340;
+import 'package:crypto/crypto.dart';
+
+import '../core/event.dart';
+import 'encoding.dart';
+import 'extensions.dart';
 
 class Utils {
   // Keys
 
-  /// Crytographically secure random number formatted as 64-character hex
+  /// Cryptographically secure random number formatted as 64-character hex
   static String generateRandomHex64() {
     final random = math.Random.secure();
-    final values = Uint8List(32); // 32 bytes = 256 bits
-
-    // Fill the byte array with random values
+    final values = Uint8List(32);
     for (var i = 0; i < values.length; i++) {
       values[i] = random.nextInt(256);
     }
-
-    // Convert each byte to a 2-digit hex representation
     return values.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
   }
 
@@ -27,11 +32,11 @@ class Utils {
   /// Encode a shareable identifier from typed input
   static String encodeShareableIdentifier(ShareableIdentifierInput input) {
     return switch (input) {
-      NpubInput(:final value) => _bech32Encode('npub', value),
-      NsecInput(:final value) => _bech32Encode('nsec', value),
-      NoteInput(:final value) => _bech32Encode('note', value),
+      NpubInput(:final value) => bech32Encode('npub', value),
+      NsecInput(:final value) => bech32Encode('nsec', value),
+      NoteInput(:final value) => bech32Encode('note', value),
       ProfileInput(:final pubkey, :final relays, :final author, :final kind) =>
-        _encodeShareableIdentifiers(
+        encodeShareableIdentifiers(
           prefix: 'nprofile',
           special: pubkey,
           relays: relays,
@@ -39,7 +44,7 @@ class Utils {
           kind: kind,
         ),
       EventInput(:final eventId, :final relays, :final author, :final kind) =>
-        _encodeShareableIdentifiers(
+        encodeShareableIdentifiers(
           prefix: 'nevent',
           special: eventId,
           relays: relays,
@@ -52,7 +57,7 @@ class Utils {
         :final author,
         :final kind,
       ) =>
-        _encodeShareableIdentifiers(
+        encodeShareableIdentifiers(
           prefix: 'naddr',
           special: identifier,
           relays: relays,
@@ -64,36 +69,34 @@ class Utils {
 
   /// Decode a shareable identifier to typed output
   static ShareableIdentifierData decodeShareableIdentifier(String identifier) {
-    // Handle NIP-21 URIs which is the identifier prepended by "nostr:"
     if (identifier.startsWith('nostr:')) {
-      identifier = identifier.substring(6); // Remove "nostr:" prefix
+      identifier = identifier.substring(6);
     }
 
     final prefix = identifier.split('1')[0];
-
-    final raw = _decodeShareableIdentifier(identifier);
+    final raw = decodeShareableIdentifierRaw(identifier);
 
     return switch (prefix) {
-      'npub' => ProfileData(pubkey: _bech32Decode(identifier)),
+      'npub' => ProfileData(pubkey: bech32Decode(identifier)),
       'nprofile' => ProfileData(
-        pubkey: raw['special'] as String,
-        relays: raw['relays'] as List<String>?,
-        author: raw['author'] as String?,
-        kind: raw['kind'] as int?,
-      ),
-      'note' => EventData(eventId: _bech32Decode(identifier)),
+          pubkey: raw['special'] as String,
+          relays: raw['relays'] as List<String>?,
+          author: raw['author'] as String?,
+          kind: raw['kind'] as int?,
+        ),
+      'note' => EventData(eventId: bech32Decode(identifier)),
       'nevent' => EventData(
-        eventId: raw['special'] as String,
-        relays: raw['relays'] as List<String>?,
-        author: raw['author'] as String?,
-        kind: raw['kind'] as int?,
-      ),
+          eventId: raw['special'] as String,
+          relays: raw['relays'] as List<String>?,
+          author: raw['author'] as String?,
+          kind: raw['kind'] as int?,
+        ),
       'naddr' => AddressData(
-        identifier: raw['special'] as String,
-        relays: raw['relays'] as List<String>?,
-        author: raw['author'] as String?,
-        kind: raw['kind'] as int?,
-      ),
+          identifier: raw['special'] as String,
+          relays: raw['relays'] as List<String>?,
+          author: raw['author'] as String?,
+          kind: raw['kind'] as int?,
+        ),
       _ => throw Exception('Unknown shareable identifier prefix: $prefix'),
     };
   }
@@ -103,14 +106,12 @@ class Utils {
     String value, {
     required String type,
   }) {
-    // Check if already encoded before calling _bech32Encode
     if (value.startsWith('npub') ||
         value.startsWith('nsec') ||
         value.startsWith('note') ||
         value.startsWith('nprofile') ||
         value.startsWith('nevent') ||
         value.startsWith('naddr')) {
-      // Already encoded, return as is
       return value;
     }
 
@@ -127,7 +128,6 @@ class Utils {
 
   /// Convenience method to decode NIP-19 entities into a simple string
   static String decodeShareableToString(String input) {
-    // If not a well-known NIP-19 entity, return as-is (already decoded)
     if (!(input.startsWith('npub') ||
         input.startsWith('nsec') ||
         input.startsWith('note') ||
@@ -138,21 +138,16 @@ class Utils {
       return input;
     }
 
-    // Handle NIP-21 URIs
     if (input.startsWith('nostr:')) {
       input = input.substring(6);
     }
 
-    // Handle simple bech32 formats (npub, nsec, note)
-    if (input.startsWith('npub')) {
-      return _bech32Decode(input);
-    } else if (input.startsWith('nsec')) {
-      return _bech32Decode(input);
-    } else if (input.startsWith('note')) {
-      return _bech32Decode(input);
+    if (input.startsWith('npub') ||
+        input.startsWith('nsec') ||
+        input.startsWith('note')) {
+      return bech32Decode(input);
     }
 
-    // Handle complex formats (nprofile, nevent, naddr)
     final data = decodeShareableIdentifier(input);
     if (data is ProfileData) {
       return data.pubkey;
@@ -162,7 +157,7 @@ class Utils {
       return data.identifier;
     } else {
       throw Exception(
-        'Unknown decoded shareable identifier type: \\${data.runtimeType}',
+        'Unknown decoded shareable identifier type: ${data.runtimeType}',
       );
     }
   }
@@ -170,41 +165,10 @@ class Utils {
   /// Decode NIP-05 identifier to public key
   static Future<String> decodeNip05(
     String address, {
-    http.Client? client,
+    dynamic client,
   }) async {
-    final httpClient = client ?? http.Client();
-    try {
-      final [username, domain] = address.split('@');
-
-      // Make HTTP request to .well-known/nostr.json
-      final response = await httpClient.get(
-        Uri.parse('https://$domain/.well-known/nostr.json?name=$username'),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception(
-          'HTTP ${response.statusCode}: Failed to fetch NIP-05 data',
-        );
-      }
-
-      final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
-
-      final names = jsonData['names'] as Map<String, dynamic>?;
-      if (names == null) {
-        throw Exception('No names field in NIP-05 response');
-      }
-
-      final pubkey = names[username] as String?;
-      if (pubkey == null) {
-        throw Exception('Username $username not found in NIP-05 response');
-      }
-
-      return pubkey;
-    } catch (e) {
-      throw Exception('Failed to decode NIP-05 identifier: $e');
-    } finally {
-      if (client == null) httpClient.close();
-    }
+    throw UnimplementedError(
+        'decodeNip05 requires an HTTP client. Use the provider-level implementation.');
   }
 
   // Events
@@ -232,30 +196,19 @@ class Utils {
   }
 
   /// Extract URLs from imeta tags
-  ///
-  /// Parses imeta tags (NIP-92) to extract URL values.
-  /// Used by media models (Picture, Video, VoiceMessage) for URL fallback.
-  ///
-  /// Example imeta tag format:
-  /// ```
-  /// ["imeta", "url https://example.com/image.jpg", "m image/jpeg", "dim 1920x1080"]
-  /// ```
   static List<String> extractImetaUrls(Set<List<String>> imetaTags) {
     final urls = <String>[];
-
     for (final tag in imetaTags) {
-      // Skip the first element which is 'imeta'
       for (int i = 1; i < tag.length; i++) {
         final part = tag[i];
         if (part.startsWith('url ')) {
-          final url = part.substring(4); // Remove 'url ' prefix
+          final url = part.substring(4);
           if (url.isNotEmpty) {
             urls.add(url);
           }
         }
       }
     }
-
     return urls;
   }
 }

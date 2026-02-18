@@ -1,4 +1,10 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import '../utils/utils.dart';
+import 'comment.dart';
+import 'note.dart';
 
 /// A picture event (kind 20) for sharing images in picture-first feeds.
 ///
@@ -12,9 +18,9 @@ class Picture extends RegularModel<Picture> {
   /// Comments on this picture
   late final HasMany<Comment> comments;
 
-  Picture.fromMap(super.map, super.ref) : super.fromMap() {
+  Picture.fromMap(super.map, super.reader) : super.fromMap() {
     referencingNotes = HasMany(
-      ref,
+      reader,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -23,7 +29,7 @@ class Picture extends RegularModel<Picture> {
     );
 
     comments = HasMany(
-      ref,
+      reader,
       RequestFilter<Comment>(
         tags: {
           '#e': {event.id},

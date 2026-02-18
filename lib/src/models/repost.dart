@@ -1,4 +1,9 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import 'note.dart';
+import 'profile.dart';
 
 /// A repost event (kind 6) for sharing existing notes.
 ///
@@ -32,7 +37,7 @@ class Repost extends RegularModel<Repost> {
   /// The author of the reposted note
   late final BelongsTo<Profile> repostedNoteAuthor;
 
-  Repost.fromMap(super.map, super.ref) : super.fromMap() {
+  Repost.fromMap(super.map, super.reader) : super.fromMap() {
     // According to NIP-18, repost event MUST include an 'e' tag with the id of the note being reposted
     final eTag = event.getFirstTagValue('e');
     if (eTag == null) {
@@ -41,12 +46,12 @@ class Repost extends RegularModel<Repost> {
       );
     }
 
-    repostedNote = BelongsTo(ref, RequestFilter<Note>(ids: {eTag}).toRequest());
+    repostedNote = BelongsTo(reader, RequestFilter<Note>(ids: {eTag}).toRequest());
 
     // Should include a 'p' tag with the pubkey of the event being reposted
     final pTag = event.getFirstTagValue('p');
     repostedNoteAuthor = BelongsTo(
-      ref,
+      reader,
       RequestFilter<Profile>(ids: {if (pTag != null) pTag}).toRequest(),
     );
   }

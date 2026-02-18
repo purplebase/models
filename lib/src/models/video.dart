@@ -1,4 +1,10 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import '../utils/utils.dart';
+import 'comment.dart';
+import 'note.dart';
 
 /// A video event (kind 21) for sharing videos on Nostr.
 ///
@@ -12,9 +18,9 @@ class Video extends RegularModel<Video> {
   /// Comments on this video
   late final HasMany<Comment> comments;
 
-  Video.fromMap(super.map, super.ref) : super.fromMap() {
+  Video.fromMap(super.map, super.reader) : super.fromMap() {
     referencingNotes = HasMany(
-      ref,
+      reader,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -23,7 +29,7 @@ class Video extends RegularModel<Video> {
     );
 
     comments = HasMany(
-      ref,
+      reader,
       RequestFilter<Comment>(
         tags: {
           '#E': {event.id},
@@ -141,9 +147,9 @@ class ShortFormPortraitVideo extends RegularModel<ShortFormPortraitVideo> {
   /// Comments on this video
   late final HasMany<Comment> comments;
 
-  ShortFormPortraitVideo.fromMap(super.map, super.ref) : super.fromMap() {
+  ShortFormPortraitVideo.fromMap(super.map, super.reader) : super.fromMap() {
     referencingNotes = HasMany(
-      ref,
+      reader,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -152,7 +158,7 @@ class ShortFormPortraitVideo extends RegularModel<ShortFormPortraitVideo> {
     );
 
     comments = HasMany(
-      ref,
+      reader,
       RequestFilter<Comment>(
         tags: {
           '#E': {event.id},

@@ -49,9 +49,11 @@ Future<ProviderContainer> createTestContainer({
   StorageConfiguration? config,
   List<Override>? overrides,
 }) async {
-  final container = ProviderContainer(overrides: overrides ?? []);
+  final container = ProviderContainer(overrides: [
+    storageNotifierProvider.overrideWith((ref) => DummyStorageNotifier(ref)),
+    ...?overrides,
+  ]);
 
-  // Default test configuration with zero buffer durations for predictable behavior
   final storageConfig = StorageConfiguration(
     databasePath: config?.databasePath,
     keepSignatures: config?.keepSignatures ?? false,
@@ -71,26 +73,65 @@ Future<ProviderContainer> createTestContainer({
   return container;
 }
 
-/// Helper for testing state notifier emissions
+/// Helper for testing state notifier emissions.
+///
+/// Tracks state changes from a StateNotifier and provides methods
+/// to assert on emitted states. Handles the asynchronous nature of
+/// RequestNotifier state transitions with DummyStorage.
 class StateNotifierProviderTester {
   final StateNotifier notifier;
 
   final _disposeFns = <void Function()>[];
-  final _completers = <Completer>[Completer()];
+  final _states = <dynamic>[];
+  final _stateControllers = <Completer>[];
   var i = 0;
 
   StateNotifierProviderTester(this.notifier) {
     final dispose = notifier.addListener((state) {
-      _completers.last.complete(state);
-      _completers.add(Completer());
+      _states.add(state);
+      for (final c in _stateControllers) {
+        if (!c.isCompleted) c.complete();
+      }
     }, fireImmediately: false);
     _disposeFns.add(dispose);
   }
 
-  Future<dynamic> expect(Matcher m) async {
-    final result = await expectLater(_completers[i].future, completion(m));
-    i++;
-    return result;
+  /// Wait for the next state that matches the matcher.
+  /// Skips intermediate states (like StorageLoading) that don't match.
+  Future<dynamic> expect(Matcher m, {Duration timeout = const Duration(seconds: 5)}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      // Check any already-received states
+      while (i < _states.length) {
+        final state = _states[i];
+        i++;
+        try {
+          expectLater(state, m);
+          return state;
+        } catch (_) {
+          // State doesn't match, try next
+        }
+      }
+      await Future(() {});
+      if (i < _states.length) continue;
+      // Wait for more states with a short timeout
+      final completer = Completer();
+      _stateControllers.add(completer);
+      await completer.future.timeout(
+        Duration(milliseconds: 50),
+        onTimeout: () => null,
+      );
+      _stateControllers.remove(completer);
+    }
+    // Final check with assertion
+    while (i < _states.length) {
+      final state = _states[i];
+      i++;
+      expectLater(state, m);
+      return state;
+    }
+    throw TestFailure('Timed out waiting for state matching $m. '
+        'Received states: ${_states.skip(i > _states.length ? 0 : i)}');
   }
 
   /// Expect StorageData with matching models (query is complete)
@@ -99,7 +140,6 @@ class StateNotifierProviderTester {
   }
 
   /// Expect any state (StorageLoading or StorageData) with matching models.
-  /// Use this for LocalAndRemoteSource which stays in StorageLoading until EOSE.
   Future<dynamic> expectModels(Matcher m) async {
     return expect(isA<StorageState>().having((s) => s.models, 'models', m));
   }
@@ -138,7 +178,6 @@ class ProviderTester {
   }
 
   /// Expect any state (StorageLoading or StorageData) with matching models.
-  /// Use this for LocalAndRemoteSource which stays in StorageLoading until EOSE.
   Future<dynamic> expectModels(Matcher m) async {
     return expect(isA<StorageState>().having((s) => s.models, 'models', m));
   }
@@ -149,4 +188,3 @@ class ProviderTester {
     }
   }
 }
-

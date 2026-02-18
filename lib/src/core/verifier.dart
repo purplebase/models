@@ -1,4 +1,5 @@
-part of models;
+import 'package:bip340/bip340.dart' as bip340;
+import 'package:riverpod/riverpod.dart';
 
 abstract class Verifier {
   bool verify(Map<String, dynamic> map);

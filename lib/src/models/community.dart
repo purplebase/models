@@ -1,4 +1,8 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import 'chat_message.dart';
 
 /// A community event (kind 10222) representing a Nostr community or group.
 ///
@@ -7,9 +11,9 @@ part of models;
 class Community extends ReplaceableModel<Community> {
   late final HasMany<ChatMessage> chatMessages;
 
-  Community.fromMap(super.map, super.ref) : super.fromMap() {
+  Community.fromMap(super.map, super.reader) : super.fromMap() {
     chatMessages = HasMany(
-      ref,
+      reader,
       RequestFilter<ChatMessage>(
         tags: {
           '#h': {event.pubkey}, // NIP-CC: find by community pubkey

@@ -1,4 +1,8 @@
-part of models;
+import 'package:collection/collection.dart';
+
+import '../core/model.dart';
+import '../core/model_registry.dart';
+import 'utils.dart';
 
 extension StringMaybeExt on String? {
   int? toInt() {
@@ -28,9 +32,9 @@ extension ModelsExt<E extends Model<dynamic>> on Set<E> {
 }
 
 extension MapIterableExt on Iterable<Map<String, dynamic>> {
-  Iterable<E> toModels<E extends Model<dynamic>>(Ref ref) {
+  Iterable<E> toModels<E extends Model<dynamic>>(StorageReader reader) {
     return map((e) {
-      return Model.getConstructorForKind(e['kind']!)!.call(e, ref);
+      return ModelRegistry.instance.getConstructorForKind(e['kind']!)!.call(e, reader);
     }).cast<E>();
   }
 }

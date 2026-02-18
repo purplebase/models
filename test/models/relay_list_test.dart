@@ -28,7 +28,7 @@ void main() {
         writeRelays: {'wss://relay1.example.com'},
         readRelays: {'wss://relay2.example.com'},
         bothRelays: {'wss://relay3.example.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(relayList.relays.length, 3);
       expect(
@@ -42,14 +42,14 @@ void main() {
     });
 
     test('empty relay list', () {
-      final relayList = PartialSocialRelayList().dummySign(nielPubkey);
+      final relayList = PartialSocialRelayList().dummySign(storage, nielPubkey);
       expect(relayList.relays, isEmpty);
     });
 
     test('event kind and structure', () {
       final relayList = PartialSocialRelayList(
         readRelays: {'wss://test.relay.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(relayList.event.kind, 10002);
       expect(relayList.event.content, '');
@@ -86,7 +86,7 @@ void main() {
     test('save and query relay list', () async {
       final relayList = PartialSocialRelayList(
         bothRelays: {'wss://stored.relay.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({relayList});
 
@@ -103,7 +103,7 @@ void main() {
     test('basic relay list creation', () {
       final relayList = PartialAppCatalogRelayList(
         relays: {'wss://relay.zapstore.dev', 'wss://relay.nostr.band'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(relayList.relays, hasLength(2));
       expect(relayList.relays, contains('wss://relay.zapstore.dev'));
@@ -112,7 +112,7 @@ void main() {
     });
 
     test('relay list with no relays', () {
-      final relayList = PartialAppCatalogRelayList().dummySign(nielPubkey);
+      final relayList = PartialAppCatalogRelayList().dummySign(storage, nielPubkey);
 
       expect(relayList.relays, isEmpty);
       expect(relayList.hasRelays, isFalse);
@@ -121,7 +121,7 @@ void main() {
     test('event kind and structure', () {
       final relayList = PartialAppCatalogRelayList(
         relays: {'wss://test.relay.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(relayList.event.kind, 10067);
       expect(relayList.event.content, '');
@@ -152,7 +152,7 @@ void main() {
     test('save and query relay list', () async {
       final relayList = PartialAppCatalogRelayList(
         relays: {'wss://stored.relay.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       await storage.save({relayList});
 
@@ -178,7 +178,7 @@ void main() {
       });
       expect(partial.relays, {'wss://public.relay.com'});
 
-      final relayList = partial.dummySign(nielPubkey);
+      final relayList = partial.dummySign(storage, nielPubkey);
 
       expect(relayList.event.kind, 10067);
       expect(relayList.relays, {'wss://public.relay.com'});
@@ -223,7 +223,7 @@ void main() {
       expect(partial.relays, {'wss://public.relay.com'});
       expect(partial.privateRelays, {'wss://private.relay.com'});
 
-      final relayList = partial.dummySign(nielPubkey);
+      final relayList = partial.dummySign(storage, nielPubkey);
 
       // After signing: public relays in tags, private encrypted in content
       expect(relayList.relays, {'wss://public.relay.com'});
@@ -233,7 +233,7 @@ void main() {
     test('privateRelays returns empty set when no content', () {
       final relayList = PartialAppCatalogRelayList(
         relays: {'wss://public.relay.com'},
-      ).dummySign(nielPubkey);
+      ).dummySign(storage, nielPubkey);
 
       expect(relayList.privateRelays, isEmpty);
       expect(relayList.content, isEmpty);
@@ -260,7 +260,7 @@ void main() {
       // Before signing: privateRelays accessible
       expect(partial.privateRelays, {'wss://secret.relay.com'});
 
-      final relayList = partial.dummySign(nielPubkey);
+      final relayList = partial.dummySign(storage, nielPubkey);
 
       // After signing: content is encrypted
       expect(relayList.content, contains('dummy_nip44_encrypted'));
@@ -421,7 +421,7 @@ void main() {
       // Save a signed AppCatalogRelayList for the active user
       final signedRelayList = PartialAppCatalogRelayList(
         relays: {'wss://signed1.com', 'wss://signed2.com', 'wss://signed3.com'},
-      ).dummySign(testSigner.pubkey);
+      ).dummySign(storage, testSigner.pubkey);
 
       await testStorage.save({signedRelayList});
 
@@ -463,7 +463,7 @@ void main() {
       // Save signed RelayList
       final signedRelayList = PartialAppCatalogRelayList(
         relays: {'wss://signed.com'},
-      ).dummySign(testSigner.pubkey);
+      ).dummySign(storage, testSigner.pubkey);
 
       await testStorage.save({signedRelayList});
 
@@ -528,11 +528,11 @@ void main() {
       // Save signed AppCatalogRelayList
       final signedRelayList = PartialAppCatalogRelayList(
         relays: {'wss://signed.com'},
-      ).dummySign(testSigner.pubkey);
+      ).dummySign(storage, testSigner.pubkey);
       await testStorage.save({signedRelayList});
 
       // Publish a note using the 'AppCatalog' label
-      final note = PartialNote('Test note').dummySign(testSigner.pubkey);
+      final note = PartialNote('Test note').dummySign(storage, testSigner.pubkey);
       final response = await testStorage.publish({
         note,
       }, source: RemoteSource(relays: 'AppCatalog'));

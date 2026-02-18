@@ -1,4 +1,10 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'comment.dart';
+import 'profile.dart';
 
 /// A date-based calendar event that spans entire days.
 ///
@@ -16,16 +22,16 @@ class DateBasedCalendarEvent
   /// RSVPs for this calendar event
   late final HasMany<CalendarEventRSVP> rsvps;
 
-  DateBasedCalendarEvent.fromMap(super.map, super.ref) : super.fromMap() {
+  DateBasedCalendarEvent.fromMap(super.map, super.reader) : super.fromMap() {
     participants = HasMany(
-      ref,
+      reader,
       participantPubkeys.isNotEmpty
           ? RequestFilter<Profile>(authors: participantPubkeys).toRequest()
           : null,
     );
 
     comments = HasMany(
-      ref,
+      reader,
       RequestFilter<Comment>(
         tags: {
           '#a': {event.addressableId},
@@ -34,7 +40,7 @@ class DateBasedCalendarEvent
     );
 
     rsvps = HasMany(
-      ref,
+      reader,
       RequestFilter<CalendarEventRSVP>(
         tags: {
           '#a': {event.addressableId},
@@ -125,21 +131,21 @@ class TimeBasedCalendarEvent
   /// RSVPs for this calendar event
   late final HasMany<CalendarEventRSVP> rsvps;
 
-  TimeBasedCalendarEvent.fromMap(super.map, super.ref) : super.fromMap() {
+  TimeBasedCalendarEvent.fromMap(super.map, super.reader) : super.fromMap() {
     participants = HasMany(
-      ref,
+      reader,
       participantPubkeys.isNotEmpty
           ? RequestFilter<Profile>(authors: participantPubkeys).toRequest()
           : null,
     );
 
     calendar = BelongsTo(
-      ref,
+      reader,
       null, // Calendars reference events, not the other way around
     );
 
     comments = HasMany(
-      ref,
+      reader,
       RequestFilter<Comment>(
         tags: {
           '#a': {event.addressableId},
@@ -148,7 +154,7 @@ class TimeBasedCalendarEvent
     );
 
     rsvps = HasMany(
-      ref,
+      reader,
       RequestFilter<CalendarEventRSVP>(
         tags: {
           '#a': {event.addressableId},
@@ -244,9 +250,9 @@ class Calendar extends ParameterizableReplaceableModel<Calendar> {
   /// Events contained in this calendar
   late final HasMany<Model> events;
 
-  Calendar.fromMap(super.map, super.ref) : super.fromMap() {
+  Calendar.fromMap(super.map, super.reader) : super.fromMap() {
     events = HasMany(
-      ref,
+      reader,
       eventAddresses.isNotEmpty ? Request.fromIds(eventAddresses) : null,
     );
   }
@@ -280,9 +286,9 @@ class CalendarEventRSVP
   /// The event's original author
   late final BelongsTo<Profile> eventAuthor;
 
-  CalendarEventRSVP.fromMap(super.map, super.ref) : super.fromMap() {
+  CalendarEventRSVP.fromMap(super.map, super.reader) : super.fromMap() {
     calendarEvent = BelongsTo(
-      ref,
+      reader,
       eventAddress != null
           ? Request.fromIds({eventAddress!})
           : eventId != null
@@ -291,7 +297,7 @@ class CalendarEventRSVP
     );
 
     eventAuthor = BelongsTo(
-      ref,
+      reader,
       eventAuthorPubkey != null
           ? RequestFilter<Profile>(authors: {eventAuthorPubkey!}).toRequest()
           : null,

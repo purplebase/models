@@ -1,4 +1,9 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import '../utils/extensions.dart';
+import 'release.dart';
 
 /// A file metadata event (kind 1063) containing information about a file.
 ///
@@ -7,9 +12,9 @@ part of models;
 class FileMetadata extends RegularModel<FileMetadata> {
   late final BelongsTo<Release> release;
 
-  FileMetadata.fromMap(super.map, super.ref) : super.fromMap() {
+  FileMetadata.fromMap(super.map, super.reader) : super.fromMap() {
     release = BelongsTo(
-      ref,
+      reader,
       RequestFilter<Release>(
         authors: {event.pubkey},
         tags: {
@@ -49,7 +54,7 @@ class FileMetadata extends RegularModel<FileMetadata> {
 
   /// Parent application identifier
   String get appIdentifier =>
-      event.getFirstTagValue('i') ?? _getNullableSplit(event.content).$1!;
+      event.getFirstTagValue('i') ?? getNullableSplit(event.content).$1!;
 
   /// Version string for this file
   String get version => event.getFirstTagValue('version')!;
@@ -178,7 +183,7 @@ class PartialFileMetadata extends RegularPartialModel<FileMetadata>
   PartialFileMetadata();
 
   @override
-  String? get appIdentifier => _getNullableSplit(event.content).$1;
+  String? get appIdentifier => getNullableSplit(event.content).$1;
 
   @override
   set appIdentifier(String? value) {

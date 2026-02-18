@@ -89,13 +89,8 @@ void main() {
     });
 
     test('Query provider accepts subscriptionPrefix parameter', () async {
-      final container = ProviderContainer();
+      final container = await createTestContainer();
       addTearDown(container.dispose);
-
-      // Initialize storage
-      await container.read(
-        initializationProvider(StorageConfiguration()).future,
-      );
 
       // Create a query with subscription prefix
       final provider = query<Note>(
@@ -113,13 +108,8 @@ void main() {
     });
 
     test('queryKinds provider accepts subscriptionPrefix parameter', () async {
-      final container = ProviderContainer();
+      final container = await createTestContainer();
       addTearDown(container.dispose);
-
-      // Initialize storage
-      await container.read(
-        initializationProvider(StorageConfiguration()).future,
-      );
 
       // Create a queryKinds with subscription prefix
       final provider = queryKinds(
@@ -137,23 +127,16 @@ void main() {
     });
 
     test('Relationship requests use parent--rel subscription format', () async {
-      final container = ProviderContainer();
+      final container = await createTestContainer();
       addTearDown(container.dispose);
 
-      // Initialize storage
-      await container.read(
-        initializationProvider(StorageConfiguration()).future,
-      );
-
-      final storage =
-          container.read(storageNotifierProvider.notifier)
-              as DummyStorageNotifier;
+      final storage = container.storage;
 
       // Create an app to query
       final partialApp = PartialApp()
         ..identifier = 'com.example.subtest'
         ..description = 'Test subscription prefix';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
       await storage.save({app});
 
       // Query with custom prefix and relationship
@@ -168,8 +151,7 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      // Wait for relationship queries to be registered
-      await Future.delayed(const Duration(milliseconds: 250));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
 
@@ -188,23 +170,16 @@ void main() {
     });
 
     test('Relationship requests preserve multi-part parent prefix', () async {
-      final container = ProviderContainer();
+      final container = await createTestContainer();
       addTearDown(container.dispose);
 
-      // Initialize storage
-      await container.read(
-        initializationProvider(StorageConfiguration()).future,
-      );
-
-      final storage =
-          container.read(storageNotifierProvider.notifier)
-              as DummyStorageNotifier;
+      final storage = container.storage;
 
       // Create an app to query
       final partialApp = PartialApp()
         ..identifier = 'com.example.multipart'
         ..description = 'Test multi-part prefix';
-      final app = partialApp.dummySign(franzapPubkey);
+      final app = partialApp.dummySign(storage, franzapPubkey);
       await storage.save({app});
 
       // Query with typed request (generates sub-app prefix)
@@ -218,8 +193,7 @@ void main() {
       final sub = container.listen(provider, (_, __) {});
       container.read(provider);
 
-      // Wait for relationship queries to be registered
-      await Future.delayed(const Duration(milliseconds: 250));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
 

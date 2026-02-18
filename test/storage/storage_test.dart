@@ -32,23 +32,23 @@ void main() async {
       final yesterday = DateTime.now().subtract(Duration(days: 1));
       final lastMonth = DateTime.now().subtract(Duration(days: 31));
 
-      a = PartialNote('Note A', createdAt: yesterday).dummySign(nielPubkey);
-      b = PartialNote('Note B', createdAt: lastMonth).dummySign(nielPubkey);
-      c = PartialNote('Note await C').dummySign(nielPubkey);
-      d = PartialNote('Note D', tags: {'nostr'}).dummySign(nielPubkey);
-      e = PartialNote('Note await E').dummySign(franzapPubkey);
-      f = PartialNote('Note F', tags: {'nostr'}).dummySign(franzapPubkey);
-      g = PartialNote('Note await G').dummySign(verbirichaPubkey);
-      nielProfile = PartialProfile(name: 'neil').dummySign(nielPubkey);
+      a = PartialNote('Note A', createdAt: yesterday).dummySign(container.storage, nielPubkey);
+      b = PartialNote('Note B', createdAt: lastMonth).dummySign(container.storage, nielPubkey);
+      c = PartialNote('Note await C').dummySign(container.storage, nielPubkey);
+      d = PartialNote('Note D', tags: {'nostr'}).dummySign(container.storage, nielPubkey);
+      e = PartialNote('Note await E').dummySign(container.storage, franzapPubkey);
+      f = PartialNote('Note F', tags: {'nostr'}).dummySign(container.storage, franzapPubkey);
+      g = PartialNote('Note await G').dummySign(container.storage, verbirichaPubkey);
+      nielProfile = PartialProfile(name: 'neil').dummySign(container.storage, nielPubkey);
       replyToA = PartialNote(
         'reply to a',
         replyTo: a,
-      ).dummySign(nielProfile.pubkey);
+      ).dummySign(container.storage, nielProfile.pubkey);
       replyToB = PartialNote(
         'reply to b',
         createdAt: yesterday,
         replyTo: b,
-      ).dummySign(nielProfile.pubkey);
+      ).dummySign(container.storage, nielProfile.pubkey);
 
       await container.storage.save({
         a,
@@ -179,7 +179,7 @@ void main() async {
       final testPubkey = Utils.generateRandomHex64();
       final originalProfile = PartialProfile(
         name: 'original',
-      ).dummySign(testPubkey);
+      ).dummySign(container.storage, testPubkey);
       await container.storage.save({originalProfile});
 
       tester = container.testerFor(
@@ -189,7 +189,7 @@ void main() async {
 
       final updatedProfile = originalProfile
           .copyWith(name: 'updated')
-          .dummySign(testPubkey);
+          .dummySign(container.storage, testPubkey);
       // Check processMetadata() was called when constructing
       expect(updatedProfile.name, equals('updated'));
       // Content should NOT be empty as this new event could be sent to relays
@@ -202,7 +202,7 @@ void main() async {
       );
       expect(originalProfile.event.id, isNot(equals(updatedProfile.event.id)));
 
-      await updatedProfile.save();
+      await container.storage.save({updatedProfile});
 
       // Wait for the storage state to update with the new profile
       // The replaceable update should replace the old profile with the new one
@@ -244,7 +244,7 @@ void main() async {
         ..version = '1.0.0'
         ..appIdentifier = 'com.test.app'
         ..hash = 'abc123';
-      final fileMetadata = partialFile.dummySign(pubkey);
+      final fileMetadata = partialFile.dummySign(container.storage, pubkey);
 
       // Create Release that references the FileMetadata
       final partialRelease = PartialRelease(newFormat: true)
@@ -252,14 +252,14 @@ void main() async {
         ..appIdentifier = 'com.test.app'
         ..version = '1.0.0';
       partialRelease.event.addTag('e', [fileMetadata.id]);
-      final release = partialRelease.dummySign(pubkey);
+      final release = partialRelease.dummySign(container.storage, pubkey);
 
       // Create App that references the Release
       final partialApp = PartialApp()
         ..identifier = 'com.test.app'
         ..name = 'Test App';
       partialApp.event.setTagValue('i', 'com.test.app');
-      final app = partialApp.dummySign(pubkey);
+      final app = partialApp.dummySign(container.storage, pubkey);
 
       // Save all entities
       await container.storage.save({app, release, fileMetadata});
@@ -284,17 +284,17 @@ void main() async {
       final authorPubkey = franzapPubkey;
 
       // Create ContactList
-      final contactList = PartialContactList().dummySign(authorPubkey);
+      final contactList = PartialContactList().dummySign(container.storage, authorPubkey);
 
       // Create Profile (Author)
       final author = PartialProfile(
         name: 'Author Name',
-      ).dummySign(authorPubkey);
+      ).dummySign(container.storage, authorPubkey);
 
       // Create Note
       final note = PartialNote(
         'Test note await content',
-      ).dummySign(authorPubkey);
+      ).dummySign(container.storage, authorPubkey);
 
       // Save all entities
       await container.storage.save({note, author, contactList});
@@ -320,14 +320,14 @@ void main() async {
       final app1 = PartialApp()
         ..identifier = 'com.app1'
         ..name = 'App 1';
-      final signedApp1 = (app1..event.setTagValue('i', 'com.app1')).dummySign(
+      final signedApp1 = (app1..event.setTagValue('i', 'com.app1')).dummySign(container.storage, 
         pubkey1,
       );
 
       final app2 = PartialApp()
         ..identifier = 'com.app2'
         ..name = 'App 2';
-      final signedApp2 = (app2..event.setTagValue('i', 'com.app2')).dummySign(
+      final signedApp2 = (app2..event.setTagValue('i', 'com.app2')).dummySign(container.storage, 
         pubkey2,
       );
 
@@ -336,7 +336,7 @@ void main() async {
         ..version = '1.0.0'
         ..appIdentifier = 'com.app1'
         ..hash = 'hash1';
-      final file1 = partialFile1.dummySign(pubkey1);
+      final file1 = partialFile1.dummySign(container.storage, pubkey1);
 
       // Create release only for app1
       final partialRelease1 = PartialRelease(newFormat: true)
@@ -344,7 +344,7 @@ void main() async {
         ..appIdentifier = 'com.app1'
         ..version = '1.0.0';
       partialRelease1.event.setTagValue('e', file1.id);
-      final release1 = partialRelease1.dummySign(pubkey1);
+      final release1 = partialRelease1.dummySign(container.storage, pubkey1);
 
       await container.storage.save({signedApp1, signedApp2, release1, file1});
 
@@ -374,20 +374,20 @@ void main() async {
         ..version = '1.0.0'
         ..appIdentifier = 'com.test'
         ..hash = 'xyz';
-      final file = partialFile.dummySign(pubkey);
+      final file = partialFile.dummySign(container.storage, pubkey);
 
       final partialRelease = PartialRelease(newFormat: true)
         ..identifier = 'com.test@1.0.0'
         ..appIdentifier = 'com.test'
         ..version = '1.0.0';
       partialRelease.event.setTagValue('e', file.id);
-      final release = partialRelease.dummySign(pubkey);
+      final release = partialRelease.dummySign(container.storage, pubkey);
 
       final partialApp = PartialApp()
         ..identifier = 'com.test'
         ..name = 'Test';
       partialApp.event.setTagValue('i', 'com.test');
-      final app = partialApp.dummySign(pubkey);
+      final app = partialApp.dummySign(container.storage, pubkey);
 
       // Save everything at once
       await container.storage.save({app, release, file});
@@ -533,13 +533,13 @@ void main() async {
         final marchNote = PartialNote(
           'March note $i',
           createdAt: marchDate,
-        ).dummySign(Utils.generateRandomHex64());
+        ).dummySign(container.storage, Utils.generateRandomHex64());
         marchEvents.add(marchNote);
 
         final mayNote = PartialNote(
           'May note $i',
           createdAt: mayDate,
-        ).dummySign(Utils.generateRandomHex64());
+        ).dummySign(container.storage, Utils.generateRandomHex64());
         mayEvents.add(mayNote);
       }
 
@@ -630,8 +630,8 @@ void main() async {
     test('schemaFilter deletes rejected events from storage', () async {
       // Create notes with varying content lengths
       final pubkey = Utils.generateRandomHex64();
-      final shortNote = PartialNote('Hi').dummySign(pubkey);
-      final longNote = PartialNote('This is a longer note').dummySign(pubkey);
+      final shortNote = PartialNote('Hi').dummySign(container.storage, pubkey);
+      final longNote = PartialNote('This is a longer note').dummySign(container.storage, pubkey);
 
       await container.storage.save({shortNote, longNote});
 
@@ -833,7 +833,7 @@ void main() async {
         updatedPartialProfile.event.createdAt = DateTime.now().add(
           Duration(seconds: 1),
         );
-        final updatedProfile = updatedPartialProfile.dummySign(pubkey1);
+        final updatedProfile = updatedPartialProfile.dummySign(container.storage, pubkey1);
         await container.storage.save({updatedProfile});
 
         // Should replace the old profile with the new one
@@ -907,7 +907,7 @@ void main() async {
         // even though relationships aren't cached
         final updatedAuthor = author
             .copyWith(name: 'Updated Author')
-            .dummySign(pubkey1);
+            .dummySign(container.storage, pubkey1);
         await container.storage.save({updatedAuthor});
 
         // Should trigger a state update due to relationship change
@@ -1241,7 +1241,7 @@ void main() async {
       final profile = PartialProfile(
         name: 'Roundtrip User',
         about: 'Test roundtrip',
-      ).dummySign(pubkey);
+      ).dummySign(container.storage, pubkey);
       await container.storage.save({profile});
 
       final tester = container.testerFor(
@@ -1266,7 +1266,7 @@ void main() async {
       final dm = PartialDirectMessage(
         content: plaintext,
         receiver: receiverPubkey,
-      ).dummySign(senderPubkey);
+      ).dummySign(container.storage, senderPubkey);
 
       // Content is encrypted after signing
       expect(dm.content, isNot(plaintext));
@@ -1298,7 +1298,7 @@ void main() async {
       final dm = PartialDirectMessage(
         content: plaintext,
         receiver: receiverPubkey,
-      ).dummySign(senderPubkey);
+      ).dummySign(container.storage, senderPubkey);
 
       // Content is encrypted after signing
       expect(dm.content, isNot(plaintext));
@@ -1371,7 +1371,7 @@ void main() async {
 
   group('cachedFor', () {
     test('skips remote query when cache is valid', () async {
-      final profile = PartialProfile(name: 'Cached User').dummySign(nielPubkey);
+      final profile = PartialProfile(name: 'Cached User').dummySign(container.storage, nielPubkey);
       await container.storage.save({profile});
 
       // First query - should fetch and cache
@@ -1381,6 +1381,9 @@ void main() async {
       );
 
       final sub1 = container.listen(provider1, (_, __) {});
+      // Needs real wall-clock time: the cache timestamp is set at the
+      // end of an async chain that involves Riverpod's Timer-based
+      // state propagation, which pumpEventQueue alone cannot trigger.
       await Future.delayed(Duration(milliseconds: 50));
 
       final state1 = container.read(provider1);
@@ -1401,7 +1404,7 @@ void main() async {
 
     test('ignores cache for non-cacheable queries (has tags)', () async {
       final note =
-          PartialNote('Test note', tags: {'test'}).dummySign(nielPubkey);
+          PartialNote('Test note', tags: {'test'}).dummySign(container.storage, nielPubkey);
       await container.storage.save({note});
 
       // Query with tags is not cacheable
@@ -1418,7 +1421,7 @@ void main() async {
     });
 
     test('ignores cache for non-replaceable kinds', () async {
-      final note = PartialNote('Test note').dummySign(nielPubkey);
+      final note = PartialNote('Test note').dummySign(container.storage, nielPubkey);
       await container.storage.save({note});
 
       // Query for Note (kind 1) is not cacheable since it's not replaceable
@@ -1436,7 +1439,7 @@ void main() async {
     });
 
     test('cache expires after duration', () async {
-      final profile = PartialProfile(name: 'Expiring').dummySign(nielPubkey);
+      final profile = PartialProfile(name: 'Expiring').dummySign(container.storage, nielPubkey);
       await container.storage.save({profile});
 
       final req = RequestFilter<Profile>(authors: {nielPubkey}).toRequest();
@@ -1470,14 +1473,14 @@ void main() async {
         ),
       );
 
-      final note = PartialNote('Default source test').dummySign(nielPubkey);
+      final note = PartialNote('Default source test').dummySign(container.storage, nielPubkey);
       await customContainer.storage.save({note});
 
       // Query without specifying source - should use LocalSource from config
       final provider = query<Note>(authors: {nielPubkey});
 
       final sub = customContainer.listen(provider, (_, __) {});
-      await Future.delayed(Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final state = customContainer.read(provider);
       expect(state, isA<StorageData>());
@@ -1492,7 +1495,7 @@ void main() async {
     });
 
     test('explicit source overrides defaultQuerySource', () async {
-      final note = PartialNote('Override test').dummySign(nielPubkey);
+      final note = PartialNote('Override test').dummySign(container.storage, nielPubkey);
       await container.storage.save({note});
 
       // Explicitly specify LocalSource
@@ -1502,7 +1505,7 @@ void main() async {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       final notifier = container.read(provider.notifier);
       expect(notifier.source, isA<LocalSource>());
@@ -1521,7 +1524,7 @@ void main() async {
       );
 
       final sub = container.listen(provider, (_, __) {});
-      await Future.delayed(Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       // Should have transitioned to StorageData (empty)
       expect(
@@ -1534,7 +1537,7 @@ void main() async {
     });
 
     test('timeout not needed when data arrives promptly', () async {
-      final note = PartialNote('Quick data').dummySign(nielPubkey);
+      final note = PartialNote('Quick data').dummySign(container.storage, nielPubkey);
 
       final provider = query<Note>(
         authors: {nielPubkey},
@@ -1545,7 +1548,7 @@ void main() async {
 
       // Save data which should trigger immediate state update
       await container.storage.save({note});
-      await Future.delayed(Duration(milliseconds: 20));
+      await pumpEventQueue();
 
       // Should be in data state (not waiting for timeout)
       final state = container.read(provider);
@@ -1556,7 +1559,7 @@ void main() async {
     });
 
     test('LocalSource does not use timeout (immediate response)', () async {
-      final note = PartialNote('Local only').dummySign(nielPubkey);
+      final note = PartialNote('Local only').dummySign(container.storage, nielPubkey);
       await container.storage.save({note});
 
       // LocalSource queries should complete immediately without timeout
@@ -1568,7 +1571,7 @@ void main() async {
       final sub = container.listen(provider, (_, __) {});
 
       // Should already be in data state
-      await Future.delayed(Duration(milliseconds: 10));
+      await pumpEventQueue();
       final state = container.read(provider);
       expect(state, isA<StorageData>());
       expect(state.models, hasLength(1));

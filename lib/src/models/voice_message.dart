@@ -1,4 +1,11 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import '../utils/utils.dart';
+import 'comment.dart';
+import 'note.dart';
 
 /// A voice message event (kind 1222) for sharing audio messages on Nostr.
 ///
@@ -15,9 +22,9 @@ class VoiceMessage extends RegularModel<VoiceMessage> {
   /// Voice message comments (kind 1244) on this voice message
   late final HasMany<VoiceMessageComment> voiceComments;
 
-  VoiceMessage.fromMap(super.map, super.ref) : super.fromMap() {
+  VoiceMessage.fromMap(super.map, super.reader) : super.fromMap() {
     referencingNotes = HasMany(
-      ref,
+      reader,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -26,7 +33,7 @@ class VoiceMessage extends RegularModel<VoiceMessage> {
     );
 
     comments = HasMany(
-      ref,
+      reader,
       RequestFilter<Comment>(
         tags: {
           '#E': {event.id},
@@ -35,7 +42,7 @@ class VoiceMessage extends RegularModel<VoiceMessage> {
     );
 
     voiceComments = HasMany(
-      ref,
+      reader,
       RequestFilter<VoiceMessageComment>(
         tags: {
           '#e': {event.id},
@@ -163,16 +170,16 @@ class VoiceMessageComment extends RegularModel<VoiceMessageComment> {
   /// Comments on this voice message comment
   late final HasMany<Comment> comments;
 
-  VoiceMessageComment.fromMap(super.map, super.ref) : super.fromMap() {
+  VoiceMessageComment.fromMap(super.map, super.reader) : super.fromMap() {
     originalVoiceMessage = BelongsTo(
-      ref,
+      reader,
       event.containsTag('e')
           ? Request<VoiceMessage>.fromIds({event.getFirstTagValue('e')!})
           : null,
     );
 
     referencingNotes = HasMany(
-      ref,
+      reader,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -181,7 +188,7 @@ class VoiceMessageComment extends RegularModel<VoiceMessageComment> {
     );
 
     comments = HasMany(
-      ref,
+      reader,
       RequestFilter<Comment>(
         tags: {
           '#E': {event.id},

@@ -1,4 +1,8 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../relationship/relationship.dart';
+import 'profile.dart';
 
 /// A contact list event (kind 3) representing a user's following list.
 ///
@@ -8,12 +12,12 @@ class ContactList extends ReplaceableModel<ContactList> {
   late final HasMany<Profile> following;
   late final HasMany<Profile> followers;
 
-  ContactList.fromMap(super.map, super.ref) : super.fromMap() {
+  ContactList.fromMap(super.map, super.reader) : super.fromMap() {
     following = HasMany(
-      ref,
+      reader,
       RequestFilter<Profile>(authors: followingPubkeys).toRequest(),
     );
-    followers = HasMany(ref, null);
+    followers = HasMany(reader, null);
   }
 
   /// Set of public keys being followed

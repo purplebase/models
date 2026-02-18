@@ -1,74 +1,19 @@
-part of models;
+import '../core/model.dart';
 
-/// Mixin for DVM request models that provides the standard run() pattern.
+/// Mixin for DVM request models that follows NIP-90 conventions.
 ///
-/// DVM (Data Vending Machine) requests follow NIP-90 conventions:
+/// DVM (Data Vending Machine) requests:
 /// - Response kind = request kind + 1000
 /// - Error kind = 7000
 /// - Responses reference the request via `#e` tag
 ///
-/// Usage:
-/// ```dart
-/// class MyDVMRequest extends RegularModel<MyDVMRequest>
-///     with DVMRequest<MyDVMRequest> {
-///   MyDVMRequest.fromMap(super.map, super.ref) : super.fromMap();
-///
-///   @override
-///   int get responseKind => 6XXX; // request kind + 1000
-/// }
-/// ```
+/// The `run()` method has been moved to the provider layer since it
+/// requires Riverpod for subscription management and publishing.
 mixin DVMRequest<E extends Model<E>> on RegularModel<E> {
   /// The response kind for this DVM request.
   ///
   /// Per NIP-90, this is typically the request kind + 1000.
   int get responseKind;
-
-  /// Execute DVM request and wait for response.
-  ///
-  /// [relays] - The relay target (URL or identifier) to publish the request to
-  /// [timeout] - Maximum time to wait for DVM response (default: 16 seconds)
-  ///
-  /// Returns the first DVM response (success or error), or null on timeout.
-  Future<Model<dynamic>?> run(
-    String relays, {
-    Duration timeout = const Duration(seconds: 16),
-  }) async {
-    final source = RemoteSource(relays: relays, stream: true);
-
-    final provider = queryKinds(
-      kinds: {responseKind, 7000}, // response kind + error kind
-      tags: {
-        '#e': {event.id},
-      },
-      limit: 1,
-      source: source,
-    );
-
-    final completer = Completer<Model<dynamic>>();
-    ProviderSubscription<StorageState>? subscription;
-
-    try {
-      // Listen to the query provider for streaming results
-      subscription = ref.listen(provider, (_, state) {
-        if (completer.isCompleted) return;
-
-        if (state case StorageData(:final models) when models.isNotEmpty) {
-          completer.complete(models.first);
-        }
-      });
-
-      // Publish the request (do not save locally)
-      await storage.publish({this}, source: source);
-
-      // Wait for the response with timeout
-      return await completer.future.timeout(timeout);
-    } on TimeoutException {
-      return null;
-    } finally {
-      // Clean up the subscription (also cancels the relay subscription)
-      subscription?.close();
-    }
-  }
 }
 
 /// Mixin for partial DVM request models with param tag helpers.

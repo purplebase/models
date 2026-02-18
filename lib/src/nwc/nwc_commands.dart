@@ -1,4 +1,16 @@
-part of models;
+import 'dart:async';
+import 'dart:convert';
+
+
+import '../core/model.dart';
+import '../core/storage_reader.dart';
+import '../filter/request_filter.dart';
+import '../source/remote_source.dart';
+import '../storage/storage_state.dart';
+import '../storage/storage_notifier.dart';
+import '../signer/bip340_signer.dart';
+import '../models/nwc.dart';
+import 'nwc_connection.dart';
 
 /// Base class for NWC commands that can be sent to wallet services
 abstract class NwcCommand<T> {
@@ -15,7 +27,7 @@ abstract class NwcCommand<T> {
   /// Automatically handles connection parsing, relay routing, signing, and error handling
   Future<T> execute({
     required String connectionUri,
-    required Ref ref,
+    required StorageReader reader,
     DateTime? expiration,
     DateTime? createdAt,
     Duration timeout = const Duration(seconds: 30),
@@ -23,7 +35,7 @@ abstract class NwcCommand<T> {
     final connection = NwcConnection.fromUri(connectionUri);
     return await _executeRequest(
       connection: connection,
-      ref: ref,
+      reader: reader,
       expiration: expiration,
       createdAt: createdAt,
       timeout: timeout,
@@ -34,14 +46,15 @@ abstract class NwcCommand<T> {
   /// Creates a signer from the connection's secret as per NIP-47 specification
   Future<T> _executeRequest({
     required NwcConnection connection,
-    required Ref ref,
+    required StorageReader reader,
     DateTime? expiration,
     DateTime? createdAt,
     Duration timeout = const Duration(seconds: 30),
   }) async {
     // Create a signer from the connection's secret (NIP-47 requirement)
-    final connectionSigner = Bip340PrivateKeySigner(connection.secret, ref);
-    await connectionSigner.signIn(registerSigner: false);
+    final storage = reader as StorageNotifier;
+    final connectionSigner = Bip340PrivateKeySigner(connection.secret, storage.ref);
+    await connectionSigner.initialize();
 
     // Create the request
     final request = PartialNwcRequest(
@@ -67,7 +80,7 @@ abstract class NwcCommand<T> {
       },
     ).toRequest();
 
-    final storageNotifier = ref.read(storageNotifierProvider.notifier);
+    final storageNotifier = reader;
     final completer = Completer<NwcResponse>();
     void Function()? cancelListener;
 
@@ -96,13 +109,13 @@ abstract class NwcCommand<T> {
       // Establish the streaming subscription
       // stream: true (default) returns immediately and keeps the subscription
       // open to receive the wallet's response via callbacks
-      await ref.storage.query(
+      await storageNotifier.query(
         responseRequest,
         source: RemoteSource(relays: relaySet),
       );
 
       // Publish to the connection's relay
-      final publishResponse = await ref.storage.publish({
+      final publishResponse = await storageNotifier.publish({
         signedRequest,
       }, source: RemoteSource(relays: relaySet));
 
@@ -150,7 +163,7 @@ abstract class NwcCommand<T> {
       cancelListener?.call();
 
       // Cancel the subscription
-      await ref.storage.cancel(responseRequest);
+      await storageNotifier.cancel(responseRequest);
     }
   }
 }

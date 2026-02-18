@@ -1,4 +1,9 @@
-part of models;
+
+import '../core/model.dart';
+import '../filter/request_filter.dart';
+import '../filter/request.dart';
+import '../relationship/relationship.dart';
+import 'community.dart';
 
 /// A chat message event (kind 9) for community or group conversations.
 ///
@@ -9,17 +14,17 @@ class ChatMessage extends RegularModel<ChatMessage> {
   late final BelongsTo<ChatMessage> quotedMessage;
   late final BelongsTo<Community> community;
 
-  ChatMessage.fromMap(super.map, super.ref) : super.fromMap() {
+  ChatMessage.fromMap(super.map, super.reader) : super.fromMap() {
     // Quoted message relationship - handle invalid ID formats gracefully
     quotedMessage = BelongsTo(
-      ref,
+      reader,
       Request<ChatMessage>.fromIds({?event.getFirstTagValue('q')}),
     );
 
     // Community relationship - NIP-CC backward compatible with NIP-29
     // h tag contains community pubkey, else NIP-29: null
     community = BelongsTo(
-      ref,
+      reader,
       _isValidPubkey(groupId)
           ? RequestFilter<Community>(authors: {groupId!}).toRequest()
           : null,
