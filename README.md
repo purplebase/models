@@ -337,6 +337,87 @@ final config = StorageConfiguration(
 );
 ```
 
+## Custom Models
+
+You can define your own Nostr event kinds and use them with the full query/storage API.
+
+> **Before creating a custom kind**: check [NIPs](https://github.com/nostr-protocol/nips) and the registered kinds table below — an existing kind may already cover your use case. Custom kinds sacrifice interoperability.
+
+### 1. Define the model and its partial
+
+```dart
+// Immutable model (wraps a signed event)
+class JobPosting extends ParameterizableReplaceableModel<JobPosting> {
+  JobPosting.fromMap(super.map, super.ref) : super.fromMap();
+
+  String get title => event.getFirstTagValue('title') ?? '';
+  String get description => event.content;
+  int? get salaryUsd => int.tryParse(event.getFirstTagValue('salary') ?? '');
+}
+
+// Mutable partial (for creation and editing)
+class PartialJobPosting extends ParameterizableReplaceablePartialModel<JobPosting> {
+  String get title => event.getFirstTagValue('title') ?? '';
+  set title(String value) => event.setTagValue('title', value);
+
+  String get description => event.content;
+  set description(String value) => event.content = value;
+
+  int? get salaryUsd => int.tryParse(event.getFirstTagValue('salary') ?? '');
+  set salaryUsd(int? value) => event.setTagValue('salary', value?.toString());
+}
+```
+
+Choose the right base class from your event kind:
+
+| Kind range | Model base | Partial base |
+|---|---|---|
+| 1–9999 | `RegularModel` | `RegularPartialModel` |
+| 10000–19999 | `ReplaceableModel` | `ReplaceablePartialModel` |
+| 20000–29999 | `EphemeralModel` | `EphemeralPartialModel` |
+| 30000–39999 | `ParameterizableReplaceableModel` | `ParameterizableReplaceablePartialModel` |
+
+### 2. Register after initialization
+
+```dart
+final appInitProvider = FutureProvider((ref) async {
+  await ref.read(initializationProvider(StorageConfiguration(
+    defaultRelays: {'default': {'wss://relay.example.com'}},
+  )).future);
+
+  Model.register(
+    kind: 30402,
+    constructor: JobPosting.fromMap,
+    partialConstructor: PartialJobPosting.fromMap,
+  );
+});
+```
+
+Registration is idempotent — calling it twice with the same kind and type is a no-op.
+
+### 3. Use it like any built-in model
+
+```dart
+// Create and publish
+final partial = PartialJobPosting()
+  ..title = 'Dart Engineer'
+  ..description = 'Remote, full-time'
+  ..salaryUsd = 120000;
+final posting = await partial.signWith(signer);
+await posting.publish();
+
+// Query reactively
+final state = ref.watch(
+  query<JobPosting>(authors: {pubkey}, source: LocalAndRemoteSource()),
+);
+
+// One-shot async
+final postings = await ref.read(storageNotifierProvider.notifier).query(
+  RequestFilter<JobPosting>().toRequest(),
+  source: LocalSource(),
+);
+```
+
 ## Storage Implementations
 
 - **DummyStorageNotifier**: In-memory storage for testing and prototyping (included)

@@ -159,14 +159,6 @@ class ZapRequest extends RegularModel<ZapRequest> {
       throw Exception('NWC connection has expired');
     }
 
-    // Obtain the Lightning invoice
-    final lightningInvoice = await getInvoice(
-      refreshRecipientProfile: refreshRecipientProfile,
-    );
-
-    // Create and execute the pay invoice command
-    final command = PayInvoiceCommand(invoice: lightningInvoice);
-
     // NOTE: NWC command execution requires Ref (provider-level).
     // This needs to be called from the provider layer.
     throw UnimplementedError(

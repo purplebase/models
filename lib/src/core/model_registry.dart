@@ -80,7 +80,7 @@ class ModelRegistry {
     return constructor;
   }
 
-  /// Check if type [E] is Model<dynamic> (no specific type).
+  /// Check if type [E] is `Model<dynamic>` (no specific type).
   static bool isModelOfDynamic<E extends Model<dynamic>>() =>
       <Model<dynamic>>[] is List<E>;
 
