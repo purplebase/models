@@ -2,7 +2,6 @@
 import 'package:collection/collection.dart';
 
 import 'model.dart';
-import 'model_registry.dart';
 import '../utils/utils.dart';
 import '../utils/extensions.dart';
 import '../utils/encoding.dart';
@@ -20,7 +19,7 @@ sealed class EventBase<E extends Model<dynamic>> {
             if (tag is Iterable && tag.length > 1)
               [for (final e in tag) e.toString()],
         ] {
-    kind = kindOverride ?? map?['kind'] ?? ModelRegistry.instance.kindFor<E>();
+    kind = kindOverride ?? map?['kind'] ?? Model.kindFor<E>();
   }
 
   /// When this event was created.

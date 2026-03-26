@@ -2,7 +2,6 @@ import 'package:bip340/bip340.dart' as bip340;
 import 'package:convert/convert.dart';
 
 import '../core/model.dart';
-import '../core/model_registry.dart';
 import '../nip44/nip44.dart' as nip44;
 import '../nip04/nip04.dart';
 import '../utils/utils.dart';
@@ -58,9 +57,8 @@ class Bip340PrivateKeySigner extends Signer {
           final aux = hex.encode(List<int>.generate(32, (i) => 1));
           final signature = bip340.sign(_privateKey, id.toString(), aux);
           final map = _prepare(partialModel.toMap(), id, pubkey, signature);
-          return ModelRegistry.instance
-              .getConstructorForKind(partialModel.event.kind)!
-              .call(map, reader);
+          return Model.getConstructorForKind(partialModel.event.kind)!
+              .call(map, ref);
         })
         .cast<E>()
         .toList();

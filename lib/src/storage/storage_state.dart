@@ -4,6 +4,8 @@ import 'package:meta/meta.dart';
 import '../core/model.dart';
 import '../filter/request.dart';
 
+export '../core/publish_response.dart';
+
 /// Sealed hierarchy representing the state of a storage query.
 sealed class StorageState<E extends Model<dynamic>> with EquatableMixin {
   final List<E> models;
@@ -47,30 +49,4 @@ final class StorageError<E extends Model<dynamic>> extends StorageState<E> {
         ? exception
         : Exception(exception.toString());
   }
-}
-
-/// Response from publishing events to relays.
-final class PublishResponse {
-  final Map<String, Set<RelayEventState>> results = {};
-  Set<String> unreachableRelayUrls = {};
-
-  void addEvent(
-    String eventId, {
-    required String relayUrl,
-    bool accepted = true,
-    String? message,
-  }) {
-    results[eventId] ??= {};
-    results[eventId]!.add(
-      RelayEventState(relayUrl, accepted: accepted, message: message),
-    );
-  }
-}
-
-/// State of a single event on a specific relay.
-final class RelayEventState {
-  final String relayUrl;
-  final bool accepted;
-  final String? message;
-  const RelayEventState(this.relayUrl, {this.accepted = true, this.message});
 }

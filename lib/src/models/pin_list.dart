@@ -6,7 +6,7 @@ import '../core/model.dart';
 /// Pin lists allow users to showcase their best or most important
 /// posts prominently on their profile or in special feeds.
 class PinList extends ReplaceableModel<PinList> {
-  PinList.fromMap(super.map, super.reader) : super.fromMap();
+  PinList.fromMap(super.map, super.ref) : super.fromMap();
 
   /// IDs of pinned content
   Set<String> get pinnedContent => event.getTagSetValues('e');

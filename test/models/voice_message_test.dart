@@ -36,7 +36,7 @@ void main() {
         audioHash: 'abc123',
         waveform: 'waveform_data',
         summary: 'A test voice message',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(voiceMessage.event.kind, 1222);
       expect(
@@ -69,7 +69,7 @@ void main() {
     test('creates minimal voice message with only required fields', () async {
       final voiceMessage = PartialVoiceMessage(
         audioUrl: 'https://example.com/voice.wav',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(voiceMessage.event.kind, 1222);
       expect(voiceMessage.audioUrl, 'https://example.com/voice.wav');
@@ -112,7 +112,7 @@ void main() {
         'sig': 'signature',
       };
 
-      final voiceMessage = VoiceMessage.fromMap(eventMap, storage);
+      final voiceMessage = VoiceMessage.fromMap(eventMap, container.ref);
 
       expect(
         voiceMessage.description,
@@ -185,7 +185,7 @@ void main() {
           ['url', 'https://example.com/original.mp3'],
         ],
         'sig': 'signature',
-      }, storage);
+      }, container.ref);
 
       final voiceComment = PartialVoiceMessageComment(
         audioUrl: 'https://example.com/comment.mp3',
@@ -200,7 +200,7 @@ void main() {
         fileSize: 256000,
         audioHash: 'def456',
         waveform: 'comment_waveform',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(voiceComment.event.kind, 1244);
       expect(
@@ -230,7 +230,7 @@ void main() {
     test('creates minimal voice comment without original message', () async {
       final voiceComment = PartialVoiceMessageComment(
         audioUrl: 'https://example.com/comment.wav',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(voiceComment.event.kind, 1244);
       expect(voiceComment.audioUrl, 'https://example.com/comment.wav');
@@ -265,7 +265,7 @@ void main() {
         'sig': 'signature',
       };
 
-      final voiceComment = VoiceMessageComment.fromMap(eventMap, storage);
+      final voiceComment = VoiceMessageComment.fromMap(eventMap, container.ref);
 
       expect(
         voiceComment.description,
@@ -326,7 +326,7 @@ void main() {
           ['url', 'https://example.com/voice.mp3'],
         ],
         'sig': 'signature',
-      }, storage);
+      }, container.ref);
 
       expect(voiceMessage.referencingNotes, isA<HasMany<Note>>());
       expect(voiceMessage.comments, isA<HasMany<Comment>>());
@@ -346,7 +346,7 @@ void main() {
           ['url', 'https://example.com/comment.mp3'],
         ],
         'sig': 'signature',
-      }, storage);
+      }, container.ref);
 
       expect(voiceComment.originalVoiceMessage, isA<BelongsTo<VoiceMessage>>());
       expect(voiceComment.referencingNotes, isA<HasMany<Note>>());
@@ -379,7 +379,7 @@ void main() {
             ['duration', seconds.toString()],
           ],
           'sig': 'signature',
-        }, storage);
+        }, container.ref);
 
         expect(
           voiceMessage.formattedDuration,
@@ -400,7 +400,7 @@ void main() {
           ['url', 'https://example.com/voice.mp3'],
         ],
         'sig': 'signature',
-      }, storage);
+      }, container.ref);
 
       expect(voiceMessage.formattedDuration, null);
     });

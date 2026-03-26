@@ -17,12 +17,12 @@ class Report extends RegularModel<Report> {
   /// The reported content (if reporting a specific post)
   late final BelongsTo<Model> reportedContent;
 
-  Report.fromMap(super.map, super.reader) : super.fromMap() {
+  Report.fromMap(super.map, super.ref) : super.fromMap() {
     final validUserPubkey = reportedUserPubkey?.length == 64
         ? reportedUserPubkey
         : null;
     reportedUser = BelongsTo(
-      reader,
+      ref,
       validUserPubkey != null
           ? RequestFilter<Profile>(authors: {validUserPubkey}).toRequest()
           : null,
@@ -32,7 +32,7 @@ class Report extends RegularModel<Report> {
         ? reportedContentId
         : null;
     reportedContent = BelongsTo(
-      reader,
+      ref,
       validContentId != null ? Request.fromIds({validContentId}) : null,
     );
   }

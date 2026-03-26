@@ -1,7 +1,7 @@
 import 'package:collection/collection.dart';
+import 'package:riverpod/riverpod.dart';
 
 import '../core/model.dart';
-import '../core/model_registry.dart';
 import 'utils.dart';
 
 extension StringMaybeExt on String? {
@@ -32,9 +32,9 @@ extension ModelsExt<E extends Model<dynamic>> on Set<E> {
 }
 
 extension MapIterableExt on Iterable<Map<String, dynamic>> {
-  Iterable<E> toModels<E extends Model<dynamic>>(StorageReader reader) {
+  Iterable<E> toModels<E extends Model<dynamic>>(Ref ref) {
     return map((e) {
-      return ModelRegistry.instance.getConstructorForKind(e['kind']!)!.call(e, reader);
+      return Model.getConstructorForKind(e['kind']!)!.call(e, ref);
     }).cast<E>();
   }
 }

@@ -8,14 +8,12 @@ import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late Ref ref;
   late DummyStorageNotifier storage;
 
   setUp(() async {
     container = await createTestContainer(
       config: StorageConfiguration(keepSignatures: false),
     );
-    ref = container.read(refProvider);
     storage =
         container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
   });
@@ -27,11 +25,11 @@ void main() {
 
   group('Zap', () {
     test('creates zap from JSON and validates relationships', () async {
-      final author = PartialProfile().dummySign(storage, 
+      final author = PartialProfile().dummySign(
         'd3f94b353542a632962062f3c914638d0deeba64af1f980d93907ee1b3e0d4f9',
       );
-      final zap = Zap.fromMap(jsonDecode(zapJson), storage);
-      final note = Note.fromMap(jsonDecode(zappedEventJson), storage);
+      final zap = Zap.fromMap(jsonDecode(zapJson), container.ref);
+      final note = Note.fromMap(jsonDecode(zappedEventJson), container.ref);
       await storage.save({note, zap, author});
 
       // As config is keepSignatures=false, it should come back as null
@@ -41,7 +39,7 @@ void main() {
     });
 
     test('calculates amount from bolt11 correctly', () {
-      final zap = Zap.fromMap(jsonDecode(zapJson), storage);
+      final zap = Zap.fromMap(jsonDecode(zapJson), container.ref);
       expect(zap.amount, equals(10)); // 100 nanosats = 10 sats
     });
 
@@ -56,14 +54,14 @@ void main() {
         }
       }
 
-      final zap = Zap.fromMap(invalidZapJson, storage);
+      final zap = Zap.fromMap(invalidZapJson, container.ref);
       expect(zap.amount, equals(0)); // Should return 0 for invalid bolt11
     });
   });
 
   group('ZapRequest', () {
     test('creates zap request from map', () {
-      final zapRequest = ZapRequest.fromMap(jsonDecode(zapRequestJson), storage);
+      final zapRequest = ZapRequest.fromMap(jsonDecode(zapRequestJson), container.ref);
       expect(zapRequest.event.kind, equals(9734));
       expect(
         zapRequest.event.pubkey,

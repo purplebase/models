@@ -15,9 +15,9 @@ class TargetedPublication
   late final BelongsTo<Model> model;
   late final HasMany<Community> communities;
 
-  TargetedPublication.fromMap(super.map, super.reader) : super.fromMap() {
+  TargetedPublication.fromMap(super.map, super.ref) : super.fromMap() {
     model = BelongsTo(
-      reader,
+      ref,
       Request.fromIds({
         ?event.getFirstTagValue('e'),
         ?event.getFirstTagValue('a'),
@@ -26,7 +26,7 @@ class TargetedPublication
 
     // This is only possible because communities are replaceable events (without a d tag)
     final req = RequestFilter<Community>(authors: communityPubkeys).toRequest();
-    communities = HasMany(reader, req);
+    communities = HasMany(ref, req);
   }
 
   /// The kind number of the content being targeted for publication

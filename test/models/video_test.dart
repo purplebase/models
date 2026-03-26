@@ -25,7 +25,7 @@ void main() {
       // Create related models first
       final authorProfile = PartialProfile(
         name: 'Video Creator',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
       await storage.save({authorProfile});
 
       final video = PartialVideo(
@@ -43,7 +43,7 @@ void main() {
             'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
         thumbnailUrl: 'https://example.com/thumbnail.jpg',
         summary: 'Beautiful 3-minute sunset timelapse in 4K resolution',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({video});
 
@@ -83,7 +83,7 @@ void main() {
       expect(video.author.value!.pubkey, nielPubkey);
 
       // Test serialization roundtrip
-      final video2 = Video.fromMap(video.toMap(), storage);
+      final video2 = Video.fromMap(video.toMap(), container.ref);
       expect(video.toMap(), video2.toMap());
     });
 
@@ -94,7 +94,7 @@ void main() {
         height: 1080,
         description: 'HD landscape video',
         title: 'Landscape Beauty',
-      ).dummySign(storage);
+      ).dummySign();
 
       await storage.save({video});
 
@@ -110,13 +110,13 @@ void main() {
       final video = PartialVideo(
         videoUrl: 'https://example.com/test-video.mp4',
         description: 'Test video for relationships',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create a comment on this video
       final comment = PartialComment(
         content: 'Great video!',
         rootModel: video,
-      ).dummySign(storage);
+      ).dummySign();
 
       await storage.save({video, comment});
 
@@ -146,7 +146,7 @@ void main() {
       partialVideo.thumbnailUrl = 'https://example.com/new-thumb.jpg';
       partialVideo.summary = 'Updated summary';
 
-      final video = partialVideo.dummySign(storage);
+      final video = partialVideo.dummySign();
       await storage.save({video});
 
       expect(video.description, 'Updated description');
@@ -182,7 +182,7 @@ void main() {
       expect(partialVideo.hashtags, isNot(contains('initial')));
       expect(partialVideo.hashtags, containsAll(['test', 'new', 'tag']));
 
-      final video = partialVideo.dummySign(storage);
+      final video = partialVideo.dummySign();
       await storage.save({video});
     });
 
@@ -216,7 +216,7 @@ void main() {
         isNot(contains('https://example.com/alt1.mp4')),
       );
 
-      final video = partialVideo.dummySign(storage);
+      final video = partialVideo.dummySign();
       await storage.save({video});
     });
   });
@@ -226,7 +226,7 @@ void main() {
       // Create related models first
       final authorProfile = PartialProfile(
         name: 'Content Creator',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
       await storage.save({authorProfile});
 
       final shortVideo = PartialShortFormPortraitVideo(
@@ -243,7 +243,7 @@ void main() {
         videoHash: 'shortformhash123',
         thumbnailUrl: 'https://example.com/dance-thumb.jpg',
         summary: 'Fun 15-second dance challenge video',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({shortVideo});
 
@@ -280,7 +280,7 @@ void main() {
       // Test serialization roundtrip
       final shortVideo2 = ShortFormPortraitVideo.fromMap(
         shortVideo.toMap(),
-        storage,
+        container.ref,
       );
       expect(shortVideo.toMap(), shortVideo2.toMap());
     });
@@ -291,7 +291,7 @@ void main() {
         videoUrl: 'https://example.com/portrait.mp4',
         width: 720,
         height: 1280,
-      ).dummySign(storage);
+      ).dummySign();
 
       expect(portraitVideo.isPortrait, true);
 
@@ -300,7 +300,7 @@ void main() {
         videoUrl: 'https://example.com/landscape.mp4',
         width: 1280,
         height: 720,
-      ).dummySign(storage);
+      ).dummySign();
 
       expect(landscapeVideo.isPortrait, false);
 
@@ -309,7 +309,7 @@ void main() {
         videoUrl: 'https://example.com/square.mp4',
         width: 720,
         height: 720,
-      ).dummySign(storage);
+      ).dummySign();
 
       expect(squareVideo.isPortrait, false);
 
@@ -320,13 +320,13 @@ void main() {
       final shortVideo = PartialShortFormPortraitVideo(
         videoUrl: 'https://example.com/viral-video.mp4',
         description: 'Going viral! 🚀',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create a comment on this video
       final comment = PartialComment(
         content: 'This is amazing! 🔥',
         rootModel: shortVideo,
-      ).dummySign(storage);
+      ).dummySign();
 
       await storage.save({shortVideo, comment});
 
@@ -357,7 +357,7 @@ void main() {
           'https://example.com/updated-short-thumb.jpg';
       partialShortVideo.summary = 'Updated short video summary';
 
-      final shortVideo = partialShortVideo.dummySign(storage);
+      final shortVideo = partialShortVideo.dummySign();
       await storage.save({shortVideo});
 
       expect(shortVideo.description, 'Updated short video description');
@@ -383,7 +383,7 @@ void main() {
     test('video with minimal data', () async {
       final video = PartialVideo(
         videoUrl: 'https://example.com/minimal.mp4',
-      ).dummySign(storage);
+      ).dummySign();
 
       await storage.save({video});
 
@@ -411,7 +411,7 @@ void main() {
       final video = PartialVideo(
         videoUrl: 'https://example.com/empty.mp4',
         description: '',
-      ).dummySign(storage);
+      ).dummySign();
 
       await storage.save({video});
 
@@ -422,7 +422,7 @@ void main() {
       final video = PartialVideo(
         videoUrl: 'https://example.com/malformed.mp4',
         dimensions: 'invalid',
-      ).dummySign(storage);
+      ).dummySign();
 
       await storage.save({video});
 
@@ -435,7 +435,7 @@ void main() {
       final video = PartialVideo(
         videoUrl: 'https://example.com/partial.mp4',
         dimensions: '1920x', // Missing height
-      ).dummySign(storage);
+      ).dummySign();
 
       await storage.save({video});
 
@@ -453,7 +453,7 @@ void main() {
       partialVideo.event.setTagValue('size', 'not-a-number');
       partialVideo.event.setTagValue('duration', 'invalid');
 
-      final video = partialVideo.dummySign(storage);
+      final video = partialVideo.dummySign();
       await storage.save({video});
 
       expect(video.fileSize, isNull);
@@ -489,7 +489,7 @@ void main() {
         'sig': 'testsig123',
       };
 
-      final video = Video.fromMap(eventData, storage);
+      final video = Video.fromMap(eventData, container.ref);
 
       // Test that imeta URLs are parsed correctly
       expect(video.videoUrl, 'https://videos.example.com/video-1080p.mp4');
@@ -515,7 +515,7 @@ void main() {
         'sig': 'testsig123',
       };
 
-      final video = Video.fromMap(eventData, storage);
+      final video = Video.fromMap(eventData, container.ref);
 
       // imeta URL should take precedence
       expect(video.videoUrl, 'https://new-style.com/video.mp4');
@@ -541,7 +541,7 @@ void main() {
         'sig': 'testsig123',
       };
 
-      final video = Video.fromMap(eventData, storage);
+      final video = Video.fromMap(eventData, container.ref);
 
       // Should fall back to url tags
       expect(video.videoUrl, 'https://old-style.com/video1.mp4');
@@ -582,7 +582,7 @@ void main() {
         'sig': 'testsig456',
       };
 
-      final shortVideo = ShortFormPortraitVideo.fromMap(eventData, storage);
+      final shortVideo = ShortFormPortraitVideo.fromMap(eventData, container.ref);
 
       // Test that imeta URLs are parsed correctly
       expect(shortVideo.videoUrl, 'https://shorts.example.com/dance-1080p.mp4');
@@ -608,7 +608,7 @@ void main() {
         'sig': 'testsig456',
       };
 
-      final shortVideo = ShortFormPortraitVideo.fromMap(eventData, storage);
+      final shortVideo = ShortFormPortraitVideo.fromMap(eventData, container.ref);
 
       // imeta URL should take precedence
       expect(shortVideo.videoUrl, 'https://new-style.com/short.mp4');

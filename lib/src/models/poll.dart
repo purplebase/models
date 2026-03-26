@@ -35,12 +35,12 @@ class Poll extends RegularModel<Poll> {
   late final HasMany<PollResponse> responses;
   late final BelongsTo<Model> targetModel;
 
-  Poll.fromMap(super.map, super.reader) : super.fromMap() {
+  Poll.fromMap(super.map, super.ref) : super.fromMap() {
     // Note: author relationship is inherited from Model base class
 
     // All responses to this poll
     responses = HasMany(
-      reader,
+      ref,
       RequestFilter<PollResponse>(
         tags: {
           '#e': {event.id},
@@ -52,16 +52,16 @@ class Poll extends RegularModel<Poll> {
     // Target model (what this poll is about - e.g., an App)
     if (event.containsTag('a')) {
       targetModel = BelongsTo(
-        reader,
+        ref,
         Request.fromIds({event.getFirstTagValue('a')!}),
       );
     } else if (event.containsTag('A')) {
       targetModel = BelongsTo(
-        reader,
+        ref,
         Request.fromIds({event.getFirstTagValue('A')!}),
       );
     } else {
-      targetModel = BelongsTo(reader, null);
+      targetModel = BelongsTo(ref, null);
     }
   }
 

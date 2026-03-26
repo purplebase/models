@@ -18,7 +18,7 @@ class Zap extends RegularModel<Zap> {
   /// Overrides the default author to point to the wallet that sent the zap
   @override
   BelongsTo<Profile> get author => BelongsTo(
-    reader,
+    ref,
     RequestFilter<Profile>(
       authors: {event.getFirstTagValue('P') ?? event.metadata['author']},
     ).toRequest(),
@@ -29,26 +29,26 @@ class Zap extends RegularModel<Zap> {
   late final BelongsTo<Profile> recipient;
   late final BelongsTo<ZapRequest> zapRequest;
 
-  Zap.fromMap(super.map, super.reader) : super.fromMap() {
+  Zap.fromMap(super.map, super.ref) : super.fromMap() {
     wallet = BelongsTo(
-      reader,
+      ref,
       RequestFilter<Profile>(authors: {event.pubkey}).toRequest(),
     );
     recipient = BelongsTo(
-      reader,
+      ref,
       RequestFilter<Profile>(
         authors: {event.getFirstTagValue('p')!},
       ).toRequest(),
     );
     zappedModel = BelongsTo(
-      reader,
+      ref,
       Request.fromIds({
         ?event.getFirstTagValue('e'),
         ?event.getFirstTagValue('a'),
       }),
     );
     zapRequest = BelongsTo(
-      reader,
+      ref,
       RequestFilter<ZapRequest>(
         ids: {event.metadata['zapRequestId']!},
       ).toRequest(),
@@ -83,15 +83,12 @@ class Zap extends RegularModel<Zap> {
 
 /// A zap request event (kind 9734) used to request Lightning payments
 class ZapRequest extends RegularModel<ZapRequest> {
-  ZapRequest.fromMap(super.map, super.reader) : super.fromMap() {
+  ZapRequest.fromMap(super.map, super.ref) : super.fromMap() {
     // use constructor body?
   }
 
   /// Obtain a Lightning invoice for this zap request (no NWC required)
   Future<String> getInvoice({bool refreshRecipientProfile = false}) async {
-    // Access storage through the reader (which is a StorageNotifier in practice)
-    final storage = reader as dynamic;
-
     // Get the recipient pubkey from the zap request
     final recipientPubkey = event.getFirstTagValue('p');
     if (recipientPubkey == null) {

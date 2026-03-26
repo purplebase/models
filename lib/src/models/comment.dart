@@ -17,25 +17,25 @@ class Comment extends RegularModel<Comment> {
   late final BelongsTo<Profile> parentAuthor;
   late final HasMany<Comment> replies;
 
-  Comment.fromMap(super.map, super.reader) : super.fromMap() {
+  Comment.fromMap(super.map, super.ref) : super.fromMap() {
     // Root reference
     if (event.containsTag('A')) {
       rootModel = BelongsTo(
-        reader,
+        ref,
         Request<Model>.fromIds({event.getFirstTagValue('A')!}),
       );
     } else if (event.containsTag('E')) {
       rootModel = BelongsTo(
-        reader,
+        ref,
         Request.fromIds({?event.getFirstTagValue('E')}),
       );
     } else {
-      rootModel = BelongsTo(reader, null);
+      rootModel = BelongsTo(ref, null);
     }
 
     // Parent article reference
     parentModel = BelongsTo(
-      reader,
+      ref,
       Request.fromIds({
         ?event.getFirstTagValue('e'),
         ?event.getFirstTagValue('a'),
@@ -43,13 +43,13 @@ class Comment extends RegularModel<Comment> {
     );
 
     quotedModel = BelongsTo(
-      reader,
+      ref,
       Request.fromIds({?event.getFirstTagValue('q')}),
     );
 
     // Root author relationship
     rootAuthor = BelongsTo(
-      reader,
+      ref,
       event.containsTag('P')
           ? RequestFilter<Profile>(
               authors: {event.getFirstTagValue('P')!},
@@ -59,7 +59,7 @@ class Comment extends RegularModel<Comment> {
 
     // Parent author relationship
     parentAuthor = BelongsTo(
-      reader,
+      ref,
       event.containsTag('p')
           ? RequestFilter<Profile>(
               authors: {event.getFirstTagValue('p')!},
@@ -69,7 +69,7 @@ class Comment extends RegularModel<Comment> {
 
     // Child replies to this comment
     replies = HasMany(
-      reader,
+      ref,
       RequestFilter<Comment>(
         tags: {
           '#e': {event.id},

@@ -19,9 +19,9 @@ class Release extends ParameterizableReplaceableModel<Release> {
   late final HasMany<SoftwareAsset> softwareAssets;
   late final BelongsTo<SoftwareAsset> latestAsset;
 
-  Release.fromMap(super.map, super.reader) : super.fromMap() {
+  Release.fromMap(super.map, super.ref) : super.fromMap() {
     app = BelongsTo(
-      reader,
+      ref,
       event.containsTag('a')
           ? Request<App>.fromIds({event.getFirstTagValue('a')!})
           // New format
@@ -34,26 +34,26 @@ class Release extends ParameterizableReplaceableModel<Release> {
             ).toRequest(),
     );
     fileMetadatas = HasMany(
-      reader,
+      ref,
       RequestFilter<FileMetadata>(
         ids: event.getTagSetValues('e').toSet(),
       ).toRequest(),
     );
     latestMetadata = BelongsTo(
-      reader,
+      ref,
       RequestFilter<FileMetadata>(
         ids: {?event.getFirstTagValue('e')},
         limit: 1,
       ).toRequest(),
     );
     softwareAssets = HasMany(
-      reader,
+      ref,
       RequestFilter<SoftwareAsset>(
         ids: event.getTagSetValues('e').toSet(),
       ).toRequest(),
     );
     latestAsset = BelongsTo(
-      reader,
+      ref,
       RequestFilter<SoftwareAsset>(
         ids: {?event.getFirstTagValue('e')},
         limit: 1,

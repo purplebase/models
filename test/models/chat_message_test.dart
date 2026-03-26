@@ -28,13 +28,13 @@ void main() {
         name: 'Test Community',
         relayUrls: {'wss://test.relay.com'},
         description: 'A test community',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create a basic chat message
       final chatMessage = PartialChatMessage(
         'Hello, community!',
         community: community,
-      ).dummySign(storage, verbirichaPubkey);
+      ).dummySign(verbirichaPubkey);
 
       await storage.save({community, chatMessage});
 
@@ -48,13 +48,13 @@ void main() {
       // Create original message
       final originalMessage = PartialChatMessage(
         'Original message',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create reply that quotes the original
       final quotingMessage = PartialChatMessage(
         'Replying to the original message',
         quotedMessage: originalMessage,
-      ).dummySign(storage, verbirichaPubkey);
+      ).dummySign(verbirichaPubkey);
 
       await storage.save({originalMessage, quotingMessage});
 
@@ -141,7 +141,7 @@ void main() {
       // Load the events into storage
       final models = <Model>[];
       for (final eventData in realWorldEvents) {
-        final model = ChatMessage.fromMap(eventData, storage);
+        final model = ChatMessage.fromMap(eventData, container.ref);
         models.add(model);
       }
       await storage.save(models.toSet());
@@ -175,7 +175,7 @@ void main() {
     test('chat message without community or quoted message', () async {
       final chatMessage = PartialChatMessage(
         'Standalone message',
-      ).dummySign(storage, franzapPubkey);
+      ).dummySign(franzapPubkey);
 
       await storage.save({chatMessage});
 
@@ -198,7 +198,7 @@ void main() {
         "sig": "testsig",
       };
 
-      final chatMessage = ChatMessage.fromMap(eventData, storage);
+      final chatMessage = ChatMessage.fromMap(eventData, container.ref);
       await storage.save({chatMessage});
 
       expect(chatMessage.content, equals('Message in non-existent community'));
@@ -225,7 +225,7 @@ void main() {
         "sig": "testsig",
       };
 
-      final chatMessage = ChatMessage.fromMap(eventData, storage);
+      final chatMessage = ChatMessage.fromMap(eventData, container.ref);
       await storage.save({chatMessage});
 
       expect(chatMessage.content, equals('Quoting non-existent message'));
@@ -256,26 +256,26 @@ void main() {
       final community = PartialCommunity(
         name: 'Test Community',
         relayUrls: {'wss://test.relay.com'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create original message in community
       final originalMessage = PartialChatMessage(
         'Original message in community',
         community: community,
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create message that quotes the original
       final quotingMessage = PartialChatMessage(
         'I quote the original message',
         quotedMessage: originalMessage,
         community: community,
-      ).dummySign(storage, verbirichaPubkey);
+      ).dummySign(verbirichaPubkey);
 
       // Create another message in the same community (not quoting anything)
       final anotherMessage = PartialChatMessage(
         'Another message in same community',
         community: community,
-      ).dummySign(storage, franzapPubkey);
+      ).dummySign(franzapPubkey);
 
       await storage.save({
         community,
@@ -306,7 +306,7 @@ void main() {
     });
 
     test('edge case: chat message with empty content', () async {
-      final chatMessage = PartialChatMessage('').dummySign(storage, nielPubkey);
+      final chatMessage = PartialChatMessage('').dummySign(nielPubkey);
       await storage.save({chatMessage});
 
       expect(chatMessage.content, equals(''));
@@ -315,7 +315,7 @@ void main() {
 
     test('edge case: chat message with very long content', () async {
       final longContent = 'A' * 10000; // Very long message
-      final chatMessage = PartialChatMessage(longContent).dummySign(storage, nielPubkey);
+      final chatMessage = PartialChatMessage(longContent).dummySign(nielPubkey);
       await storage.save({chatMessage});
 
       expect(chatMessage.content, equals(longContent));
@@ -325,7 +325,7 @@ void main() {
     test('chat message inherits standard model relationships', () async {
       final chatMessage = PartialChatMessage(
         'Test message',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
       await storage.save({chatMessage});
 
       // Should have inherited relationships from RegularModel
@@ -336,7 +336,7 @@ void main() {
     });
 
     test('ensure kind 9 is used for chat messages', () {
-      final chatMessage = PartialChatMessage('Test').dummySign(storage, nielPubkey);
+      final chatMessage = PartialChatMessage('Test').dummySign(nielPubkey);
       expect(chatMessage.event.kind, equals(9));
     });
   });

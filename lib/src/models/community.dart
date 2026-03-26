@@ -11,9 +11,9 @@ import 'chat_message.dart';
 class Community extends ReplaceableModel<Community> {
   late final HasMany<ChatMessage> chatMessages;
 
-  Community.fromMap(super.map, super.reader) : super.fromMap() {
+  Community.fromMap(super.map, super.ref) : super.fromMap() {
     chatMessages = HasMany(
-      reader,
+      ref,
       RequestFilter<ChatMessage>(
         tags: {
           '#h': {event.pubkey}, // NIP-CC: find by community pubkey

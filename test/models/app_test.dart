@@ -6,14 +6,11 @@ import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late DummyStorageNotifier storage;
 
   setUp(() async {
     container = await createTestContainer(
       config: StorageConfiguration(keepSignatures: false),
     );
-    storage =
-        container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
   });
 
   tearDown(() async {
@@ -25,7 +22,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'w'
         ..description = 'test app';
-      final app = partialApp.dummySign(storage, 
+      final app = partialApp.dummySign(
         'f36f1a2727b7ab02e3f6e99841cd2b4d9655f8cfa184bd4d68f4e4c72db8e5c1',
       );
 
@@ -40,7 +37,7 @@ void main() {
         app.event.shareableId,
         'naddr1qqqhwq3q7dh35fe8k74s9clkaxvyrnftfkt9t7x05xzt6ntg7njvwtdcuhqsxpqqqplqknw8nmm',
       );
-      expect(App.fromMap(app.toMap(), storage), app);
+      expect(App.fromMap(app.toMap(), container.ref), app);
     });
   });
 }

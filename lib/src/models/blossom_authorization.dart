@@ -8,7 +8,7 @@ import '../utils/extensions.dart';
 /// Blossom authorization events provide authentication tokens for
 /// uploading and managing files on Blossom file servers.
 class BlossomAuthorization extends EphemeralModel<BlossomAuthorization> {
-  BlossomAuthorization.fromMap(super.map, super.reader) : super.fromMap();
+  BlossomAuthorization.fromMap(super.map, super.ref) : super.fromMap();
 
   /// Authorization content (token data)
   String get content => event.content;

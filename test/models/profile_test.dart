@@ -51,7 +51,7 @@ void main() {
         name: 'Niel Liesmons',
         pictureUrl:
             'https://cdn.satellite.earth/946822b1ea72fd3710806c07420d6f7e7d4a7646b2002e6cc969bcf1feaa1009.png',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(
         nielProfile.event.content,
@@ -62,16 +62,19 @@ void main() {
         'nprofile1qqs2js6wu9j76qdjs6lvlsnhrmchqhf4xlg9rvu89zyf3nqq6hygt0sty4s8y',
       );
 
-      final franzapProfile = Profile.fromMap(jsonDecode(franzapJson), storage);
+      final franzapProfile = Profile.fromMap(
+        jsonDecode(franzapJson),
+        container.ref,
+      );
       final verbirichaProfile = Profile.fromMap(
         jsonDecode(verbirichaJson),
-        storage,
+        container.ref,
       );
       final nielContactList =
           (PartialContactList()
                 ..addFollow(franzapProfile)
                 ..addFollow(verbirichaProfile))
-              .dummySign(storage, nielProfile.pubkey);
+              .dummySign(nielProfile.pubkey);
 
       await storage.save({franzapProfile, verbirichaProfile, nielContactList});
 
@@ -87,7 +90,7 @@ void main() {
     //       PartialProfile(
     //         name: 'Test User',
     //         nip05: 'test@example.com',
-    //       ).dummySign(storage, 
+    //       ).dummySign(
     //         'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
     //       );
     //   await storage.save({testProfile});
@@ -112,7 +115,7 @@ void main() {
           PartialProfile(
             name: 'Test User',
             // No lud16 set
-          ).dummySign(storage, 
+          ).dummySign(
             'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
           );
 
@@ -125,7 +128,7 @@ void main() {
           PartialProfile(
             name: 'Test User',
             lud16: 'invalid-address', // Invalid format (no @)
-          ).dummySign(storage, 
+          ).dummySign(
             'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
           );
 
@@ -139,7 +142,7 @@ void main() {
             name: 'Test User',
             lud16:
                 'user@nonexistent.domain', // Valid format but will fail network call
-          ).dummySign(storage, 
+          ).dummySign(
             'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
           );
 

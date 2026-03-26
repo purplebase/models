@@ -8,7 +8,7 @@ import 'file_metadata.dart';
 ///
 /// Extends [FileMetadata] to inherit file metadata properties.
 class SoftwareAsset extends FileMetadata {
-  SoftwareAsset.fromMap(super.map, super.reader) : super.fromMap();
+  SoftwareAsset.fromMap(super.map, super.ref) : super.fromMap();
 
   /// Minimum platform version required to run the software
   String? get minPlatformVersion =>

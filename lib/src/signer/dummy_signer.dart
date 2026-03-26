@@ -1,12 +1,8 @@
 import '../core/model.dart';
-import '../core/model_registry.dart';
 import '../core/types.dart';
 import '../utils/utils.dart';
 import 'signer.dart';
 
-/// A dummy signer implementation which does not actually sign,
-/// but copies fields and leaves the signature blank.
-/// Used for testing.
 class DummySigner extends Signer {
   final String _internalPubkey;
 
@@ -34,15 +30,15 @@ class DummySigner extends Signer {
     PartialModel<Model<dynamic>> partialModel, {
     required String pubkey,
   }) {
-    final constructor = ModelRegistry.instance
-            .getConstructorForKind(partialModel.event.kind)!
-        as ModelConstructor<E>;
+    final constructor =
+        Model.getConstructorForKind(partialModel.event.kind)!
+            as ModelConstructor<E>;
 
     return constructor.call({
       'id': Utils.getEventId(partialModel.event, pubkey),
       'pubkey': pubkey,
       ...partialModel.toMap(),
-    }, reader);
+    }, ref);
   }
 
   @override

@@ -1,5 +1,4 @@
 import 'package:models/models.dart';
-import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
 import '../helpers.dart';
@@ -136,7 +135,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.subtest'
         ..description = 'Test subscription prefix';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
       await storage.save({app});
 
       // Query with custom prefix and relationship
@@ -179,7 +178,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.multipart'
         ..description = 'Test multi-part prefix';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
       await storage.save({app});
 
       // Query with typed request (generates sub-app prefix)

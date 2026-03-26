@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 
-import '../core/model.dart';
-import '../core/storage_reader.dart';
 import '../filter/request_filter.dart';
 import '../source/remote_source.dart';
 import '../storage/storage_state.dart';
@@ -27,7 +25,7 @@ abstract class NwcCommand<T> {
   /// Automatically handles connection parsing, relay routing, signing, and error handling
   Future<T> execute({
     required String connectionUri,
-    required StorageReader reader,
+    required StorageNotifier reader,
     DateTime? expiration,
     DateTime? createdAt,
     Duration timeout = const Duration(seconds: 30),
@@ -46,13 +44,13 @@ abstract class NwcCommand<T> {
   /// Creates a signer from the connection's secret as per NIP-47 specification
   Future<T> _executeRequest({
     required NwcConnection connection,
-    required StorageReader reader,
+    required StorageNotifier reader,
     DateTime? expiration,
     DateTime? createdAt,
     Duration timeout = const Duration(seconds: 30),
   }) async {
     // Create a signer from the connection's secret (NIP-47 requirement)
-    final storage = reader as StorageNotifier;
+    final storage = reader;
     final connectionSigner = Bip340PrivateKeySigner(connection.secret, storage.ref);
     await connectionSigner.initialize();
 
@@ -80,7 +78,7 @@ abstract class NwcCommand<T> {
       },
     ).toRequest();
 
-    final storageNotifier = reader;
+    final storageNotifier = storage;
     final completer = Completer<NwcResponse>();
     void Function()? cancelListener;
 

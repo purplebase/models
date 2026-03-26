@@ -12,9 +12,9 @@ import 'release.dart';
 class FileMetadata extends RegularModel<FileMetadata> {
   late final BelongsTo<Release> release;
 
-  FileMetadata.fromMap(super.map, super.reader) : super.fromMap() {
+  FileMetadata.fromMap(super.map, super.ref) : super.fromMap() {
     release = BelongsTo(
-      reader,
+      ref,
       RequestFilter<Release>(
         authors: {event.pubkey},
         tags: {

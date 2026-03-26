@@ -22,7 +22,7 @@ void main() {
       final appStack = PartialAppStack(
         name: 'Test Pack',
         identifier: 'test-pack',
-      ).dummySign(container.storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(appStack.content, isNotNull);
       expect(appStack.getEncryptionPubkey(), equals(nielPubkey));
@@ -36,7 +36,7 @@ void main() {
         apps: ['32267:pubkey:app1', '32267:pubkey:app2'],
       );
 
-      final appStack = partial.dummySign(container.storage, nielPubkey);
+      final appStack = partial.dummySign(nielPubkey);
 
       // Content is encrypted, so privateAppIds returns empty
       expect(appStack.privateAppIds, isEmpty);

@@ -2,11 +2,9 @@ import 'package:meta/meta.dart';
 import 'package:riverpod/riverpod.dart';
 
 import '../core/model.dart';
-import '../core/model_registry.dart';
 import '../filter/request.dart';
 import '../filter/request_filter.dart';
 import '../source/source.dart';
-import '../source/remote_source.dart';
 import '../signer/signer.dart';
 import '../utils/utils.dart';
 import 'storage_state.dart';
@@ -52,11 +50,7 @@ import '../models/calendar_events.dart';
 import '../models/nwc.dart';
 
 /// Storage interface that notifies upon updates.
-///
-/// Implements [StorageReader] to serve as the bridge from Riverpod
-/// to model relationship resolution.
-abstract class StorageNotifier extends StateNotifier<StorageState>
-    implements StorageReader {
+abstract class StorageNotifier extends StateNotifier<StorageState> {
   StorageNotifier(this.ref) : super(StorageLoading([]));
 
   final Ref ref;
@@ -66,7 +60,6 @@ abstract class StorageNotifier extends StateNotifier<StorageState>
 
   /// Cache version counter for relationship query caching.
   int _cacheVersion = 0;
-  @override
   int get cacheVersion => _cacheVersion;
 
   /// Cache timestamps for author+kind queries with cachedFor.
@@ -130,76 +123,75 @@ abstract class StorageNotifier extends StateNotifier<StorageState>
   Future<void> initialize(StorageConfiguration config) async {
     if (isInitialized) return;
 
-    final registry = ModelRegistry.instance;
-
     // Regular
-    registry.register(kind: 0, constructor: Profile.fromMap, partialConstructor: PartialProfile.fromMap);
-    registry.register(kind: 1, constructor: Note.fromMap, partialConstructor: PartialNote.fromMap);
-    registry.register(kind: 3, constructor: ContactList.fromMap, partialConstructor: PartialContactList.fromMap);
-    registry.register(kind: 4, constructor: DirectMessage.fromMap, partialConstructor: PartialDirectMessage.fromMap);
-    registry.register(kind: 5, constructor: EventDeletionRequest.fromMap, partialConstructor: PartialEventDeletionRequest.fromMap);
-    registry.register(kind: 6, constructor: Repost.fromMap, partialConstructor: PartialRepost.fromMap);
-    registry.register(kind: 7, constructor: Reaction.fromMap, partialConstructor: PartialReaction.fromMap);
-    registry.register(kind: 9, constructor: ChatMessage.fromMap, partialConstructor: PartialChatMessage.fromMap);
-    registry.register(kind: 16, constructor: GenericRepost.fromMap, partialConstructor: PartialGenericRepost.fromMap);
-    registry.register(kind: 20, constructor: Picture.fromMap, partialConstructor: PartialPicture.fromMap);
-    registry.register(kind: 21, constructor: Video.fromMap, partialConstructor: PartialVideo.fromMap);
-    registry.register(kind: 22, constructor: ShortFormPortraitVideo.fromMap, partialConstructor: PartialShortFormPortraitVideo.fromMap);
-    registry.register(kind: 1018, constructor: PollResponse.fromMap, partialConstructor: PartialPollResponse.fromMap);
-    registry.register(kind: 1068, constructor: Poll.fromMap, partialConstructor: PartialPoll.fromMap);
-    registry.register(kind: 1063, constructor: FileMetadata.fromMap, partialConstructor: PartialFileMetadata.fromMap);
-    registry.register(kind: 3063, constructor: SoftwareAsset.fromMap, partialConstructor: PartialSoftwareAsset.fromMap);
-    registry.register(kind: 1111, constructor: Comment.fromMap, partialConstructor: PartialComment.fromMap);
-    registry.register(kind: 1222, constructor: VoiceMessage.fromMap, partialConstructor: PartialVoiceMessage.fromMap);
-    registry.register(kind: 1244, constructor: VoiceMessageComment.fromMap, partialConstructor: PartialVoiceMessageComment.fromMap);
-    registry.register(kind: 1984, constructor: Report.fromMap, partialConstructor: PartialReport.fromMap);
-    registry.register(kind: 9734, constructor: ZapRequest.fromMap, partialConstructor: PartialZapRequest.fromMap);
-    registry.register(kind: 9735, constructor: Zap.fromMap, partialConstructor: PartialZap.fromMap);
-    registry.register(kind: 9802, constructor: Highlight.fromMap, partialConstructor: PartialHighlight.fromMap);
+    Model.register(kind: 0, constructor: Profile.fromMap, partialConstructor: PartialProfile.fromMap);
+    Model.register(kind: 1, constructor: Note.fromMap, partialConstructor: PartialNote.fromMap);
+    Model.register(kind: 3, constructor: ContactList.fromMap, partialConstructor: PartialContactList.fromMap);
+    Model.register(kind: 4, constructor: DirectMessage.fromMap, partialConstructor: PartialDirectMessage.fromMap);
+    Model.register(kind: 5, constructor: EventDeletionRequest.fromMap, partialConstructor: PartialEventDeletionRequest.fromMap);
+    Model.register(kind: 6, constructor: Repost.fromMap, partialConstructor: PartialRepost.fromMap);
+    Model.register(kind: 7, constructor: Reaction.fromMap, partialConstructor: PartialReaction.fromMap);
+    Model.register(kind: 9, constructor: ChatMessage.fromMap, partialConstructor: PartialChatMessage.fromMap);
+    Model.register(kind: 16, constructor: GenericRepost.fromMap, partialConstructor: PartialGenericRepost.fromMap);
+    Model.register(kind: 20, constructor: Picture.fromMap, partialConstructor: PartialPicture.fromMap);
+    Model.register(kind: 21, constructor: Video.fromMap, partialConstructor: PartialVideo.fromMap);
+    Model.register(kind: 22, constructor: ShortFormPortraitVideo.fromMap, partialConstructor: PartialShortFormPortraitVideo.fromMap);
+    Model.register(kind: 1018, constructor: PollResponse.fromMap, partialConstructor: PartialPollResponse.fromMap);
+    Model.register(kind: 1068, constructor: Poll.fromMap, partialConstructor: PartialPoll.fromMap);
+    Model.register(kind: 1063, constructor: FileMetadata.fromMap, partialConstructor: PartialFileMetadata.fromMap);
+    Model.register(kind: 3063, constructor: SoftwareAsset.fromMap, partialConstructor: PartialSoftwareAsset.fromMap);
+    Model.register(kind: 1111, constructor: Comment.fromMap, partialConstructor: PartialComment.fromMap);
+    Model.register(kind: 1222, constructor: VoiceMessage.fromMap, partialConstructor: PartialVoiceMessage.fromMap);
+    Model.register(kind: 1244, constructor: VoiceMessageComment.fromMap, partialConstructor: PartialVoiceMessageComment.fromMap);
+    Model.register(kind: 1984, constructor: Report.fromMap, partialConstructor: PartialReport.fromMap);
+    Model.register(kind: 9734, constructor: ZapRequest.fromMap, partialConstructor: PartialZapRequest.fromMap);
+    Model.register(kind: 9735, constructor: Zap.fromMap, partialConstructor: PartialZap.fromMap);
+    Model.register(kind: 9802, constructor: Highlight.fromMap, partialConstructor: PartialHighlight.fromMap);
 
     // DVM
-    registry.register(kind: 5312, constructor: VerifyReputationRequest.fromMap, partialConstructor: PartialVerifyReputationRequest.fromMap);
-    registry.register(kind: 6312, constructor: VerifyReputationResponse.fromMap);
-    registry.register(kind: 7000, constructor: DVMError.fromMap);
+    Model.register(kind: 5312, constructor: VerifyReputationRequest.fromMap, partialConstructor: PartialVerifyReputationRequest.fromMap);
+    Model.register(kind: 6312, constructor: VerifyReputationResponse.fromMap);
+    Model.register(kind: 7000, constructor: DVMError.fromMap);
 
     // Replaceable
-    registry.register(kind: 10222, constructor: Community.fromMap, partialConstructor: PartialCommunity.fromMap);
+    Model.register(kind: 10222, constructor: Community.fromMap, partialConstructor: PartialCommunity.fromMap);
 
     // Ephemeral
-    registry.register(kind: 24133, constructor: BunkerAuthorization.fromMap, partialConstructor: PartialBunkerAuthorization.fromMap);
-    registry.register(kind: 24242, constructor: BlossomAuthorization.fromMap, partialConstructor: PartialBlossomAuthorization.fromMap);
+    Model.register(kind: 24133, constructor: BunkerAuthorization.fromMap, partialConstructor: PartialBunkerAuthorization.fromMap);
+    Model.register(kind: 24242, constructor: BlossomAuthorization.fromMap, partialConstructor: PartialBlossomAuthorization.fromMap);
 
     // Relay Lists
-    registry.register(kind: 10002, constructor: SocialRelayList.fromMap, partialConstructor: PartialSocialRelayList.fromMap);
-    registry.register(kind: 10067, constructor: AppCatalogRelayList.fromMap, partialConstructor: PartialAppCatalogRelayList.fromMap);
+    Model.register(kind: 10002, constructor: SocialRelayList.fromMap, partialConstructor: PartialSocialRelayList.fromMap);
+    Model.register(kind: 10067, constructor: AppCatalogRelayList.fromMap, partialConstructor: PartialAppCatalogRelayList.fromMap);
 
     // NIP-51: User Lists
-    registry.register(kind: 10000, constructor: MuteList.fromMap, partialConstructor: PartialMuteList.fromMap);
-    registry.register(kind: 10001, constructor: PinList.fromMap, partialConstructor: PartialPinList.fromMap);
+    Model.register(kind: 10000, constructor: MuteList.fromMap, partialConstructor: PartialMuteList.fromMap);
+    Model.register(kind: 10001, constructor: PinList.fromMap, partialConstructor: PartialPinList.fromMap);
 
     // Parameterized replaceable
-    registry.register(kind: 30023, constructor: Article.fromMap, partialConstructor: PartialArticle.fromMap);
-    registry.register(kind: 30063, constructor: Release.fromMap, partialConstructor: PartialRelease.fromMap);
-    registry.register(kind: 30078, constructor: CustomData.fromMap, partialConstructor: PartialCustomData.fromMap);
-    registry.register(kind: 30222, constructor: TargetedPublication.fromMap, partialConstructor: PartialTargetedPublication.fromMap);
-    registry.register(kind: 30000, constructor: FollowSets.fromMap, partialConstructor: PartialFollowSets.fromMap);
-    registry.register(kind: 30003, constructor: BookmarkSet.fromMap, partialConstructor: PartialBookmarkSet.fromMap);
-    registry.register(kind: 30267, constructor: AppStack.fromMap, partialConstructor: PartialAppStack.fromMap);
-    registry.register(kind: 32267, constructor: App.fromMap, partialConstructor: PartialApp.fromMap);
+    Model.register(kind: 30023, constructor: Article.fromMap, partialConstructor: PartialArticle.fromMap);
+    Model.register(kind: 30063, constructor: Release.fromMap, partialConstructor: PartialRelease.fromMap);
+    Model.register(kind: 30078, constructor: CustomData.fromMap, partialConstructor: PartialCustomData.fromMap);
+    Model.register(kind: 30222, constructor: TargetedPublication.fromMap, partialConstructor: PartialTargetedPublication.fromMap);
+    Model.register(kind: 30000, constructor: FollowSets.fromMap, partialConstructor: PartialFollowSets.fromMap);
+    Model.register(kind: 30003, constructor: BookmarkSet.fromMap, partialConstructor: PartialBookmarkSet.fromMap);
+    Model.register(kind: 30267, constructor: AppStack.fromMap, partialConstructor: PartialAppStack.fromMap);
+    Model.register(kind: 32267, constructor: App.fromMap, partialConstructor: PartialApp.fromMap);
 
     // Calendar Events
-    registry.register(kind: 31922, constructor: DateBasedCalendarEvent.fromMap, partialConstructor: PartialDateBasedCalendarEvent.fromMap);
-    registry.register(kind: 31923, constructor: TimeBasedCalendarEvent.fromMap, partialConstructor: PartialTimeBasedCalendarEvent.fromMap);
-    registry.register(kind: 31924, constructor: Calendar.fromMap, partialConstructor: PartialCalendar.fromMap);
-    registry.register(kind: 31925, constructor: CalendarEventRSVP.fromMap, partialConstructor: PartialCalendarEventRSVP.fromMap);
+    Model.register(kind: 31922, constructor: DateBasedCalendarEvent.fromMap, partialConstructor: PartialDateBasedCalendarEvent.fromMap);
+    Model.register(kind: 31923, constructor: TimeBasedCalendarEvent.fromMap, partialConstructor: PartialTimeBasedCalendarEvent.fromMap);
+    Model.register(kind: 31924, constructor: Calendar.fromMap, partialConstructor: PartialCalendar.fromMap);
+    Model.register(kind: 31925, constructor: CalendarEventRSVP.fromMap, partialConstructor: PartialCalendarEventRSVP.fromMap);
 
     // NWC
-    registry.register(kind: 13194, constructor: NwcInfo.fromMap, partialConstructor: PartialNwcInfo.fromMap);
-    registry.register(kind: 23194, constructor: NwcRequest.fromMap, partialConstructor: PartialNwcRequest.fromMap);
-    registry.register(kind: 23195, constructor: NwcResponse.fromMap, partialConstructor: PartialNwcResponse.fromMap);
-    registry.register(kind: 23196, constructor: NwcNotification.fromMap, partialConstructor: PartialNwcNotification.fromMap);
+    Model.register(kind: 13194, constructor: NwcInfo.fromMap, partialConstructor: PartialNwcInfo.fromMap);
+    Model.register(kind: 23194, constructor: NwcRequest.fromMap, partialConstructor: PartialNwcRequest.fromMap);
+    Model.register(kind: 23195, constructor: NwcResponse.fromMap, partialConstructor: PartialNwcResponse.fromMap);
+    Model.register(kind: 23196, constructor: NwcNotification.fromMap, partialConstructor: PartialNwcNotification.fromMap);
 
     this.config = config;
+    Model.initializeDummySigner(ref);
   }
 
   /// Resolve relay URLs from label with signed RelayList precedence.
@@ -271,7 +263,6 @@ abstract class StorageNotifier extends StateNotifier<StorageState>
 
   // Abstract query/mutation methods
 
-  @override
   List<E> querySync<E extends Model<dynamic>>(Request<E> req);
 
   Future<List<E>> query<E extends Model<dynamic>>(
@@ -284,7 +275,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState>
 
   Future<PublishResponse> publish(
     Set<Model<dynamic>> models, {
-    RemoteSource source = const RemoteSource(),
+    Source? source,
   });
 
   /// Helper: Check if a kind represents an encrypted event type.

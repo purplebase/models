@@ -18,9 +18,9 @@ class Video extends RegularModel<Video> {
   /// Comments on this video
   late final HasMany<Comment> comments;
 
-  Video.fromMap(super.map, super.reader) : super.fromMap() {
+  Video.fromMap(super.map, super.ref) : super.fromMap() {
     referencingNotes = HasMany(
-      reader,
+      ref,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -29,7 +29,7 @@ class Video extends RegularModel<Video> {
     );
 
     comments = HasMany(
-      reader,
+      ref,
       RequestFilter<Comment>(
         tags: {
           '#E': {event.id},
@@ -147,9 +147,9 @@ class ShortFormPortraitVideo extends RegularModel<ShortFormPortraitVideo> {
   /// Comments on this video
   late final HasMany<Comment> comments;
 
-  ShortFormPortraitVideo.fromMap(super.map, super.reader) : super.fromMap() {
+  ShortFormPortraitVideo.fromMap(super.map, super.ref) : super.fromMap() {
     referencingNotes = HasMany(
-      reader,
+      ref,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -158,7 +158,7 @@ class ShortFormPortraitVideo extends RegularModel<ShortFormPortraitVideo> {
     );
 
     comments = HasMany(
-      reader,
+      ref,
       RequestFilter<Comment>(
         tags: {
           '#E': {event.id},

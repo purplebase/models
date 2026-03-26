@@ -4,12 +4,10 @@ import 'package:riverpod/riverpod.dart';
 import '../core/model.dart';
 import '../models/profile.dart';
 import '../source/source.dart';
-import '../storage/storage_notifier.dart';
 import '../providers/query_providers.dart';
 
 /// Base class for all Nostr event signers.
 ///
-/// Models are pure data (use [StorageReader] for construction).
 /// Signers need [Ref] for provider integration (signIn/signOut).
 abstract class Signer {
   final Ref ref;
@@ -23,9 +21,6 @@ abstract class Signer {
   void internalSetPubkey(String pubkey) => _pubkey = pubkey;
 
   Signer(this.ref);
-
-  /// The storage reader for model construction during signing.
-  StorageReader get reader => ref.read(storageNotifierProvider.notifier);
 
   /// Check if this signer is available for use.
   Future<bool> get isAvailable async => true;

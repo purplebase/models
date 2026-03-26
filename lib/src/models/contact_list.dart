@@ -12,12 +12,12 @@ class ContactList extends ReplaceableModel<ContactList> {
   late final HasMany<Profile> following;
   late final HasMany<Profile> followers;
 
-  ContactList.fromMap(super.map, super.reader) : super.fromMap() {
+  ContactList.fromMap(super.map, super.ref) : super.fromMap() {
     following = HasMany(
-      reader,
+      ref,
       RequestFilter<Profile>(authors: followingPubkeys).toRequest(),
     );
-    followers = HasMany(reader, null);
+    followers = HasMany(ref, null);
   }
 
   /// Set of public keys being followed

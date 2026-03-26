@@ -18,9 +18,9 @@ class Picture extends RegularModel<Picture> {
   /// Comments on this picture
   late final HasMany<Comment> comments;
 
-  Picture.fromMap(super.map, super.reader) : super.fromMap() {
+  Picture.fromMap(super.map, super.ref) : super.fromMap() {
     referencingNotes = HasMany(
-      reader,
+      ref,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -29,7 +29,7 @@ class Picture extends RegularModel<Picture> {
     );
 
     comments = HasMany(
-      reader,
+      ref,
       RequestFilter<Comment>(
         tags: {
           '#e': {event.id},

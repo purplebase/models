@@ -36,7 +36,7 @@ void main() {
       'query provider with LocalAndRemoteSource(stream: false) returns local data immediately',
       () async {
         // Pre-populate local storage with some data
-        final note = PartialNote('Existing note').dummySign(storage, nielPubkey);
+        final note = PartialNote('Existing note').dummySign(nielPubkey);
         await storage.save({note});
 
         // Query with stream: false - should return local data immediately
@@ -62,7 +62,7 @@ void main() {
       'query provider with stream: false and stream: true both return local data immediately',
       () async {
         // Pre-populate local storage
-        final note = PartialNote('Test note').dummySign(storage, nielPubkey);
+        final note = PartialNote('Test note').dummySign(nielPubkey);
         await storage.save({note});
 
         // Both stream settings should return local data immediately
@@ -77,7 +77,7 @@ void main() {
         );
 
         // Save note for the second author
-        final note2 = PartialNote('Another note').dummySign(storage, franzapPubkey);
+        final note2 = PartialNote('Another note').dummySign(franzapPubkey);
         await storage.save({note2});
 
         // Both should return immediately
@@ -93,7 +93,7 @@ void main() {
       'stream: false closes subscription after EOSE while stream: true keeps it open',
       () async {
         // Pre-populate local storage
-        final note1 = PartialNote('First note').dummySign(storage, nielPubkey);
+        final note1 = PartialNote('First note').dummySign(nielPubkey);
         await storage.save({note1});
 
         // Set up query with stream: true (subscription stays open)
@@ -108,7 +108,7 @@ void main() {
         await tester.expectModels(hasLength(1));
 
         // Save new data - should be picked up by streaming subscription
-        final note2 = PartialNote('Second note').dummySign(storage, nielPubkey);
+        final note2 = PartialNote('Second note').dummySign(nielPubkey);
         await storage.save({note2});
 
         // Streaming subscription should receive the update
@@ -129,7 +129,7 @@ void main() {
         final tester = container.testerFor(queryProvider);
 
         // Now save some data - this should be the first emission
-        final note = PartialNote('New note').dummySign(storage, nielPubkey);
+        final note = PartialNote('New note').dummySign(nielPubkey);
         await storage.save({note});
 
         // Should get the note (not an empty array first)
@@ -143,7 +143,7 @@ void main() {
   group('storage.query blocking behavior', () {
     test('storage.query with LocalSource returns immediately', () async {
       // Pre-populate storage
-      final note = PartialNote('Test').dummySign(storage, nielPubkey);
+      final note = PartialNote('Test').dummySign(nielPubkey);
       await storage.save({note});
 
       final req = RequestFilter<Note>(authors: {nielPubkey}).toRequest();
@@ -162,7 +162,7 @@ void main() {
         // storage.query with stream: false would block until EOSE.
         // DummyStorage simulates this by returning immediately since there's
         // no actual network round-trip.
-        final note = PartialNote('Test').dummySign(storage, nielPubkey);
+        final note = PartialNote('Test').dummySign(nielPubkey);
         await storage.save({note});
 
         final req = RequestFilter<Note>(authors: {nielPubkey}).toRequest();

@@ -88,38 +88,38 @@ void main() {
   group('ImmutableEvent', () {
     test('generates addressableId correctly', () {
       // Regular event: uses event id
-      final note = PartialNote('test').dummySign(container.storage, Pubkeys.niel);
+      final note = PartialNote('test').dummySign(Pubkeys.niel);
       expect(note.event.addressableId, note.id);
 
       // Replaceable event: uses kind:pubkey:
-      final profile = PartialProfile(name: 'test').dummySign(container.storage, Pubkeys.niel);
+      final profile = PartialProfile(name: 'test').dummySign(Pubkeys.niel);
       expect(profile.event.addressableId, '0:${Pubkeys.niel}:');
 
       // Parameterized replaceable: uses kind:pubkey:identifier
       final article =
           (PartialArticle('Test', 'Body')..identifier = 'my-id')
-              .dummySign(container.storage, Pubkeys.niel);
+              .dummySign(Pubkeys.niel);
       expect(article.event.addressableId, '30023:${Pubkeys.niel}:my-id');
     });
 
     test('generates shareableId (NIP-19)', () {
       // Profile -> nprofile
-      final profile = PartialProfile(name: 'test').dummySign(container.storage, Pubkeys.niel);
+      final profile = PartialProfile(name: 'test').dummySign(Pubkeys.niel);
       expect(profile.event.shareableId, startsWith('nprofile1'));
 
       // Note -> nevent
-      final note = PartialNote('test').dummySign(container.storage, Pubkeys.niel);
+      final note = PartialNote('test').dummySign(Pubkeys.niel);
       expect(note.event.shareableId, startsWith('nevent1'));
 
       // Article -> naddr
       final article =
           (PartialArticle('Test', 'Body')..identifier = 'my-id')
-              .dummySign(container.storage, Pubkeys.niel);
+              .dummySign(Pubkeys.niel);
       expect(article.event.shareableId, startsWith('naddr1'));
     });
 
     test('toMap includes all fields', () {
-      final note = PartialNote('hello').dummySign(container.storage, Pubkeys.niel);
+      final note = PartialNote('hello').dummySign(Pubkeys.niel);
       final map = note.toMap();
 
       expect(map['id'], isNotNull);
@@ -134,8 +134,8 @@ void main() {
 
   group('Relationship', () {
     test('BelongsTo resolves related model', () async {
-      final profile = PartialProfile(name: 'Author').dummySign(container.storage, Pubkeys.niel);
-      final note = PartialNote('hello').dummySign(container.storage, Pubkeys.niel);
+      final profile = PartialProfile(name: 'Author').dummySign(Pubkeys.niel);
+      final note = PartialNote('hello').dummySign(Pubkeys.niel);
       await container.storage.save({profile, note});
 
       expect(note.author.value, profile);
@@ -143,7 +143,7 @@ void main() {
     });
 
     test('BelongsTo returns null when not found', () async {
-      final note = PartialNote('hello').dummySign(container.storage, Pubkeys.niel);
+      final note = PartialNote('hello').dummySign(Pubkeys.niel);
       await container.storage.save({note});
       // No profile saved
       expect(note.author.value, isNull);
@@ -151,11 +151,11 @@ void main() {
     });
 
     test('HasMany resolves related models', () async {
-      final note = PartialNote('hello').dummySign(container.storage, Pubkeys.niel);
+      final note = PartialNote('hello').dummySign(Pubkeys.niel);
       final reply1 =
-          PartialNote('reply 1', replyTo: note).dummySign(container.storage, Pubkeys.franzap);
+          PartialNote('reply 1', replyTo: note).dummySign(Pubkeys.franzap);
       final reply2 =
-          PartialNote('reply 2', replyTo: note).dummySign(container.storage, Pubkeys.verbiricha);
+          PartialNote('reply 2', replyTo: note).dummySign(Pubkeys.verbiricha);
       await container.storage.save({note, reply1, reply2});
 
       expect(note.replies.length, 2);
@@ -165,7 +165,7 @@ void main() {
     });
 
     test('HasMany returns empty when no matches', () async {
-      final note = PartialNote('hello').dummySign(container.storage, Pubkeys.niel);
+      final note = PartialNote('hello').dummySign(Pubkeys.niel);
       await container.storage.save({note});
 
       expect(note.replies.length, 0);
@@ -174,7 +174,7 @@ void main() {
     });
 
     test('relationships cache and invalidate correctly', () async {
-      final note = PartialNote('hello').dummySign(container.storage, Pubkeys.niel);
+      final note = PartialNote('hello').dummySign(Pubkeys.niel);
       await container.storage.save({note});
 
       // First access, no replies
@@ -182,7 +182,7 @@ void main() {
 
       // Add a reply
       final reply =
-          PartialNote('reply', replyTo: note).dummySign(container.storage, Pubkeys.franzap);
+          PartialNote('reply', replyTo: note).dummySign(Pubkeys.franzap);
       await container.storage.save({reply});
 
       // Cache should be invalidated, new reply visible
@@ -324,12 +324,12 @@ void main() {
 
   group('Model identity', () {
     test('replaceable events use kind:pubkey for equality', () async {
-      final profile1 = PartialProfile(name: 'First').dummySign(container.storage, Pubkeys.niel);
+      final profile1 = PartialProfile(name: 'First').dummySign(Pubkeys.niel);
       await container.storage.save({profile1});
 
       // Update same profile (same kind, same pubkey)
       final profile2 =
-          profile1.copyWith(name: 'Second').dummySign(container.storage, Pubkeys.niel);
+          profile1.copyWith(name: 'Second').dummySign(Pubkeys.niel);
       await container.storage.save({profile2});
 
       // Should only have one profile
@@ -344,13 +344,13 @@ void main() {
         () async {
       final article1 =
           (PartialArticle('V1', 'Body')..identifier = 'my-id')
-              .dummySign(container.storage, Pubkeys.niel);
+              .dummySign(Pubkeys.niel);
       await container.storage.save({article1});
 
       // Update same article (same d-tag)
       final article2 =
           (PartialArticle('V2', 'Body')..identifier = 'my-id')
-              .dummySign(container.storage, Pubkeys.niel);
+              .dummySign(Pubkeys.niel);
       await container.storage.save({article2});
 
       final articles = await container.storage.query(
@@ -361,8 +361,8 @@ void main() {
     });
 
     test('regular events use event id for equality', () async {
-      final note1 = PartialNote('First').dummySign(container.storage, Pubkeys.niel);
-      final note2 = PartialNote('Second').dummySign(container.storage, Pubkeys.niel);
+      final note1 = PartialNote('First').dummySign(Pubkeys.niel);
+      final note2 = PartialNote('Second').dummySign(Pubkeys.niel);
       await container.storage.save({note1, note2});
 
       final notes = await container.storage.query(

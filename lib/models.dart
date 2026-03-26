@@ -1,12 +1,11 @@
-/// Nostr models in Dart — pure data with StorageReader for relationship resolution.
+/// Nostr models in Dart — typed domain objects with Ref-based relationship resolution.
 library;
 
 // Core
 export 'src/core/event.dart';
 export 'src/core/model.dart';
-export 'src/core/model_registry.dart';
-export 'src/core/null_storage_reader.dart';
-export 'src/core/storage_reader.dart';
+export 'src/core/publish_response.dart';
+export 'src/core/source.dart';
 export 'src/core/types.dart';
 export 'src/core/encryptable.dart';
 export 'src/core/verifier.dart';

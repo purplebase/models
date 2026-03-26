@@ -132,6 +132,11 @@ class RequestNotifier<E extends Model<dynamic>>
             _transition(QueryPhase.awaitingRemote, state.models);
           }
 
+        case RemoteSource(:final stream) when !stream:
+          _cancelResponseTimeout();
+          _transition(QueryPhase.live, models);
+          _processRelationships(models);
+
         case RemoteSource():
           _transition(QueryPhase.awaitingRemote, state.models);
       }

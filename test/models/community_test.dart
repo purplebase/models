@@ -26,7 +26,7 @@ void main() {
   group('Community', () {
     test('community', () async {
       // Create author profile first
-      final authorProfile = PartialProfile(name: 'neil').dummySign(storage, nielPubkey);
+      final authorProfile = PartialProfile(name: 'neil').dummySign(nielPubkey);
       await storage.save({authorProfile});
 
       final community = PartialCommunity(
@@ -49,20 +49,20 @@ void main() {
           ),
         },
         termsOfService: 'https://tos',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({community});
       expect(community.author.value!.pubkey, nielPubkey);
 
-      final community2 = Community.fromMap(community.toMap(), storage);
+      final community2 = Community.fromMap(community.toMap(), container.ref);
       expect(community.toMap(), community2.toMap());
       expect(jsonDecode(communityJson), community2.toMap());
 
-      final note = PartialNote('test').dummySign(storage);
+      final note = PartialNote('test').dummySign();
       final targetedPublication = PartialTargetedPublication(
         note,
         communities: {community},
-      ).dummySign(storage);
+      ).dummySign();
       await storage.save({community, note, targetedPublication});
       expect(targetedPublication.communities.toList(), [community]);
       expect(targetedPublication.model.value, note);
@@ -75,18 +75,18 @@ void main() {
         name: 'Test Community',
         relayUrls: {'wss://test.relay'},
         description: 'Test community for chat messages',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create chat messages for the community
       final chatMessage1 = PartialChatMessage(
         'Hello community!',
         community: community,
-      ).dummySign(storage);
+      ).dummySign();
 
       final chatMessage2 = PartialChatMessage(
         'Another message',
         community: community,
-      ).dummySign(storage);
+      ).dummySign();
 
       // Save all to storage
       await storage.save({community, chatMessage1, chatMessage2});
@@ -105,9 +105,9 @@ void main() {
 final communityJson =
     '''
 {
-	"id": "26ac7e5ae58dc195f03272a0e5b66ba1d80806d31dc70e4c0cffa50a7594411c",
+	"id": "aa9267f1628a4631b07a95db776b7d58bc7d0db9f2bec6466e630d81e8751e24",
 	"content": "",
-	"created_at": 1744254000,
+	"created_at": 1744257600,
 	"pubkey": "${nielPubkey.decodeShareable()}",
 	"kind": 10222,
 	"tags": [

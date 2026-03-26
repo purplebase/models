@@ -29,7 +29,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       // Access the relationship and call query()
       final nq = app.latestRelease.query();
@@ -45,7 +45,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       final customSource = RemoteSource(relays: 'custom', stream: false);
       final nq = app.latestRelease.query(source: customSource);
@@ -57,7 +57,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       final nq = app.latestRelease.query(subscriptionPrefix: 'custom-prefix');
 
@@ -68,7 +68,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       // The callback receives Release directly - no cast needed
       final nq = app.latestRelease.query(
@@ -82,7 +82,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.test'
         ..description = 'Test app';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       final nq1 = app.latestRelease.query(source: LocalSource());
       final nq2 = app.latestRelease.query(source: RemoteSource(stream: true));
@@ -97,7 +97,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.callback'
         ..description = 'Test callback';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       await storage.save({app});
 
@@ -126,7 +126,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.inherit'
         ..description = 'Test inheritance';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       await storage.save({app});
 
@@ -153,7 +153,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.local'
         ..description = 'Test local source';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       await storage.save({app});
 
@@ -185,7 +185,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.override'
         ..description = 'Test override';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       await storage.save({app});
 
@@ -216,7 +216,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.streaming'
         ..description = 'Test streaming';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       await storage.save({app});
 
@@ -248,7 +248,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.nonstreaming'
         ..description = 'Test non-streaming';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       await storage.save({app});
 
@@ -273,7 +273,7 @@ void main() {
       final updatedApp = (PartialApp()
             ..identifier = 'com.example.nonstreaming'
             ..description = 'Updated')
-          .dummySign(storage, franzapPubkey);
+          .dummySign(franzapPubkey);
       await storage.save({updatedApp});
       await pumpEventQueue();
 
@@ -292,13 +292,13 @@ void main() {
       final partialRelease = PartialRelease()..identifier = 'com.example.reemit@1.0.0';
       partialRelease.event.addTag('i', ['com.example.reemit']);
       partialRelease.event.addTag('version', ['1.0.0']);
-      final release = partialRelease.dummySign(storage, pubkey);
+      final release = partialRelease.dummySign(pubkey);
 
       // Create an App
       final partialApp = PartialApp()
         ..identifier = 'com.example.reemit'
         ..description = 'Test re-emission';
-      final app = partialApp.dummySign(storage, pubkey);
+      final app = partialApp.dummySign(pubkey);
 
       // Save the App first
       await storage.save({app});
@@ -366,7 +366,7 @@ void main() {
       final partialApp = PartialApp()
         ..identifier = 'com.example.error'
         ..description = 'Test error handling';
-      final app = partialApp.dummySign(storage, franzapPubkey);
+      final app = partialApp.dummySign(franzapPubkey);
 
       await storage.save({app});
 
@@ -399,7 +399,7 @@ void main() {
         (i) => (PartialApp()
               ..identifier = 'buffered-app-$i'
               ..name = 'Buffered App $i')
-            .dummySign(storage, franzapPubkey),
+            .dummySign(franzapPubkey),
       );
 
       await storage.save(apps.toSet());
@@ -435,7 +435,7 @@ void main() {
       final partialApp1 = PartialApp()
         ..identifier = 'com.example.replaceable'
         ..description = 'Version 1';
-      final app1 = partialApp1.dummySign(storage, pubkey);
+      final app1 = partialApp1.dummySign(pubkey);
 
       await storage.save({app1});
 
@@ -457,7 +457,7 @@ void main() {
       final partialApp2 = PartialApp()
         ..identifier = 'com.example.replaceable'
         ..description = 'Version 2';
-      final app2 = partialApp2.dummySign(storage, pubkey);
+      final app2 = partialApp2.dummySign(pubkey);
 
       // Save updated version
       await storage.save({app2});
@@ -558,20 +558,20 @@ void main() {
       final metadata = (PartialFileMetadata()
             ..version = '1.0.0'
             ..appIdentifier = 'com.test.nested')
-          .dummySign(storage, pubkey);
+          .dummySign(pubkey);
 
       // Create Release with 'e' tag pointing to FileMetadata
       final partialRelease = PartialRelease()..identifier = 'com.test.nested@1.0.0';
       partialRelease.event.addTag('i', ['com.test.nested']);
       partialRelease.event.addTag('version', ['1.0.0']);
       partialRelease.event.addTag('e', [metadata.event.id]); // Link to FileMetadata!
-      final release = partialRelease.dummySign(storage, pubkey);
+      final release = partialRelease.dummySign(pubkey);
 
       // Create App
       final app = (PartialApp()
             ..identifier = 'com.test.nested'
             ..description = 'Test nested callbacks')
-          .dummySign(storage, pubkey);
+          .dummySign(pubkey);
 
       // Only save App initially - Release and FileMetadata will come from "remote"
       await storage.save({app});
@@ -766,7 +766,7 @@ void main() {
       final updatedApp = (PartialApp()
             ..identifier = 'com.alice.app1'
             ..description = 'Updated')
-          .dummySign(storage, fixtures.author1);
+          .dummySign(fixtures.author1);
       await storage.save({updatedApp});
       await pumpEventQueue();
 
@@ -792,14 +792,14 @@ void main() {
       final app = (PartialApp()
             ..identifier = 'com.example.coldstart'
             ..description = 'Test cold start')
-          .dummySign(storage, pubkey);
+          .dummySign(pubkey);
 
       // Create Release that links to the app
       final partialRelease = PartialRelease()
         ..identifier = 'com.example.coldstart@1.0.0';
       partialRelease.event.addTag('i', ['com.example.coldstart']);
       partialRelease.event.addTag('version', ['1.0.0']);
-      final release = partialRelease.dummySign(storage, pubkey);
+      final release = partialRelease.dummySign(pubkey);
 
       // Step 1: Save only the app (simulates cold start where apps arrive first)
       await storage.save({app});

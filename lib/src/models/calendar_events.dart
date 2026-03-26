@@ -22,16 +22,16 @@ class DateBasedCalendarEvent
   /// RSVPs for this calendar event
   late final HasMany<CalendarEventRSVP> rsvps;
 
-  DateBasedCalendarEvent.fromMap(super.map, super.reader) : super.fromMap() {
+  DateBasedCalendarEvent.fromMap(super.map, super.ref) : super.fromMap() {
     participants = HasMany(
-      reader,
+      ref,
       participantPubkeys.isNotEmpty
           ? RequestFilter<Profile>(authors: participantPubkeys).toRequest()
           : null,
     );
 
     comments = HasMany(
-      reader,
+      ref,
       RequestFilter<Comment>(
         tags: {
           '#a': {event.addressableId},
@@ -40,7 +40,7 @@ class DateBasedCalendarEvent
     );
 
     rsvps = HasMany(
-      reader,
+      ref,
       RequestFilter<CalendarEventRSVP>(
         tags: {
           '#a': {event.addressableId},
@@ -131,21 +131,21 @@ class TimeBasedCalendarEvent
   /// RSVPs for this calendar event
   late final HasMany<CalendarEventRSVP> rsvps;
 
-  TimeBasedCalendarEvent.fromMap(super.map, super.reader) : super.fromMap() {
+  TimeBasedCalendarEvent.fromMap(super.map, super.ref) : super.fromMap() {
     participants = HasMany(
-      reader,
+      ref,
       participantPubkeys.isNotEmpty
           ? RequestFilter<Profile>(authors: participantPubkeys).toRequest()
           : null,
     );
 
     calendar = BelongsTo(
-      reader,
+      ref,
       null, // Calendars reference events, not the other way around
     );
 
     comments = HasMany(
-      reader,
+      ref,
       RequestFilter<Comment>(
         tags: {
           '#a': {event.addressableId},
@@ -154,7 +154,7 @@ class TimeBasedCalendarEvent
     );
 
     rsvps = HasMany(
-      reader,
+      ref,
       RequestFilter<CalendarEventRSVP>(
         tags: {
           '#a': {event.addressableId},
@@ -250,9 +250,9 @@ class Calendar extends ParameterizableReplaceableModel<Calendar> {
   /// Events contained in this calendar
   late final HasMany<Model> events;
 
-  Calendar.fromMap(super.map, super.reader) : super.fromMap() {
+  Calendar.fromMap(super.map, super.ref) : super.fromMap() {
     events = HasMany(
-      reader,
+      ref,
       eventAddresses.isNotEmpty ? Request.fromIds(eventAddresses) : null,
     );
   }
@@ -286,9 +286,9 @@ class CalendarEventRSVP
   /// The event's original author
   late final BelongsTo<Profile> eventAuthor;
 
-  CalendarEventRSVP.fromMap(super.map, super.reader) : super.fromMap() {
+  CalendarEventRSVP.fromMap(super.map, super.ref) : super.fromMap() {
     calendarEvent = BelongsTo(
-      reader,
+      ref,
       eventAddress != null
           ? Request.fromIds({eventAddress!})
           : eventId != null
@@ -297,7 +297,7 @@ class CalendarEventRSVP
     );
 
     eventAuthor = BelongsTo(
-      reader,
+      ref,
       eventAuthorPubkey != null
           ? RequestFilter<Profile>(authors: {eventAuthorPubkey!}).toRequest()
           : null,

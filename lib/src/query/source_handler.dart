@@ -104,12 +104,12 @@ final class RemoteSourceHandler<E extends Model<dynamic>>
 
   @override
   Future<List<E>> initialize() async {
-    await _fireRemoteQuery();
-    return const [];
-  }
-
-  Future<void> _fireRemoteQuery() async {
+    if (!source.stream) {
+      final models = await _queryBuffer.bufferQuery(req, source, subscriptionPrefix);
+      return models.cast<E>();
+    }
     await _queryBuffer.bufferQuery(req, source, subscriptionPrefix);
+    return const [];
   }
 
   @override

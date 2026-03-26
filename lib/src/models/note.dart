@@ -30,14 +30,14 @@ class Note extends RegularModel<Note> {
   /// All reposts of this note.
   late final HasMany<Repost> reposts;
 
-  Note.fromMap(super.map, super.reader) : super.fromMap() {
+  Note.fromMap(super.map, super.ref) : super.fromMap() {
     final tagsWithRoot = event
         .getTagSet('e')
         .where((t) => t.length > 3 && t[3] == 'root');
     isRoot = tagsWithRoot.isEmpty;
 
     root = BelongsTo(
-      reader,
+      ref,
       isRoot
           ? null
           : RequestFilter<Note>(ids: {tagsWithRoot.first[1]}).toRequest(),
@@ -70,14 +70,14 @@ class Note extends RegularModel<Note> {
     }
 
     replyTo = BelongsTo(
-      reader,
+      ref,
       replyToId != null
           ? RequestFilter<Note>(ids: {replyToId}).toRequest()
           : null,
     );
 
     allReplies = HasMany(
-      reader,
+      ref,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -93,7 +93,7 @@ class Note extends RegularModel<Note> {
       ).toRequest(),
     );
     replies = HasMany(
-      reader,
+      ref,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -110,7 +110,7 @@ class Note extends RegularModel<Note> {
     );
 
     reposts = HasMany(
-      reader,
+      ref,
       RequestFilter<Repost>(
         tags: {
           '#e': {event.id},

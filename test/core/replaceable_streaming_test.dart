@@ -31,7 +31,7 @@ void main() {
         final pack1 = PartialAppStack(
           name: 'Version 1',
           identifier: 'streaming-pack',
-        ).dummySign(storage, nielPubkey);
+        ).dummySign(nielPubkey);
 
         // Save to storage (simulates receiving from network)
         await storage.save({pack1});
@@ -55,7 +55,7 @@ void main() {
         final pack2 = PartialAppStack(
           name: 'Version 2 - Updated',
           identifier: 'streaming-pack', // Same identifier!
-        ).dummySign(storage, nielPubkey);
+        ).dummySign(nielPubkey);
 
         // Save update to storage
         await storage.save({pack2});
@@ -83,7 +83,7 @@ void main() {
       final pack1 = PartialAppStack(
         name: 'Initial',
         identifier: 'test-pack',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Save initial version
       await storage.save({pack1});
@@ -99,7 +99,7 @@ void main() {
       final pack2 = PartialAppStack(
         name: 'Updated',
         identifier: 'test-pack', // Same identifier
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({pack2});
 

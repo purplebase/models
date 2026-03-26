@@ -10,7 +10,7 @@ import '../core/model.dart';
 /// Follow sets allow users to create custom groups of people they follow,
 /// like "Developers", "Friends", or "News Sources" for better content curation.
 class FollowSets extends ParameterizableReplaceableModel<FollowSets> {
-  FollowSets.fromMap(super.map, super.reader) : super.fromMap();
+  FollowSets.fromMap(super.map, super.ref) : super.fromMap();
 
   /// The name of this follow set
   String? get name => event.getFirstTagValue('name');

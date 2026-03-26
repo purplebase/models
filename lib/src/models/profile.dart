@@ -19,13 +19,13 @@ class Profile extends ReplaceableModel<Profile> {
   /// The contact list (following list) for this profile.
   late final BelongsTo<ContactList> contactList;
 
-  Profile.fromMap(super.map, super.reader) : super.fromMap() {
+  Profile.fromMap(super.map, super.ref) : super.fromMap() {
     notes = HasMany(
-      reader,
+      ref,
       RequestFilter<Note>(authors: {event.pubkey}).toRequest(),
     );
     contactList = BelongsTo(
-      reader,
+      ref,
       RequestFilter<ContactList>(authors: {event.pubkey}).toRequest(),
     );
   }

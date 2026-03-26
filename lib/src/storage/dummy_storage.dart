@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import '../core/model.dart';
-import '../core/model_registry.dart';
 import '../filter/request.dart';
 import '../filter/request_filter.dart';
 import '../source/source.dart';
@@ -102,10 +101,11 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<PublishResponse> publish(
     Set<Model<dynamic>> models, {
-    RemoteSource source = const RemoteSource(),
+    Source? source,
   }) async {
+    final remoteSource = (source as RemoteSource?) ?? const RemoteSource();
     final response = PublishResponse();
-    final relayUrls = await resolveRelays(source.relays);
+    final relayUrls = await resolveRelays(remoteSource.relays);
     for (final relay in relayUrls) {
       for (final model in models) {
         response.addEvent(
@@ -231,10 +231,10 @@ class DummyStorageNotifier extends StorageNotifier {
       var models = filtered
           .map((event) {
             final constructor =
-                ModelRegistry.instance.getConstructorForKind(event['kind']);
+                Model.getConstructorForKind(event['kind']);
             if (constructor == null) return null;
             final transformed = _applyTransformMap(event);
-            return constructor(transformed, this) as Model;
+            return constructor(transformed, ref) as Model;
           })
           .whereType<E>()
           .toList();

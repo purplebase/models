@@ -14,7 +14,7 @@ import '../signer/signer.dart';
 /// - To read: must explicitly decrypt using signer
 class DirectMessage extends RegularModel<DirectMessage>
     with EncryptableModel<DirectMessage> {
-  DirectMessage.fromMap(super.map, super.reader) : super.fromMap();
+  DirectMessage.fromMap(super.map, super.ref) : super.fromMap();
 
   /// The recipient's npub (Bech32-encoded public key)
   String get receiver => Utils.encodeShareableFromString(

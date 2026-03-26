@@ -13,9 +13,9 @@ import 'highlight.dart';
 /// with titles, summaries, images, and markdown formatting. They're designed
 /// for blog posts, documentation, and other long-form content.
 class Article extends ParameterizableReplaceableModel<Article> {
-  Article.fromMap(super.map, super.reader) : super.fromMap() {
+  Article.fromMap(super.map, super.ref) : super.fromMap() {
     highlights = HasMany(
-      reader,
+      ref,
       RequestFilter<Highlight>(
         tags: {
           'a': {event.id},
@@ -24,7 +24,7 @@ class Article extends ParameterizableReplaceableModel<Article> {
     );
 
     reposts = HasMany(
-      reader,
+      ref,
       RequestFilter<GenericRepost>(
         tags: {
           '#a': {event.id},

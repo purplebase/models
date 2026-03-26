@@ -31,7 +31,7 @@ void main() {
       final partial = PartialMuteList();
       partial.mutedUsers = {user1, user2};
       partial.mutedKeywords = {'spam', 'bitcoin'};
-      final muteList = partial.dummySign(storage, nielPubkey);
+      final muteList = partial.dummySign(nielPubkey);
 
       expect(muteList.mutedUsers, {user1, user2});
       expect(muteList.mutedKeywords, {'spam', 'bitcoin'});
@@ -44,7 +44,7 @@ void main() {
       final partial = PartialMuteList();
       partial.mutedUsers = {testUser};
       partial.mutedKeywords = {'test'};
-      final muteList = partial.dummySign(storage, nielPubkey);
+      final muteList = partial.dummySign(nielPubkey);
 
       expect(muteList.event.kind, 10000);
 

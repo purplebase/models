@@ -22,13 +22,13 @@ class AppStack extends ParameterizableReplaceableModel<AppStack>
     with EncryptableModel<AppStack> {
   late final HasMany<App> apps;
 
-  AppStack.fromMap(super.map, super.reader) : super.fromMap() {
+  AppStack.fromMap(super.map, super.ref) : super.fromMap() {
     // Only include addressable events that are kind 32267 (App)
     final appIds = event
         .getTagSetValues('a')
         .where((id) => id.startsWith('32267:'))
         .toSet();
-    apps = HasMany(reader, Request<App>.fromIds(appIds));
+    apps = HasMany(ref, Request<App>.fromIds(appIds));
   }
 
   /// The name of this app stack
@@ -102,6 +102,9 @@ class PartialAppStack extends ParameterizableReplaceablePartialModel<AppStack>
   void addApp(String? addressableId) => event.addTagValue('a', addressableId);
   void removeApp(String? addressableId) =>
       event.removeTagWithValue('a', addressableId);
+
+  /// Tags this stack as belonging to a community (adds a `p` tag with the community pubkey).
+  void addCommunityKey(String pubkey) => event.addTagValue('p', pubkey);
 
   /// Raw encrypted content (for advanced use)
   String? get encryptedContent => event.content.isEmpty ? null : event.content;

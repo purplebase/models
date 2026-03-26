@@ -7,7 +7,7 @@ import '../signer/signer.dart';
 /// NWC Info Event (NIP-47 kind 13194)
 /// Published by wallet service to indicate which capabilities it supports
 class NwcInfo extends ReplaceableModel<NwcInfo> {
-  NwcInfo.fromMap(super.map, super.reader) : super.fromMap();
+  NwcInfo.fromMap(super.map, super.ref) : super.fromMap();
 
   /// List of supported NWC methods (space-separated in content)
   List<String> get supportedMethods {
@@ -101,7 +101,7 @@ class PartialNwcInfo extends ReplaceablePartialModel<NwcInfo>
 /// - Content is always encrypted after signing
 class NwcResponse extends EphemeralModel<NwcResponse>
     with EncryptableModel<NwcResponse> {
-  NwcResponse.fromMap(super.map, super.reader) : super.fromMap() {
+  NwcResponse.fromMap(super.map, super.ref) : super.fromMap() {
     if (event.getFirstTagValue('p') == null) {
       throw Exception('NWC response missing client pubkey (p tag)');
     }
@@ -354,7 +354,7 @@ class PartialNwcResponse extends EphemeralPartialModel<NwcResponse>
 /// - Content is always encrypted after signing
 class NwcNotification extends EphemeralModel<NwcNotification>
     with EncryptableModel<NwcNotification> {
-  NwcNotification.fromMap(super.map, super.reader) : super.fromMap() {
+  NwcNotification.fromMap(super.map, super.ref) : super.fromMap() {
     if (event.getFirstTagValue('p') == null) {
       throw Exception('NWC notification missing client pubkey (p tag)');
     }
@@ -535,7 +535,7 @@ class PartialNwcNotification extends EphemeralPartialModel<NwcNotification>
 /// - Content is always encrypted after signing
 class NwcRequest extends EphemeralModel<NwcRequest>
     with EncryptableModel<NwcRequest> {
-  NwcRequest.fromMap(super.map, super.reader) : super.fromMap() {
+  NwcRequest.fromMap(super.map, super.ref) : super.fromMap() {
     if (event.getFirstTagValue('p') == null) {
       throw Exception('NWC request missing wallet pubkey (p tag)');
     }

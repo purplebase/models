@@ -27,7 +27,7 @@ void main() {
         title: 'Independence Day',
         startDate: '2024-07-04',
         identifier: 'july4',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(event.identifier, 'july4');
       expect(event.title, 'Independence Day');
@@ -43,7 +43,7 @@ void main() {
         endDate: '2024-07-17',
         identifier: 'conf2024',
         location: 'Convention Center',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(event.identifier, 'conf2024');
       expect(event.title, 'Summer Conference');
@@ -59,7 +59,7 @@ void main() {
         title: 'Test Event',
         startDate: '2024-12-25',
         identifier: 'test',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(event.event.kind, 31922);
       expect(event.event.getFirstTagValue('d'), 'test');
@@ -76,7 +76,7 @@ void main() {
         title: 'Independence Day Parade',
         startTime: startTime,
         identifier: 'july4-parade',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(event.identifier, 'july4-parade');
       expect(event.title, 'Independence Day Parade');
@@ -97,7 +97,7 @@ void main() {
         endTime: endTime,
         identifier: 'countdown-2025',
         location: 'Times Square',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(event.identifier, 'countdown-2025');
       expect(event.title, 'New Year Countdown');
@@ -119,7 +119,7 @@ void main() {
         title: 'Team Meeting',
         startTime: startTime,
         identifier: 'meeting',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(event.event.kind, 31923);
       expect(event.event.getFirstTagValue('d'), 'meeting');
@@ -136,7 +136,7 @@ void main() {
       final calendar = PartialCalendar(
         title: 'My Events 2024',
         identifier: 'my-events-2024',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(calendar.identifier, 'my-events-2024');
       expect(calendar.title, 'My Events 2024');
@@ -149,7 +149,7 @@ void main() {
         title: 'Work Calendar',
         identifier: 'work-cal',
         description: 'All work-related events',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(calendar.title, 'Work Calendar');
       expect(calendar.description, 'All work-related events');
@@ -160,7 +160,7 @@ void main() {
       final calendar = PartialCalendar(
         title: 'Test Calendar',
         identifier: 'test-cal',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(calendar.event.kind, 31924);
       expect(calendar.event.getFirstTagValue('d'), 'test-cal');
@@ -193,7 +193,7 @@ void main() {
         eventAddress: eventAddress,
         status: RSVPStatus.accepted,
         note: 'Looking forward to it!',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(rsvp.eventAddress, eventAddress);
       expect(rsvp.status, RSVPStatus.accepted);
@@ -208,7 +208,7 @@ void main() {
         eventAddress: eventAddress,
         status: RSVPStatus.declined,
         note: 'Sorry, cannot make it',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(rsvp.status, RSVPStatus.declined);
       expect(rsvp.note, 'Sorry, cannot make it');
@@ -222,7 +222,7 @@ void main() {
         eventAddress: eventAddress,
         status: RSVPStatus.accepted,
         note: 'Yes!',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(rsvp.event.kind, 31925);
       expect(rsvp.event.getFirstTagValue('a'), eventAddress);
@@ -265,7 +265,7 @@ void main() {
       final calendar = PartialCalendar(
         title: 'Party Events',
         identifier: 'party-calendar',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create a date-based event
       final partyEvent = PartialDateBasedCalendarEvent(
@@ -273,7 +273,7 @@ void main() {
         startDate: '2024-07-20',
         identifier: 'summer-party',
         location: 'Backyard Pool',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       // Create RSVP using the event's addressable ID format
       final eventAddress =
@@ -282,7 +282,7 @@ void main() {
         eventAddress: eventAddress,
         status: RSVPStatus.accepted,
         note: 'Can\'t wait for the party!',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({calendar, partyEvent, rsvp});
 

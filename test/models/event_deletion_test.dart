@@ -27,7 +27,7 @@ void main() {
       final deletion = PartialEventDeletionRequest(
         reason: 'Inappropriate content',
         deletedEventIds: {'event1', 'event2'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(deletion.event.kind, 5);
       expect(deletion.reason, equals('Inappropriate content'));
@@ -40,7 +40,7 @@ void main() {
       final deletion = PartialEventDeletionRequest(
         reason: 'Account deletion',
         deletedProfilePubkeys: {nielPubkey, franzapPubkey},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(deletion.reason, equals('Account deletion'));
       expect(
@@ -56,7 +56,7 @@ void main() {
         reason: 'Complete cleanup',
         deletedEventIds: {'event1', 'event2'},
         deletedProfilePubkeys: {nielPubkey},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(deletion.reason, equals('Complete cleanup'));
       expect(deletion.deletedEventIds, containsAll(['event1', 'event2']));
@@ -67,7 +67,7 @@ void main() {
     });
 
     test('empty deletion request', () {
-      final deletion = PartialEventDeletionRequest().dummySign(storage, nielPubkey);
+      final deletion = PartialEventDeletionRequest().dummySign(nielPubkey);
 
       expect(deletion.reason, isEmpty);
       expect(deletion.deletedEventIds, isEmpty);
@@ -125,8 +125,8 @@ void main() {
   group('EventDeletionRequest Relationships', () {
     test('deletedEvents relationship', () async {
       // Create some events to delete
-      final note1 = PartialNote('Note to delete 1').dummySign(storage, nielPubkey);
-      final note2 = PartialNote('Note to delete 2').dummySign(storage, nielPubkey);
+      final note1 = PartialNote('Note to delete 1').dummySign(nielPubkey);
+      final note2 = PartialNote('Note to delete 2').dummySign(nielPubkey);
 
       await storage.save({note1, note2});
 
@@ -134,7 +134,7 @@ void main() {
       final deletion = PartialEventDeletionRequest(
         reason: 'Deleting old notes',
         deletedEventIds: {note1.id, note2.id},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({deletion});
 
@@ -144,10 +144,10 @@ void main() {
 
     test('deletedProfiles relationship', () async {
       // Create some profiles to delete
-      final profile1 = PartialProfile(name: 'Profile 1').dummySign(storage, nielPubkey);
+      final profile1 = PartialProfile(name: 'Profile 1').dummySign(nielPubkey);
       final profile2 = PartialProfile(
         name: 'Profile 2',
-      ).dummySign(storage, franzapPubkey);
+      ).dummySign(franzapPubkey);
 
       await storage.save({profile1, profile2});
 
@@ -155,7 +155,7 @@ void main() {
       final deletion = PartialEventDeletionRequest(
         reason: 'Deleting profiles',
         deletedProfilePubkeys: {nielPubkey, franzapPubkey},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({deletion});
 
@@ -171,7 +171,7 @@ void main() {
       final deletion = PartialEventDeletionRequest(
         reason: 'Deleting non-existent events',
         deletedEventIds: {'nonexistent1', 'nonexistent2'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({deletion});
 
@@ -181,14 +181,14 @@ void main() {
 
     test('filters invalid event IDs and pubkeys', () async {
       // Create valid events
-      final validNote = PartialNote('Valid note').dummySign(storage, nielPubkey);
+      final validNote = PartialNote('Valid note').dummySign(nielPubkey);
       await storage.save({validNote});
 
       // Create deletion request with mix of valid and invalid IDs
       final deletion = PartialEventDeletionRequest(
         reason: 'Mixed valid/invalid',
         deletedEventIds: {validNote.id, 'invalid-id', 'short'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({deletion});
 
@@ -204,7 +204,7 @@ void main() {
         reason: 'Test deletion',
         deletedEventIds: {'event1', 'event2'},
         deletedProfilePubkeys: {nielPubkey},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({deletion});
 
@@ -228,12 +228,12 @@ void main() {
       final deletion1 = PartialEventDeletionRequest(
         reason: 'Delete 1',
         deletedEventIds: {'event1'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       final deletion2 = PartialEventDeletionRequest(
         reason: 'Delete 2',
         deletedProfilePubkeys: {franzapPubkey},
-      ).dummySign(storage, franzapPubkey);
+      ).dummySign(franzapPubkey);
 
       await storage.save({deletion1, deletion2});
 
@@ -250,12 +250,12 @@ void main() {
       final deletion1 = PartialEventDeletionRequest(
         reason: 'From Niel',
         deletedEventIds: {'event1'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       final deletion2 = PartialEventDeletionRequest(
         reason: 'From Franzap',
         deletedEventIds: {'event2'},
-      ).dummySign(storage, franzapPubkey);
+      ).dummySign(franzapPubkey);
 
       await storage.save({deletion1, deletion2});
 
@@ -273,7 +273,7 @@ void main() {
         reason: 'Test reason',
         deletedEventIds: {'event1'},
         deletedProfilePubkeys: {nielPubkey},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(deletion.event.kind, 5);
       expect(deletion.event.content, equals('Test reason'));
@@ -282,7 +282,7 @@ void main() {
     test('includes e tags for deleted events', () {
       final deletion = PartialEventDeletionRequest(
         deletedEventIds: {'event1', 'event2'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       final eTags = deletion.event.getTagSet('e');
       expect(eTags.length, 2);
@@ -292,7 +292,7 @@ void main() {
     test('includes p tags for deleted profiles', () {
       final deletion = PartialEventDeletionRequest(
         deletedProfilePubkeys: {nielPubkey, franzapPubkey},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       final pTags = deletion.event.getTagSet('p');
       expect(pTags.length, 2);
@@ -306,7 +306,7 @@ void main() {
       final deletion = PartialEventDeletionRequest(
         reason: 'Shareable deletion',
         deletedEventIds: {'test-event-id'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       final shareableId = deletion.event.shareableId;
       expect(shareableId, startsWith('nevent1'));
@@ -315,11 +315,11 @@ void main() {
 
   group('EventDeletionRequest Author Relationship', () {
     test('links to author profile', () async {
-      final profile = PartialProfile(name: 'Deleter').dummySign(storage, nielPubkey);
+      final profile = PartialProfile(name: 'Deleter').dummySign(nielPubkey);
       final deletion = PartialEventDeletionRequest(
         reason: 'Deleting my content',
         deletedEventIds: {'event1'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({profile, deletion});
 
@@ -378,7 +378,7 @@ void main() {
       expect(deletion.deletedEventIds, equals(allEventIds));
       expect(deletion.deletedProfilePubkeys, contains(nielPubkey));
       // Check signed version for hasDeleted* methods
-      final signed = deletion.dummySign(storage, nielPubkey);
+      final signed = deletion.dummySign(nielPubkey);
       expect(signed.hasDeletedEvents, isTrue);
       expect(signed.hasDeletedProfiles, isTrue);
     });
@@ -388,7 +388,7 @@ void main() {
     test('handles null reason', () {
       final deletion = PartialEventDeletionRequest(
         deletedEventIds: {'event1'},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(deletion.reason, isEmpty);
     });
@@ -397,7 +397,7 @@ void main() {
       final deletion = PartialEventDeletionRequest(
         reason: 'Empty deletion',
         deletedEventIds: {},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(deletion.deletedEventIds, isEmpty);
       expect(deletion.hasDeletedEvents, isFalse);
@@ -407,7 +407,7 @@ void main() {
       final deletion = PartialEventDeletionRequest(
         reason: 'Empty profile deletion',
         deletedProfilePubkeys: {},
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(deletion.deletedProfilePubkeys, isEmpty);
       expect(deletion.hasDeletedProfiles, isFalse);
@@ -422,7 +422,7 @@ void main() {
       partial.removeDeletedEventId(null);
       partial.removeDeletedProfilePubkey(null);
 
-      final deletion = partial.dummySign(storage, nielPubkey);
+      final deletion = partial.dummySign(nielPubkey);
       expect(deletion.deletedEventIds, isEmpty);
       expect(deletion.deletedProfilePubkeys, isEmpty);
     });

@@ -9,10 +9,10 @@ import 'poll.dart';
 class PollResponse extends RegularModel<PollResponse> {
   late final BelongsTo<Poll> poll;
 
-  PollResponse.fromMap(super.map, super.reader) : super.fromMap() {
+  PollResponse.fromMap(super.map, super.ref) : super.fromMap() {
     // Reference to the poll being responded to
     poll = BelongsTo(
-      reader,
+      ref,
       event.containsTag('e')
           ? RequestFilter<Poll>(
               ids: {event.getFirstTagValue('e')!},

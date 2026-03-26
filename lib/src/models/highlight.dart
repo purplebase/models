@@ -49,17 +49,17 @@ class Highlight extends RegularModel<Highlight> {
   /// Whether this highlight references an external URL
   bool get isUrlHighlight => referencedUrl != null;
 
-  Highlight.fromMap(super.map, super.reader) : super.fromMap() {
+  Highlight.fromMap(super.map, super.ref) : super.fromMap() {
     // Set up relationship to referenced note if it's a regular event
     referencedNote = BelongsTo(
-      reader,
+      ref,
       referencedEventId != null
           ? RequestFilter<Note>(ids: {referencedEventId!}).toRequest()
           : null,
     );
 
     // Set up relationship to referenced article if it's an addressable event
-    referencedArticle = BelongsTo(reader, Request.fromIds({?referencedAddress}));
+    referencedArticle = BelongsTo(ref, Request.fromIds({?referencedAddress}));
   }
 }
 

@@ -4,7 +4,6 @@ import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 
 import '../core/model.dart';
-import '../core/model_registry.dart';
 import '../core/types.dart';
 import '../utils/utils.dart';
 import '../utils/extensions.dart';
@@ -51,9 +50,9 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   })  : ids = ids ?? const {},
         authors = authors ?? const {},
         kinds = kinds ??
-            (ModelRegistry.isModelOfDynamic<E>()
+            (Model.isModelOfDynamic<E>()
                 ? const {}
-                : {ModelRegistry.instance.kindFor<E>()}),
+                : {Model.kindFor<E>()}),
         tags = tags == null
             ? const {}
             : {
@@ -73,9 +72,9 @@ class RequestFilter<E extends Model<dynamic>> extends Equatable {
   factory RequestFilter.fromMap(Map<String, dynamic> map) {
     return RequestFilter<E>(
       ids: {...?map['ids']},
-      kinds: ModelRegistry.isModelOfDynamic<E>()
+      kinds: Model.isModelOfDynamic<E>()
           ? {...?map['kinds']}
-          : {ModelRegistry.instance.kindFor<E>()},
+          : {Model.kindFor<E>()},
       authors: {...?map['authors']},
       tags: {
         for (final e in map.entries)

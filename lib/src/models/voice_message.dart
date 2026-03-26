@@ -22,9 +22,9 @@ class VoiceMessage extends RegularModel<VoiceMessage> {
   /// Voice message comments (kind 1244) on this voice message
   late final HasMany<VoiceMessageComment> voiceComments;
 
-  VoiceMessage.fromMap(super.map, super.reader) : super.fromMap() {
+  VoiceMessage.fromMap(super.map, super.ref) : super.fromMap() {
     referencingNotes = HasMany(
-      reader,
+      ref,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -33,7 +33,7 @@ class VoiceMessage extends RegularModel<VoiceMessage> {
     );
 
     comments = HasMany(
-      reader,
+      ref,
       RequestFilter<Comment>(
         tags: {
           '#E': {event.id},
@@ -42,7 +42,7 @@ class VoiceMessage extends RegularModel<VoiceMessage> {
     );
 
     voiceComments = HasMany(
-      reader,
+      ref,
       RequestFilter<VoiceMessageComment>(
         tags: {
           '#e': {event.id},
@@ -170,16 +170,16 @@ class VoiceMessageComment extends RegularModel<VoiceMessageComment> {
   /// Comments on this voice message comment
   late final HasMany<Comment> comments;
 
-  VoiceMessageComment.fromMap(super.map, super.reader) : super.fromMap() {
+  VoiceMessageComment.fromMap(super.map, super.ref) : super.fromMap() {
     originalVoiceMessage = BelongsTo(
-      reader,
+      ref,
       event.containsTag('e')
           ? Request<VoiceMessage>.fromIds({event.getFirstTagValue('e')!})
           : null,
     );
 
     referencingNotes = HasMany(
-      reader,
+      ref,
       RequestFilter<Note>(
         tags: {
           '#e': {event.id},
@@ -188,7 +188,7 @@ class VoiceMessageComment extends RegularModel<VoiceMessageComment> {
     );
 
     comments = HasMany(
-      reader,
+      ref,
       RequestFilter<Comment>(
         tags: {
           '#E': {event.id},

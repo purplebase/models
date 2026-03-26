@@ -17,19 +17,19 @@ class EventDeletionRequest extends RegularModel<EventDeletionRequest> {
   /// Authors of the events being deleted (for profile deletions)
   late final HasMany<Profile> deletedProfiles;
 
-  EventDeletionRequest.fromMap(super.map, super.reader) : super.fromMap() {
+  EventDeletionRequest.fromMap(super.map, super.ref) : super.fromMap() {
     final validEventIds = deletedEventIds
         .where((id) => id.length == 64)
         .toSet();
     deletedEvents = HasMany(
-      reader,
+      ref,
       validEventIds.isNotEmpty ? Request.fromIds(validEventIds) : null,
     );
     final validPubkeys = deletedProfilePubkeys
         .where((pk) => pk.length == 64)
         .toSet();
     deletedProfiles = HasMany(
-      reader,
+      ref,
       validPubkeys.isNotEmpty
           ? RequestFilter<Profile>(authors: validPubkeys).toRequest()
           : null,

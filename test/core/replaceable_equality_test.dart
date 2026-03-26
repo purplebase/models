@@ -27,12 +27,12 @@ void main() {
       final signedPack1 = PartialAppStack(
         name: 'Original Name',
         identifier: 'test-pack',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       final signedPack2 = PartialAppStack(
         name: 'Updated Name',
         identifier: 'test-pack',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(signedPack1.id, equals(signedPack2.id),
           reason: 'Should have same addressable ID');
@@ -48,12 +48,12 @@ void main() {
       final signedPack1 = PartialAppStack(
         name: 'Original Name',
         identifier: 'test-pack',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       final signedPack2 = PartialAppStack(
         name: 'Updated Name',
         identifier: 'test-pack',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       final state1 = StorageData<AppStack>([signedPack1]);
       final state2 = StorageData<AppStack>([signedPack2]);
@@ -66,7 +66,7 @@ void main() {
       final signedPack1 = PartialAppStack(
         name: 'Original Name',
         identifier: 'test-pack',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({signedPack1});
 
@@ -92,7 +92,7 @@ void main() {
       final signedPack2 = PartialAppStack(
         name: 'Updated Name',
         identifier: 'test-pack',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({signedPack2});
 

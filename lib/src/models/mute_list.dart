@@ -10,7 +10,7 @@ import '../core/model.dart';
 /// Mute lists help users curate their experience by filtering out
 /// unwanted content from specific accounts without blocking them entirely.
 class MuteList extends ReplaceableModel<MuteList> {
-  MuteList.fromMap(super.map, super.reader) : super.fromMap();
+  MuteList.fromMap(super.map, super.ref) : super.fromMap();
 
   /// Public keys of muted users
   Set<String> get mutedUsers => event.getTagSetValues('p');

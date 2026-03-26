@@ -17,7 +17,7 @@ import '../signer/signer.dart';
 /// (private) and public bookmarks.
 class BookmarkSet extends ParameterizableReplaceableModel<BookmarkSet>
     with EncryptableModel<BookmarkSet> {
-  BookmarkSet.fromMap(super.map, super.reader) : super.fromMap();
+  BookmarkSet.fromMap(super.map, super.ref) : super.fromMap();
 
   /// The name of this bookmark set
   String? get name => event.getFirstTagValue('name');

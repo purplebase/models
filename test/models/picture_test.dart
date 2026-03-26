@@ -34,7 +34,7 @@ void main() {
         dimensions: '1920x1080',
         imageHash:
             'abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(picture.description, 'Beautiful sunset at the beach');
       expect(picture.imageUrl, 'https://example.com/image.jpg');
@@ -66,7 +66,7 @@ void main() {
         height: 600,
         description: 'Test photo',
         mimeType: 'image/png',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(picture.imageUrl, 'https://example.com/photo.png');
       expect(picture.dimensions, '800x600');
@@ -79,7 +79,7 @@ void main() {
     test('minimal picture', () {
       final picture = PartialPicture(
         imageUrl: 'https://example.com/minimal.jpg',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(picture.imageUrl, 'https://example.com/minimal.jpg');
       expect(picture.description, '');
@@ -99,7 +99,7 @@ void main() {
       partial.addImageUrl('https://example.com/thumb.jpg');
       partial.addImageUrl('https://example.com/medium.jpg');
 
-      final picture = partial.dummySign(storage, nielPubkey);
+      final picture = partial.dummySign(nielPubkey);
 
       expect(picture.imageUrl, 'https://example.com/original.jpg');
       expect(picture.allImageUrls, {
@@ -158,7 +158,7 @@ void main() {
       final picture1 = PartialPicture(
         imageUrl: 'https://example.com/test.jpg',
         dimensions: '1920x1080',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
       expect(picture1.width, 1920);
       expect(picture1.height, 1080);
 
@@ -166,7 +166,7 @@ void main() {
       final picture2 = PartialPicture(
         imageUrl: 'https://example.com/test.jpg',
         dimensions: 'invalid',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
       expect(picture2.width, null);
       expect(picture2.height, null);
 
@@ -174,14 +174,14 @@ void main() {
       final picture3 = PartialPicture(
         imageUrl: 'https://example.com/test.jpg',
         dimensions: '1920x',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
       expect(picture3.width, 1920);
       expect(picture3.height, null);
 
       // No dimensions
       final picture4 = PartialPicture(
         imageUrl: 'https://example.com/test.jpg',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
       expect(picture4.width, null);
       expect(picture4.height, null);
     });
@@ -189,7 +189,7 @@ void main() {
     test('geohash location', () {
       final partial = PartialPicture(imageUrl: 'https://example.com/geo.jpg');
       partial.geohash = 'dr5r7p3w';
-      final picture = partial.dummySign(storage, nielPubkey);
+      final picture = partial.dummySign(nielPubkey);
 
       expect(picture.geohash, 'dr5r7p3w');
       expect(picture.hasLocation, true);
@@ -201,13 +201,13 @@ void main() {
       final picture = PartialPicture(
         imageUrl: 'https://example.com/social.jpg',
         description: 'A social media picture',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
-      final note = PartialNote('Check out this picture!').dummySign(storage, nielPubkey);
+      final note = PartialNote('Check out this picture!').dummySign(nielPubkey);
       final reaction = PartialReaction(
         content: '❤️',
         reactedOn: picture,
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       await storage.save({picture, note, reaction});
 
@@ -223,7 +223,7 @@ void main() {
         description: 'Test structure',
         hashtags: {'test'},
         location: 'Test Location',
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(picture.event.kind, 20);
       expect(picture.event.content, 'Test structure');
@@ -239,7 +239,7 @@ void main() {
       final picture = PartialPicture(
         imageUrl: 'https://example.com/empty.jpg',
         // No description provided
-      ).dummySign(storage, nielPubkey);
+      ).dummySign(nielPubkey);
 
       expect(picture.description, ''); // Should be empty string, not null
 
@@ -279,7 +279,7 @@ void main() {
         'sig': 'testsig123',
       };
 
-      final picture = Picture.fromMap(eventData, storage);
+      final picture = Picture.fromMap(eventData, container.ref);
 
       // Test that imeta URLs are parsed correctly
       expect(picture.imageUrl, 'https://nostr.build/i/sunset.jpg');
@@ -304,7 +304,7 @@ void main() {
         'sig': 'testsig123',
       };
 
-      final picture = Picture.fromMap(eventData, storage);
+      final picture = Picture.fromMap(eventData, container.ref);
 
       // imeta URL should take precedence
       expect(picture.imageUrl, 'https://new-style.com/image.jpg');
@@ -329,7 +329,7 @@ void main() {
         'sig': 'testsig123',
       };
 
-      final picture = Picture.fromMap(eventData, storage);
+      final picture = Picture.fromMap(eventData, container.ref);
 
       // Should fall back to url tags
       expect(picture.imageUrl, 'https://old-style.com/image1.jpg');

@@ -22,8 +22,6 @@ void main() {
 
   group('CustomData', () {
     test('should create CustomData from map', () {
-      final storage = container.storage;
-
       final customDataMap = {
         'id': 'test_id',
         'pubkey': nielPubkey,
@@ -36,7 +34,7 @@ void main() {
         'sig': 'test_sig',
       };
 
-      final customData = CustomData.fromMap(customDataMap, storage);
+      final customData = CustomData.fromMap(customDataMap, container.ref);
 
       expect(customData.content, '{"key": "value"}');
       expect(customData.identifier, 'test_identifier');

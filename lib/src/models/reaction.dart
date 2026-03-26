@@ -12,10 +12,10 @@ class Reaction extends RegularModel<Reaction> with EmojiMixin {
   late final BelongsTo<Model> reactedOn;
   late final BelongsTo<Profile> reactedOnAuthor;
 
-  Reaction.fromMap(super.map, super.reader) : super.fromMap() {
-    reactedOn = BelongsTo(reader, Request.fromIds({?event.getFirstTagValue('e')}));
+  Reaction.fromMap(super.map, super.ref) : super.fromMap() {
+    reactedOn = BelongsTo(ref, Request.fromIds({?event.getFirstTagValue('e')}));
     reactedOnAuthor = BelongsTo(
-      reader,
+      ref,
       Request.fromIds({?event.getFirstTagValue('p')}),
     );
   }

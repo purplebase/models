@@ -6,14 +6,11 @@ import '../helpers.dart';
 
 void main() {
   late ProviderContainer container;
-  late DummyStorageNotifier storage;
 
   setUp(() async {
     container = await createTestContainer(
       config: StorageConfiguration(keepSignatures: false),
     );
-    storage =
-        container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
   });
 
   tearDown(() async {
@@ -27,7 +24,7 @@ void main() {
         supportedNotifications: ['payment_received', 'payment_sent'],
       );
 
-      final info = partialInfo.dummySign(storage, nielPubkey);
+      final info = partialInfo.dummySign(nielPubkey);
 
       expect(info.event.kind, 13194);
       expect(info.supportedMethods, [
@@ -44,7 +41,7 @@ void main() {
 
     test('handles empty methods and notifications', () {
       final partialInfo = PartialNwcInfo();
-      final info = partialInfo.dummySign(storage, nielPubkey);
+      final info = partialInfo.dummySign(nielPubkey);
 
       expect(info.supportedMethods, isEmpty);
       expect(info.supportedNotifications, isEmpty);
@@ -58,8 +55,8 @@ void main() {
         supportedNotifications: ['payment_received'],
       );
 
-      final original = partialInfo.dummySign(storage, nielPubkey);
-      final restored = NwcInfo.fromMap(original.toMap(), storage);
+      final original = partialInfo.dummySign(nielPubkey);
+      final restored = NwcInfo.fromMap(original.toMap(), container.ref);
 
       expect(restored.supportedMethods, original.supportedMethods);
       expect(restored.supportedNotifications, original.supportedNotifications);
@@ -92,7 +89,7 @@ void main() {
         amount: 1000,
       );
 
-      final request = partialRequest.dummySign(storage, verbirichaPubkey);
+      final request = partialRequest.dummySign(verbirichaPubkey);
 
       expect(request.event.kind, 23194);
       expect(request.walletPubkey, franzapPubkey);
@@ -108,7 +105,7 @@ void main() {
         expiration: expiration,
       );
 
-      final request = partialRequest.dummySign(storage, verbirichaPubkey);
+      final request = partialRequest.dummySign(verbirichaPubkey);
 
       expect(
         request.expiration?.millisecondsSinceEpoch,
@@ -125,7 +122,7 @@ void main() {
         expiration: expiration,
       );
 
-      final request = partialRequest.dummySign(storage, verbirichaPubkey);
+      final request = partialRequest.dummySign(verbirichaPubkey);
 
       expect(request.isExpired, isTrue);
     });
@@ -138,7 +135,7 @@ void main() {
         expiry: 3600,
       );
 
-      final request = partialRequest.dummySign(storage, verbirichaPubkey);
+      final request = partialRequest.dummySign(verbirichaPubkey);
 
       expect(request.event.kind, 23194);
       expect(request.walletPubkey, franzapPubkey);
@@ -149,7 +146,7 @@ void main() {
         walletPubkey: franzapPubkey,
       );
 
-      final request = partialRequest.dummySign(storage, verbirichaPubkey);
+      final request = partialRequest.dummySign(verbirichaPubkey);
 
       expect(request.event.kind, 23194);
       expect(request.walletPubkey, franzapPubkey);
@@ -166,7 +163,7 @@ void main() {
       partialRequest.event.removeTag('p');
 
       // Now throws immediately during dummySign because prepareForSigning needs the p tag
-      expect(() => partialRequest.dummySign(storage, verbirichaPubkey), throwsException);
+      expect(() => partialRequest.dummySign(verbirichaPubkey), throwsException);
     });
 
     test('roundtrip serialization', () {
@@ -176,8 +173,8 @@ void main() {
         amount: 1000,
       );
 
-      final original = partialRequest.dummySign(storage, verbirichaPubkey);
-      final restored = NwcRequest.fromMap(original.toMap(), storage);
+      final original = partialRequest.dummySign(verbirichaPubkey);
+      final restored = NwcRequest.fromMap(original.toMap(), container.ref);
 
       expect(restored.walletPubkey, original.walletPubkey);
       expect(restored.content, original.content);
@@ -195,7 +192,7 @@ void main() {
             'request_event_id_64_chars_00000000000000000000000000000000000',
       );
 
-      final response = partialResponse.dummySign(storage, franzapPubkey);
+      final response = partialResponse.dummySign(franzapPubkey);
 
       expect(response.event.kind, 23195);
       expect(response.clientPubkey, verbirichaPubkey);
@@ -217,7 +214,7 @@ void main() {
         error: error,
       );
 
-      final response = partialResponse.dummySign(storage, franzapPubkey);
+      final response = partialResponse.dummySign(franzapPubkey);
 
       expect(response.event.kind, 23195);
       expect(response.clientPubkey, verbirichaPubkey);
@@ -229,7 +226,7 @@ void main() {
         balance: 50000,
       );
 
-      final response = partialResponse.dummySign(storage, franzapPubkey);
+      final response = partialResponse.dummySign(franzapPubkey);
 
       expect(response.event.kind, 23195);
       expect(response.clientPubkey, verbirichaPubkey);
@@ -246,7 +243,7 @@ void main() {
         createdAtTimestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
 
-      final response = partialResponse.dummySign(storage, franzapPubkey);
+      final response = partialResponse.dummySign(franzapPubkey);
 
       expect(response.event.kind, 23195);
       expect(response.clientPubkey, verbirichaPubkey);
@@ -263,7 +260,7 @@ void main() {
       partialResponse.event.removeTag('p');
 
       // Now throws immediately during dummySign because prepareForSigning needs the p tag
-      expect(() => partialResponse.dummySign(storage, franzapPubkey), throwsException);
+      expect(() => partialResponse.dummySign(franzapPubkey), throwsException);
     });
 
     test('roundtrip serialization', () {
@@ -272,8 +269,8 @@ void main() {
         balance: 25000,
       );
 
-      final original = partialResponse.dummySign(storage, franzapPubkey);
-      final restored = NwcResponse.fromMap(original.toMap(), storage);
+      final original = partialResponse.dummySign(franzapPubkey);
+      final restored = NwcResponse.fromMap(original.toMap(), container.ref);
 
       expect(restored.clientPubkey, original.clientPubkey);
       expect(restored.content, original.content);
@@ -294,7 +291,7 @@ void main() {
         settledAtTimestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
 
-      final notification = partialNotification.dummySign(storage, franzapPubkey);
+      final notification = partialNotification.dummySign(franzapPubkey);
 
       expect(notification.event.kind, 23196);
       expect(notification.clientPubkey, verbirichaPubkey);
@@ -312,7 +309,7 @@ void main() {
         settledAtTimestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
 
-      final notification = partialNotification.dummySign(storage, franzapPubkey);
+      final notification = partialNotification.dummySign(franzapPubkey);
 
       expect(notification.event.kind, 23196);
       expect(notification.clientPubkey, verbirichaPubkey);
@@ -329,7 +326,7 @@ void main() {
       partialNotification.event.removeTag('p');
 
       // Now throws immediately during dummySign because prepareForSigning needs the p tag
-      expect(() => partialNotification.dummySign(storage, franzapPubkey), throwsException);
+      expect(() => partialNotification.dummySign(franzapPubkey), throwsException);
     });
 
     test('roundtrip serialization', () {
@@ -342,8 +339,8 @@ void main() {
         amount: 1000,
       );
 
-      final original = partialNotification.dummySign(storage, franzapPubkey);
-      final restored = NwcNotification.fromMap(original.toMap(), storage);
+      final original = partialNotification.dummySign(franzapPubkey);
+      final restored = NwcNotification.fromMap(original.toMap(), container.ref);
 
       expect(restored.clientPubkey, original.clientPubkey);
       expect(restored.content, original.content);
