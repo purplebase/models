@@ -3,16 +3,29 @@ import '../core/model.dart';
 import '../filter/request_filter.dart';
 import '../relationship/relationship.dart';
 import '../utils/extensions.dart';
+import 'app.dart';
+import 'installable.dart';
 import 'release.dart';
 
 /// A file metadata event (kind 1063) containing information about a file.
 ///
 /// File metadata events describe files with details like hash, size, MIME type,
 /// and download URLs. They're used for software distribution and file sharing.
-class FileMetadata extends RegularModel<FileMetadata> {
+class FileMetadata extends RegularModel<FileMetadata> implements Installable {
+  late final BelongsTo<App> app;
   late final BelongsTo<Release> release;
 
   FileMetadata.fromMap(super.map, super.ref) : super.fromMap() {
+    app = BelongsTo(
+      ref,
+      RequestFilter<App>(
+        authors: {event.pubkey},
+        tags: {
+          '#d': {appIdentifier},
+        },
+        limit: 1,
+      ).toRequest(),
+    );
     release = BelongsTo(
       ref,
       RequestFilter<Release>(

@@ -58,6 +58,7 @@ export 'src/models/community.dart';
 export 'src/models/contact_list.dart';
 export 'src/models/direct_message.dart';
 export 'src/models/file_metadata.dart';
+export 'src/models/installable.dart';
 export 'src/models/highlight.dart';
 export 'src/models/relay_list.dart';
 export 'src/models/mute_list.dart';

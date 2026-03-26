@@ -5,6 +5,7 @@ import '../core/model.dart';
 import '../filter/request.dart';
 import '../filter/request_filter.dart';
 import '../source/source.dart';
+import '../source/remote_source.dart';
 import '../signer/signer.dart';
 import '../utils/utils.dart';
 import 'storage_state.dart';
@@ -275,7 +276,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
 
   Future<PublishResponse> publish(
     Set<Model<dynamic>> models, {
-    Source? source,
+    RemoteSource source,
   });
 
   /// Helper: Check if a kind represents an encrypted event type.

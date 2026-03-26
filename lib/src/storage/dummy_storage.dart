@@ -101,11 +101,10 @@ class DummyStorageNotifier extends StorageNotifier {
   @override
   Future<PublishResponse> publish(
     Set<Model<dynamic>> models, {
-    Source? source,
+    RemoteSource source = const RemoteSource(),
   }) async {
-    final remoteSource = (source as RemoteSource?) ?? const RemoteSource();
     final response = PublishResponse();
-    final relayUrls = await resolveRelays(remoteSource.relays);
+    final relayUrls = await resolveRelays(source.relays);
     for (final relay in relayUrls) {
       for (final model in models) {
         response.addEvent(

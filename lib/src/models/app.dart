@@ -4,6 +4,7 @@ import '../filter/request_filter.dart';
 import '../filter/request.dart';
 import '../relationship/relationship.dart';
 import 'app_stack.dart';
+import 'asset.dart';
 import 'release.dart';
 
 /// An application event (kind 32267) representing a software application.
@@ -14,6 +15,7 @@ import 'release.dart';
 class App extends ParameterizableReplaceableModel<App> {
   late final HasMany<Release> releases;
   late final BelongsTo<Release> latestRelease;
+  late final BelongsTo<SoftwareAsset> latestAsset;
   late final HasMany<AppStack> appStacks;
 
   App.fromMap(super.map, super.ref) : super.fromMap() {
@@ -34,6 +36,16 @@ class App extends ParameterizableReplaceableModel<App> {
               },
               limit: 1,
             ).toRequest(),
+    );
+    latestAsset = BelongsTo(
+      ref,
+      RequestFilter<SoftwareAsset>(
+        authors: {event.pubkey},
+        tags: {
+          '#i': {event.identifier},
+        },
+        limit: 1,
+      ).toRequest(),
     );
     appStacks = HasMany(
       ref,
