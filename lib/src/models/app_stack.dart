@@ -103,9 +103,6 @@ class PartialAppStack extends ParameterizableReplaceablePartialModel<AppStack>
   void removeApp(String? addressableId) =>
       event.removeTagWithValue('a', addressableId);
 
-  /// Tags this stack as belonging to a community (adds a `p` tag with the community pubkey).
-  void addCommunityKey(String pubkey) => event.addTagValue('p', pubkey);
-
   /// Raw encrypted content (for advanced use)
   String? get encryptedContent => event.content.isEmpty ? null : event.content;
   set encryptedContent(String? value) => event.content = value ?? '';
