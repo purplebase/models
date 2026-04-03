@@ -41,16 +41,21 @@ class SoftwareAsset extends RegularModel<SoftwareAsset> implements Installable {
 
   // ── FileMetadata-equivalent getters ──────────────────────────────────
 
+  @override
   Set<String> get urls => event.getTagSetValues('url').toSet();
 
+  @override
   String? get mimeType => event.getFirstTagValue('m');
 
+  @override
   String get hash => event.getFirstTagValue('x')!;
 
+  @override
   int? get size => event.getFirstTagValue('size').toInt();
 
   String? get repository => event.getFirstTagValue('repository');
 
+  @override
   Set<String> get platforms => event.getTagSetValues('f').toSet();
 
   Set<String> get executables => event.getTagSetValues('executable');
@@ -59,14 +64,18 @@ class SoftwareAsset extends RegularModel<SoftwareAsset> implements Installable {
 
   String get targetSdkVersion => event.getFirstTagValue('target_sdk_version')!;
 
+  @override
   String get appIdentifier =>
       event.getFirstTagValue('i') ?? getNullableSplit(event.content).$1!;
 
+  @override
   String get version => event.getFirstTagValue('version')!;
 
+  @override
   int? get versionCode =>
       int.tryParse(event.getFirstTagValue('version_code') ?? '');
 
+  @override
   String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
 
   // ── SoftwareAsset-specific getters ───────────────────────────────────

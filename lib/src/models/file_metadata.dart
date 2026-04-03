@@ -39,21 +39,26 @@ class FileMetadata extends RegularModel<FileMetadata> implements Installable {
   }
 
   /// Set of download URLs for the file
+  @override
   Set<String> get urls => event.getTagSetValues('url').toSet();
 
   /// MIME type of the file
+  @override
   String? get mimeType => event.getFirstTagValue('m');
 
   /// File hash for verification (SHA-256 or other)
+  @override
   String get hash => event.getFirstTagValue('x')!;
 
   /// File size in bytes
+  @override
   int? get size => event.getFirstTagValue('size').toInt();
 
   /// Source repository URL
   String? get repository => event.getFirstTagValue('repository');
 
   /// Set of supported platforms
+  @override
   Set<String> get platforms => event.getTagSetValues('f').toSet();
 
   /// Set of executable file names within the file
@@ -66,19 +71,23 @@ class FileMetadata extends RegularModel<FileMetadata> implements Installable {
   String get targetSdkVersion => event.getFirstTagValue('target_sdk_version')!;
 
   /// Parent application identifier
+  @override
   String get appIdentifier =>
       event.getFirstTagValue('i') ?? getNullableSplit(event.content).$1!;
 
   /// Version string for this file
+  @override
   String get version => event.getFirstTagValue('version')!;
 
   // Android-specific properties
 
   /// Android version code (numeric)
+  @override
   int? get versionCode =>
       int.tryParse(event.getFirstTagValue('version_code') ?? '');
 
   /// APK signature hash for Android apps
+  @override
   String? get apkSignatureHash => event.getFirstTagValue('apk_signature_hash');
 }
 

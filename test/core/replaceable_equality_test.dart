@@ -98,8 +98,6 @@ void main() {
 
       await pumpEventQueue();
 
-      final updatedState = container.read(queryProvider);
-
       expect(notificationCount, greaterThanOrEqualTo(1),
           reason: 'Listener should fire when replaceable model is updated');
 

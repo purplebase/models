@@ -64,7 +64,7 @@ void main() async {
       });
       await container.storage.publish({
         nielProfile,
-      }, source: RemoteSource(relays: 'big-relays'));
+      }, relays: 'big-relays');
     });
 
     tearDown(() async {

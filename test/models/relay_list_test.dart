@@ -535,7 +535,7 @@ void main() {
       final note = PartialNote('Test note').dummySign(testSigner.pubkey);
       final response = await testStorage.publish({
         note,
-      }, source: RemoteSource(relays: 'AppCatalog'));
+      }, relays: 'AppCatalog');
 
       // Should have published to the signed relay, not the default
       expect(response.results, isNotEmpty);

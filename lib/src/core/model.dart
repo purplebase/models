@@ -10,7 +10,6 @@ import '../relationship/relationship.dart';
 import '../filter/request_filter.dart';
 import '../signer/signer.dart';
 import '../signer/dummy_signer.dart';
-import '../source/remote_source.dart';
 import '../storage/storage_notifier.dart';
 import '../utils/utils.dart';
 import '../utils/async.dart';
