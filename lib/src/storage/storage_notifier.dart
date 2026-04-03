@@ -276,7 +276,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
 
   Future<PublishResponse> publish(
     Set<Model<dynamic>> models, {
-    RemoteSource source,
+    dynamic relays,
   });
 
   /// Helper: Check if a kind represents an encrypted event type.

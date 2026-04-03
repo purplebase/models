@@ -126,8 +126,8 @@ abstract class Model<E extends Model<dynamic>>
     await storage.save({this});
   }
 
-  Future<void> publish({RemoteSource source = const RemoteSource()}) async {
-    await storage.publish({this}, source: source);
+  Future<void> publish({dynamic relays}) async {
+    await storage.publish({this}, relays: relays);
   }
 
   @override

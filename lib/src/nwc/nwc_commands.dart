@@ -115,7 +115,7 @@ abstract class NwcCommand<T> {
       // Publish to the connection's relay
       final publishResponse = await storageNotifier.publish({
         signedRequest,
-      }, source: RemoteSource(relays: relaySet));
+      }, relays: relaySet);
 
       // Check if publish was successful
       final publishSuccessful = publishResponse.results.values.any(
