@@ -180,7 +180,13 @@ final class LocalAndRemoteSourceHandler<E extends Model<dynamic>>
 
   Future<void> _fireRemoteQuery() async {
     await _queryBuffer.bufferQuery(req, source, subscriptionPrefix);
-    storage.updateCacheTimestamp(req);
+    // Only mark cache as fresh if data actually exists locally.
+    // Missing profiles (relay timeout, not found) stay stale so
+    // the next widget mount will retry the remote fetch.
+    final local = storage.querySync(req);
+    if (local.isNotEmpty) {
+      storage.updateCacheTimestamp(req);
+    }
   }
 
   @override

@@ -91,9 +91,7 @@ class NestedQueryManager {
   bool isRelationshipUpdate(Request? req) {
     if (req == null) return false;
     final subPrefix = req.subscriptionPrefix;
-    return _activeRelationshipSubIds.any(
-      (id) => subPrefix.startsWith(_parentSubscriptionId),
-    ) || _relationshipRequests.any(
+    return _relationshipRequests.any(
       (r) => subPrefix.startsWith(r.subscriptionPrefix),
     );
   }
