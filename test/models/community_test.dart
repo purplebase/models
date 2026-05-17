@@ -31,7 +31,7 @@ void main() {
 
       final community = PartialCommunity(
         name: 'communikey',
-        createdAt: DateTime.parse('2025-04-10'),
+        createdAt: DateTime.utc(2025, 4, 10),
         description: 'Some cool shit',
         relayUrls: {'wss://communi.key'},
         blossomUrls: {'https://cdn.communi.key'},
@@ -105,9 +105,9 @@ void main() {
 final communityJson =
     '''
 {
-	"id": "aa9267f1628a4631b07a95db776b7d58bc7d0db9f2bec6466e630d81e8751e24",
+	"id": "8c5e251df409796b9653dd9b9d761fe4cf5d93ee645f71c638001dcf93a58e24",
 	"content": "",
-	"created_at": 1744257600,
+	"created_at": 1744243200,
 	"pubkey": "${nielPubkey.decodeShareable()}",
 	"kind": 10222,
 	"tags": [
