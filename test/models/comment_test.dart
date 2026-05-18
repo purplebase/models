@@ -31,7 +31,10 @@ void main() {
         summary: 'Test article summary',
       ).dummySign(nielPubkey);
 
-      final fileMetadata = PartialFileMetadata().dummySign(franzapPubkey);
+      final fileMetadata = (PartialFileMetadata()
+            ..version = '1.0.0'
+            ..appIdentifier = 'com.example.app')
+          .dummySign(franzapPubkey);
 
       // Create comments on different content types
       final articleComment = PartialComment(
