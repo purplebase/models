@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:models/models.dart';
@@ -42,6 +43,83 @@ void main() {
       expect(appStack.privateAppIds, isEmpty);
       expect(appStack.content, contains('dummy_nip44_encrypted'));
     });
+  });
+
+  group('RequestNotifier post-load enrichment', () {
+    test(
+      'LocalSource emits before delayed decryption completes, then re-emits decrypted model',
+      () async {
+        final signer = _DelayedDecryptSigner(
+          Bip340PrivateKeySigner(Utils.generateRandomHex64(), container.ref),
+          container.ref,
+        );
+        await signer.signIn();
+
+        final apps = ['32267:pubkey:secret1'];
+        final appStack = await PartialAppStack.withEncryptedApps(
+          name: 'Private',
+          identifier: 'post-load',
+          apps: apps,
+        ).signWith(signer);
+        await container.storage.save({appStack});
+
+        final states = <StorageState<AppStack>>[];
+        final subscription = container.listen<StorageState<AppStack>>(
+          query<AppStack>(authors: {signer.pubkey}, source: LocalSource()),
+          (previous, next) => states.add(next),
+          fireImmediately: false,
+        );
+        addTearDown(subscription.close);
+
+        await pumpEventQueue(times: 3);
+
+        final firstData = _firstDataState(states);
+        expect(firstData, isNotNull);
+        expect(firstData!.models, hasLength(1));
+        expect(firstData.models.single.isDecrypted, isFalse);
+        expect(firstData.models.single.privateAppIds, isEmpty);
+
+        signer.completeDecryptions();
+        await pumpEventQueue(times: 6);
+
+        final decryptedData = _lastDecryptedDataState(states);
+        expect(decryptedData, isNotNull);
+        expect(decryptedData!.models.single.privateAppIds, equals(apps));
+        expect(decryptedData.revision, greaterThan(firstData.revision));
+      },
+    );
+
+    test(
+      'hanging decryption does not prevent LocalSource from resolving',
+      () async {
+        final signer = _DelayedDecryptSigner(
+          Bip340PrivateKeySigner(Utils.generateRandomHex64(), container.ref),
+          container.ref,
+        );
+        await signer.signIn();
+
+        final appStack = await PartialAppStack.withEncryptedApps(
+          name: 'Private',
+          identifier: 'hanging',
+          apps: ['32267:pubkey:secret1'],
+        ).signWith(signer);
+        await container.storage.save({appStack});
+
+        final states = <StorageState<AppStack>>[];
+        final subscription = container.listen<StorageState<AppStack>>(
+          query<AppStack>(authors: {signer.pubkey}, source: LocalSource()),
+          (previous, next) => states.add(next),
+          fireImmediately: false,
+        );
+        addTearDown(subscription.close);
+
+        await pumpEventQueue(times: 3);
+
+        final firstData = _firstDataState(states);
+        expect(firstData, isNotNull);
+        expect(firstData!.models.single.isDecrypted, isFalse);
+      },
+    );
   });
 
   group('EncryptablePartialModel - Content Management', () {
@@ -294,4 +372,95 @@ void main() {
       expect(partial.content, isNot(contains('item0')));
     });
   });
+}
+
+StorageData<AppStack>? _firstDataState(List<StorageState<AppStack>> states) {
+  for (final state in states) {
+    if (state is StorageData<AppStack>) return state;
+  }
+  return null;
+}
+
+StorageData<AppStack>? _lastDecryptedDataState(
+  List<StorageState<AppStack>> states,
+) {
+  StorageData<AppStack>? result;
+  for (final state in states) {
+    if (state is StorageData<AppStack> &&
+        state.models.isNotEmpty &&
+        state.models.single.isDecrypted) {
+      result = state;
+    }
+  }
+  return result;
+}
+
+class _DelayedDecryptSigner extends Signer {
+  final Signer _delegate;
+  Completer<void>? _decryptGate;
+
+  _DelayedDecryptSigner(this._delegate, super.ref);
+
+  @override
+  Future<void> initialize() async {
+    await _delegate.initialize();
+    internalSetPubkey(_delegate.pubkey);
+  }
+
+  @override
+  Future<void> signIn({
+    bool setAsActive = true,
+    bool registerSigner = true,
+  }) async {
+    await _delegate.signIn(setAsActive: false, registerSigner: false);
+    internalSetPubkey(_delegate.pubkey);
+    await super.signIn(
+      setAsActive: setAsActive,
+      registerSigner: registerSigner,
+    );
+  }
+
+  void completeDecryptions() {
+    _decryptGate?.complete();
+    _decryptGate = null;
+  }
+
+  Future<void> _waitForDecryptGate() {
+    return (_decryptGate ??= Completer<void>()).future;
+  }
+
+  @override
+  Future<List<E>> sign<E extends Model<dynamic>>(
+    List<PartialModel<Model<dynamic>>> partialModels,
+  ) {
+    return _delegate.sign<E>(partialModels);
+  }
+
+  @override
+  Future<String> nip04Encrypt(String message, String recipientPubkey) {
+    return _delegate.nip04Encrypt(message, recipientPubkey);
+  }
+
+  @override
+  Future<String> nip04Decrypt(
+    String encryptedMessage,
+    String senderPubkey,
+  ) async {
+    await _waitForDecryptGate();
+    return _delegate.nip04Decrypt(encryptedMessage, senderPubkey);
+  }
+
+  @override
+  Future<String> nip44Encrypt(String message, String recipientPubkey) {
+    return _delegate.nip44Encrypt(message, recipientPubkey);
+  }
+
+  @override
+  Future<String> nip44Decrypt(
+    String encryptedMessage,
+    String senderPubkey,
+  ) async {
+    await _waitForDecryptGate();
+    return _delegate.nip44Decrypt(encryptedMessage, senderPubkey);
+  }
 }

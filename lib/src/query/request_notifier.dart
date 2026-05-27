@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:riverpod/riverpod.dart';
 
+import '../core/encryptable.dart';
 import '../core/model.dart';
 import '../filter/request.dart';
 import '../source/source.dart';
@@ -36,6 +37,12 @@ class RequestNotifier<E extends Model<dynamic>>
   /// Microtask coalescing replaces _isRefreshing guard.
   bool _refreshScheduled = false;
 
+  /// Bumps only when post-load enrichment must notify with same model IDs.
+  int _stateRevision = 0;
+
+  /// Prevents stale enrichment completions from re-emitting old batches.
+  int _postLoadEnrichmentGeneration = 0;
+
   /// Guard: prevent re-entrant relationship processing.
   bool _isProcessingRelationships = false;
 
@@ -46,16 +53,16 @@ class RequestNotifier<E extends Model<dynamic>>
   late final String _parentSubscriptionId;
 
   /// Exposed for testing.
-  List<Request> get relationshipRequests =>
-      _nestedManager.relationshipRequests;
+  List<Request> get relationshipRequests => _nestedManager.relationshipRequests;
   int get totalRelationshipQueriesIssued =>
       _nestedManager.totalRelationshipQueriesIssued;
 
   RequestNotifier(this.ref, this.req, Source? source)
-      : storage = ref.read(storageNotifierProvider.notifier),
-        source = source ??
-            ref.read(storageNotifierProvider.notifier).config.defaultQuerySource,
-        super(StorageLoading([])) {
+    : storage = ref.read(storageNotifierProvider.notifier),
+      source =
+          source ??
+          ref.read(storageNotifierProvider.notifier).config.defaultQuerySource,
+      super(StorageLoading([])) {
     if (req.filters.isEmpty) return;
 
     _parentSubscriptionId = req.subscriptionId;
@@ -109,6 +116,49 @@ class RequestNotifier<E extends Model<dynamic>>
     });
   }
 
+  /// Starts [Model.prepareAfterLoading] after the query has already emitted.
+  ///
+  /// This keeps query resolution independent from async work such as signer
+  /// decryption. Successful enrichment re-emits with a revision bump so
+  /// listeners can react to changes like `isDecrypted`.
+  void _schedulePostLoadEnrichment(List<E> models) {
+    if (models.isEmpty) return;
+    final decryptableModels = models.whereType<EncryptableModel>().toList();
+    if (decryptableModels.isEmpty) return;
+
+    final wasDecrypted = {
+      for (final model in decryptableModels) model: model.isDecrypted,
+    };
+    final generation = ++_postLoadEnrichmentGeneration;
+
+    unawaited(() async {
+      await Future.wait(
+        decryptableModels.map(_prepareModelAfterLoading),
+        eagerError: false,
+      );
+
+      if (!mounted || generation != _postLoadEnrichmentGeneration) return;
+      final changed = decryptableModels.any(
+        (model) => model.isDecrypted != wasDecrypted[model],
+      );
+      if (!changed) return;
+
+      _emit(models, forceNotify: true);
+      _processRelationships(models);
+    }());
+  }
+
+  Future<void> _prepareModelAfterLoading(Model<dynamic> model) async {
+    try {
+      await model
+          .prepareAfterLoading(ref)
+          .timeout(storage.config.responseTimeout, onTimeout: () {});
+    } catch (_) {
+      // Post-load enrichment is best-effort; encrypted getters retain their
+      // safe fallback behaviour if decryption fails or times out.
+    }
+  }
+
   Future<void> _initialize() async {
     try {
       final models = await _sourceHandler.initialize();
@@ -119,15 +169,18 @@ class RequestNotifier<E extends Model<dynamic>>
         case LocalSource():
           _transition(QueryPhase.live, models);
           _processRelationships(models);
+          _schedulePostLoadEnrichment(models);
 
         case LocalAndRemoteSource():
           if ((_sourceHandler as LocalAndRemoteSourceHandler).eoseReceived) {
             _transition(QueryPhase.live, models);
             _processRelationships(models);
+            _schedulePostLoadEnrichment(models);
           } else {
             if (models.isNotEmpty) {
               _emit(models);
               _processRelationships(models);
+              _schedulePostLoadEnrichment(models);
             }
             _transition(QueryPhase.awaitingRemote, state.models);
           }
@@ -136,6 +189,7 @@ class RequestNotifier<E extends Model<dynamic>>
           _cancelResponseTimeout();
           _transition(QueryPhase.live, models);
           _processRelationships(models);
+          _schedulePostLoadEnrichment(models);
 
         case RemoteSource():
           _transition(QueryPhase.awaitingRemote, state.models);
@@ -169,6 +223,7 @@ class RequestNotifier<E extends Model<dynamic>>
           final refreshed = _sourceHandler.refreshFromLocal();
           _emit(refreshed);
           _processRelationships(refreshed);
+          _schedulePostLoadEnrichment(refreshed);
         }
         return;
       }
@@ -188,12 +243,14 @@ class RequestNotifier<E extends Model<dynamic>>
           _cancelResponseTimeout();
           _processRelationships(models);
           _maybeStartStreaming();
+          _schedulePostLoadEnrichment(models);
           return;
         }
       }
 
       _emit(models);
       _processRelationships(models);
+      _schedulePostLoadEnrichment(models);
 
       // Re-process pending and-callbacks when general data arrives
       if (update.req == null && _nestedManager.hasPendingCallbacks) {
@@ -211,6 +268,7 @@ class RequestNotifier<E extends Model<dynamic>>
       final models = _sourceHandler.refreshFromLocal();
       _emit(models);
       _processRelationships(models);
+      _schedulePostLoadEnrichment(models);
     });
   }
 
@@ -224,7 +282,7 @@ class RequestNotifier<E extends Model<dynamic>>
     _emit(models);
   }
 
-  void _emit(List<E> models) {
+  void _emit(List<E> models, {bool forceNotify = false}) {
     if (!mounted) return;
 
     // Apply client-side filters
@@ -238,10 +296,16 @@ class RequestNotifier<E extends Model<dynamic>>
     switch (_phase) {
       case QueryPhase.initializing:
       case QueryPhase.awaitingRemote:
-        state = StorageLoading(filtered);
+        state = StorageLoading(
+          filtered,
+          revision: forceNotify ? ++_stateRevision : _stateRevision,
+        );
       case QueryPhase.live:
       case QueryPhase.streaming:
-        state = StorageData(filtered);
+        state = StorageData(
+          filtered,
+          revision: forceNotify ? ++_stateRevision : _stateRevision,
+        );
       case QueryPhase.error:
         break;
       case QueryPhase.disposed:

@@ -42,11 +42,12 @@ class AppStack extends ParameterizableReplaceableModel<AppStack>
 
   /// Get private app IDs (content is encrypted - will fail if not decrypted first)
   List<String> get privateAppIds {
-    if (content.isEmpty) return [];
+    final source = plaintext ?? content;
+    if (source.isEmpty) return [];
     try {
-      final decoded = jsonDecode(content);
+      final decoded = jsonDecode(source);
       return decoded is List ? decoded.cast<String>() : [];
-    } catch (e) {
+    } catch (_) {
       return [];
     }
   }

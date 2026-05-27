@@ -1,4 +1,3 @@
-
 import '../core/model.dart';
 import '../utils/utils.dart';
 import '../utils/extensions.dart';
@@ -22,8 +21,8 @@ class DirectMessage extends RegularModel<DirectMessage>
     type: 'npub',
   );
 
-  /// Get the message content (encrypted - must decrypt to read)
-  String get message => content;
+  /// The message content as plaintext after post-load enrichment.
+  String get message => plaintext ?? content;
 
   @override
   String getEncryptionPubkey() {
@@ -81,10 +80,7 @@ class PartialDirectMessage extends RegularPartialModel<DirectMessage>
   ///
   /// [content] - The plain text message content
   /// [receiver] - The recipient's public key or npub
-  PartialDirectMessage({
-    required String content,
-    required String receiver,
-  }) {
+  PartialDirectMessage({required String content, required String receiver}) {
     this.receiver = receiver.decodeShareable();
     setContent(content);
   }

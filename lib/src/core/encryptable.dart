@@ -1,18 +1,90 @@
 import 'dart:convert';
 
+import 'package:riverpod/riverpod.dart';
+
 import 'model.dart';
 import '../signer/signer.dart';
 
-/// Mixin for models that support encrypted content in the `content` field.
+/// Mixin for immutable models whose `event.content` is NIP-44/NIP-04 encrypted.
 mixin EncryptableModel<E extends Model<E>> on Model<E> {
-  /// Get the pubkey used for encryption.
+  static const _cacheKey = '_decrypted';
+
+  /// The decrypted plaintext content, or `null` if not yet decrypted.
+  String? get plaintext => event.metadata[_cacheKey] as String?;
+
+  /// Whether [prepareAfterLoading] has successfully decrypted the content.
+  bool get isDecrypted => event.metadata.containsKey(_cacheKey);
+
+  /// The pubkey used when the content was encrypted.
   String getEncryptionPubkey();
 
-  /// Whether to use NIP-04 encryption (always false, NIP-44 only).
+  /// Whether to use NIP-04 instead of NIP-44 for encryption/decryption.
   bool get useNip04 => false;
 
-  /// Get the encrypted content.
+  /// The raw encrypted content field from the event.
   String get content => event.content;
+
+  @override
+  Future<void> prepareAfterLoading(Ref ref) async {
+    if (isDecrypted || event.content.isEmpty) return;
+
+    final encPubkey = getEncryptionPubkey();
+    Signer? signer;
+    String decryptionPubkey;
+
+    if (encPubkey == event.pubkey) {
+      signer = ref.read(Signer.signerProvider(event.pubkey));
+      decryptionPubkey = event.pubkey;
+    } else {
+      signer = ref.read(Signer.signerProvider(event.pubkey));
+      if (signer != null) {
+        decryptionPubkey = encPubkey;
+      } else {
+        signer = ref.read(Signer.signerProvider(encPubkey));
+        decryptionPubkey = event.pubkey;
+      }
+    }
+
+    if (signer == null) return;
+
+    try {
+      final decrypted = useNip04
+          ? await signer.nip04Decrypt(event.content, decryptionPubkey)
+          : await signer.nip44Decrypt(event.content, decryptionPubkey);
+      event.metadata[_cacheKey] = decrypted;
+    } catch (_) {
+      // Decryption is best-effort; getters keep their encrypted fallback.
+    }
+  }
+
+  @override
+  Map<String, dynamic> toMap() {
+    final raw = super.toMap();
+    final metadata = raw['metadata'];
+    if (metadata is! Map || !metadata.containsKey(_cacheKey)) return raw;
+
+    final cleaned = Map<String, dynamic>.from(metadata)..remove(_cacheKey);
+    final result = Map<String, dynamic>.from(raw);
+    if (cleaned.isEmpty) {
+      result.remove('metadata');
+    } else {
+      result['metadata'] = cleaned;
+    }
+    return result;
+  }
+
+  @override
+  P toPartial<P extends PartialModel<dynamic>>() {
+    final cached = plaintext;
+    if (cached == null) return super.toPartial<P>();
+
+    event.metadata['_plaintext'] = cached;
+    try {
+      return super.toPartial<P>();
+    } finally {
+      event.metadata.remove('_plaintext');
+    }
+  }
 }
 
 /// Mixin for partial models that support encrypted content.

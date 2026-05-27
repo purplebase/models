@@ -41,7 +41,7 @@ abstract class Model<E extends Model<dynamic>>
   late final HasMany<GenericRepost> genericReposts;
 
   Model._(this.ref, this.event)
-      : storage = ref.read(storageNotifierProvider.notifier) {
+    : storage = ref.read(storageNotifierProvider.notifier) {
     if (event.metadata.isEmpty) {
       event.metadata.addAll(processMetadata());
     }
@@ -90,7 +90,7 @@ abstract class Model<E extends Model<dynamic>>
   }
 
   Model.fromMap(Map<String, dynamic> map, Ref ref)
-      : this._(ref, ImmutableEvent<E>(map));
+    : this._(ref, ImmutableEvent<E>(map));
 
   String get id => event.addressableId;
   String get pubkey => event.pubkey;
@@ -103,6 +103,12 @@ abstract class Model<E extends Model<dynamic>>
   Map<String, dynamic> processMetadata() {
     return {};
   }
+
+  /// Called after a model is loaded from storage or received from a relay.
+  ///
+  /// Override to perform async post-load work such as decryption. The default
+  /// implementation is a no-op.
+  Future<void> prepareAfterLoading(Ref ref) async {}
 
   @mustCallSuper
   Map<String, dynamic> transformMap(Map<String, dynamic> map) {
@@ -146,7 +152,8 @@ abstract class Model<E extends Model<dynamic>>
       ModelConstructor constructor,
       PartialModelConstructor? partialConstructor,
     })
-  > _modelRegistry = {};
+  >
+  _modelRegistry = {};
 
   static final Map<String, int> _partialTypeToKind = {};
 
@@ -169,8 +176,8 @@ abstract class Model<E extends Model<dynamic>>
   }
 
   static Exception _unregisteredException<T>() => Exception(
-        'Type $T has not been registered. Are you sure you initialized the storage? Otherwise register it with Model.register.',
-      );
+    'Type $T has not been registered. Are you sure you initialized the storage? Otherwise register it with Model.register.',
+  );
 
   static int kindFor<E extends Model<dynamic>>() {
     final kind = Model._modelRegistry[E.toString()]?.kind;
@@ -204,9 +211,10 @@ abstract class Model<E extends Model<dynamic>>
   }
 
   static PartialModelConstructor<E>?
-      _getPartialConstructorFor<E extends Model<dynamic>>() {
-    final constructor = _modelRegistry[E.toString()]?.partialConstructor
-        as PartialModelConstructor<E>?;
+  _getPartialConstructorFor<E extends Model<dynamic>>() {
+    final constructor =
+        _modelRegistry[E.toString()]?.partialConstructor
+            as PartialModelConstructor<E>?;
     if (constructor == null) {
       throw _unregisteredException<E>();
     }
@@ -332,10 +340,10 @@ abstract class ReplaceableModel<E extends Model<dynamic>> extends Model<E> {
       super.event as ImmutableReplaceableEvent<E>;
 
   ReplaceableModel.fromMap(Map<String, dynamic> map, Ref ref)
-      : this._(ref, ImmutableReplaceableEvent<E>(map));
+    : this._(ref, ImmutableReplaceableEvent<E>(map));
 
   ReplaceableModel._(Ref ref, ImmutableReplaceableEvent event)
-      : super._(ref, event);
+    : super._(ref, event);
 }
 
 abstract class ReplaceablePartialModel<E extends Model<dynamic>>
@@ -351,7 +359,7 @@ abstract class ParameterizableReplaceableModel<E extends Model<dynamic>>
       super.event as ImmutableParameterizableReplaceableEvent<E>;
 
   ParameterizableReplaceableModel.fromMap(Map<String, dynamic> map, Ref ref)
-      : super._(ref, ImmutableParameterizableReplaceableEvent<E>(map)) {
+    : super._(ref, ImmutableParameterizableReplaceableEvent<E>(map)) {
     if (!event.containsTag('d')) {
       throw Exception('Model must contain a `d` tag');
     }

@@ -138,11 +138,12 @@ class AppCatalogRelayList extends RelayList<AppCatalogRelayList>
   /// Returns empty set if content is empty or cannot be parsed.
   /// To read after loading from storage, must decrypt first using signer.
   Set<String> get privateRelays {
-    if (content.isEmpty) return {};
+    final source = plaintext ?? content;
+    if (source.isEmpty) return {};
     try {
-      final decoded = jsonDecode(content);
+      final decoded = jsonDecode(source);
       return decoded is List ? decoded.cast<String>().toSet() : {};
-    } catch (e) {
+    } catch (_) {
       return {};
     }
   }

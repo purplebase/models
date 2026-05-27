@@ -117,8 +117,9 @@ class NwcResponse extends EphemeralModel<NwcResponse>
 
   /// Get the response content as a map (already plaintext)
   Map<String, dynamic> getContentMap() {
-    if (content.isEmpty) throw Exception('Response content is empty');
-    final decoded = jsonDecode(content) as Map<String, dynamic>;
+    final source = plaintext ?? content;
+    if (source.isEmpty) throw Exception('Response content is empty');
+    final decoded = jsonDecode(source) as Map<String, dynamic>;
     if (!decoded.containsKey('result_type')) {
       throw Exception('NWC response missing required "result_type" field');
     }
@@ -365,8 +366,9 @@ class NwcNotification extends EphemeralModel<NwcNotification>
 
   /// Get the notification content as a map (already plaintext)
   Map<String, dynamic> getContentMap() {
-    if (content.isEmpty) throw Exception('Notification content is empty');
-    final decoded = jsonDecode(content) as Map<String, dynamic>;
+    final source = plaintext ?? content;
+    if (source.isEmpty) throw Exception('Notification content is empty');
+    final decoded = jsonDecode(source) as Map<String, dynamic>;
     if (!decoded.containsKey('notification_type')) {
       throw Exception(
         'NWC notification missing required "notification_type" field',
@@ -562,8 +564,9 @@ class NwcRequest extends EphemeralModel<NwcRequest>
 
   /// Get the command content as a map (already plaintext)
   Map<String, dynamic> getContentMap() {
-    if (content.isEmpty) throw Exception('Request content is empty');
-    final decoded = jsonDecode(content) as Map<String, dynamic>;
+    final source = plaintext ?? content;
+    if (source.isEmpty) throw Exception('Request content is empty');
+    final decoded = jsonDecode(source) as Map<String, dynamic>;
     if (!decoded.containsKey('method')) {
       throw Exception('NWC request missing required "method" field');
     }

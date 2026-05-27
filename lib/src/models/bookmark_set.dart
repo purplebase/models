@@ -39,11 +39,12 @@ class BookmarkSet extends ParameterizableReplaceableModel<BookmarkSet>
 
   /// Get private bookmarks (content is encrypted - will fail if not decrypted first)
   List<dynamic> get privateBookmarks {
-    if (content.isEmpty) return [];
+    final source = plaintext ?? content;
+    if (source.isEmpty) return [];
     try {
-      final decoded = jsonDecode(content);
+      final decoded = jsonDecode(source);
       return decoded is List ? decoded : [];
-    } catch (e) {
+    } catch (_) {
       return [];
     }
   }
