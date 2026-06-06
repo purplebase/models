@@ -3,6 +3,7 @@ import 'package:riverpod/riverpod.dart';
 
 import '../core/model.dart';
 import '../models/profile.dart';
+import '../nip13/nip13.dart';
 import '../source/source.dart';
 import '../providers/query_providers.dart';
 
@@ -47,8 +48,9 @@ abstract class Signer {
     if (!registerSigner) return;
 
     ref.read(_signerStateProvider(_pubkey!).notifier).state = this;
-    ref.read(_signedInPubkeysStateProvider.notifier).state =
-        ref.read(_signedInPubkeysStateProvider)..add(_pubkey!);
+    ref.read(_signedInPubkeysStateProvider.notifier).state = ref.read(
+      _signedInPubkeysStateProvider,
+    )..add(_pubkey!);
 
     if (setAsActive) {
       setAsActivePubkey();
@@ -57,8 +59,9 @@ abstract class Signer {
 
   /// Sign out this signer.
   Future<void> signOut() async {
-    ref.read(_signedInPubkeysStateProvider.notifier).state =
-        ref.read(_signedInPubkeysStateProvider)..remove(_pubkey);
+    ref.read(_signedInPubkeysStateProvider.notifier).state = ref.read(
+      _signedInPubkeysStateProvider,
+    )..remove(_pubkey);
     removeAsActivePubkey();
     _pubkey = null;
   }
@@ -75,10 +78,72 @@ abstract class Signer {
     }
   }
 
-  /// Sign the partial models.
+  /// Signs partial models that have already been prepared.
+  ///
+  /// Prefer [prepareAndSign] unless the caller intentionally manages signing
+  /// preparation itself.
   Future<List<E>> sign<E extends Model<dynamic>>(
     List<PartialModel<Model<dynamic>>> partialModels,
   );
+
+  /// Prepares, optionally mines, and signs partial models.
+  Future<List<E>> prepareAndSign<E extends Model<dynamic>>(
+    List<PartialModel<Model<dynamic>>> partialModels, {
+    ProofOfWorkOptions? proofOfWork,
+  }) async {
+    for (final partialModel in partialModels) {
+      await partialModel.prepareForSigning(this);
+    }
+
+    final minedIds = <String>[];
+    if (proofOfWork != null) {
+      final tagsBeforeMining = [
+        for (final partialModel in partialModels)
+          [for (final tag in partialModel.event.tags) List<String>.of(tag)],
+      ];
+      try {
+        for (final partialModel in partialModels) {
+          final result = await Nip13.mine(
+            partialModel.event,
+            pubkey: pubkey,
+            options: proofOfWork,
+          );
+          minedIds.add(result.id);
+        }
+      } catch (_) {
+        for (var i = 0; i < partialModels.length; i++) {
+          partialModels[i].event.tags = tagsBeforeMining[i];
+        }
+        rethrow;
+      }
+    }
+
+    final signedModels = await sign<E>(partialModels);
+
+    if (proofOfWork != null) {
+      if (signedModels.length != minedIds.length) {
+        throw StateError(
+          'Signer returned ${signedModels.length} models for '
+          '${minedIds.length} mined partials',
+        );
+      }
+      for (var i = 0; i < signedModels.length; i++) {
+        final signedEvent = signedModels[i].event;
+        if (signedEvent.id != minedIds[i] ||
+            !Nip13.isValid(
+              signedEvent,
+              minimumDifficulty: proofOfWork.difficulty,
+            )) {
+          throw ProofOfWorkInvalidated(
+            expectedId: minedIds[i],
+            actualId: signedEvent.id,
+          );
+        }
+      }
+    }
+
+    return signedModels;
+  }
 
   /// NIP-04: Encrypt
   Future<String> nip04Encrypt(String message, String recipientPubkey);
@@ -97,8 +162,9 @@ abstract class Signer {
   static final _signerStateProvider = StateProvider.family<Signer?, String>(
     (_, pubkey) => null,
   );
-  static final _signedInPubkeysStateProvider =
-      StateProvider<Set<String>>((_) => {});
+  static final _signedInPubkeysStateProvider = StateProvider<Set<String>>(
+    (_) => {},
+  );
   static final _activePubkeyStateProvider = StateProvider<String?>((_) => null);
 
   // --- Public providers ---
@@ -126,8 +192,10 @@ abstract class Signer {
   });
 
   /// Returns the profile for the active signer.
-  static final activeProfileProvider =
-      Provider.family<Profile?, Source>((ref, source) {
+  static final activeProfileProvider = Provider.family<Profile?, Source>((
+    ref,
+    source,
+  ) {
     final activePubkey = ref.watch(_activePubkeyStateProvider);
     if (activePubkey == null) return null;
     final state = ref.watch(

@@ -96,6 +96,9 @@ export 'src/nwc/nwc_commands.dart';
 // NIP-04
 export 'src/nip04/nip04.dart';
 
+// NIP-13
+export 'src/nip13/nip13.dart';
+
 // NIP-44
 export 'src/nip44/nip44.dart';
 

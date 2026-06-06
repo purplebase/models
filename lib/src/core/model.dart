@@ -19,6 +19,7 @@ import '../models/reaction.dart';
 import '../models/zap.dart';
 import '../models/targeted_publication.dart';
 import '../models/generic_repost.dart';
+import '../nip13/nip13.dart';
 
 mixin ModelBase<E extends Model<dynamic>> {
   EventBase get event;
@@ -380,10 +381,11 @@ abstract class ParameterizableReplaceablePartialModel<E extends Model<dynamic>>
 DummySigner? _dummySigner;
 
 mixin Signable<E extends Model<dynamic>> {
-  Future<E> signWith(Signer signer) async {
+  Future<E> signWith(Signer signer, {ProofOfWorkOptions? proofOfWork}) async {
     final partialModel = this as PartialModel<E>;
-    await partialModel.prepareForSigning(signer);
-    final signed = await signer.sign<E>([partialModel]);
+    final signed = await signer.prepareAndSign<E>([
+      partialModel,
+    ], proofOfWork: proofOfWork);
     return signed.first;
   }
 
@@ -402,7 +404,10 @@ mixin Signable<E extends Model<dynamic>> {
 
 extension SignerExtension<E extends Model<dynamic>>
     on Iterable<PartialModel<Model>> {
-  Future<List<E>> signWith(Signer signer) async {
-    return await signer.sign<E>(toList());
+  Future<List<E>> signWith(
+    Signer signer, {
+    ProofOfWorkOptions? proofOfWork,
+  }) async {
+    return signer.prepareAndSign<E>(toList(), proofOfWork: proofOfWork);
   }
 }
