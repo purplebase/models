@@ -45,6 +45,7 @@ import '../models/targeted_publication.dart';
 import '../models/follow_sets.dart';
 import '../models/bookmark_set.dart';
 import '../models/app_stack.dart';
+import '../models/cryptographic_identity_proof.dart';
 import '../models/app.dart';
 import '../models/calendar_events.dart';
 import '../models/nwc.dart';
@@ -173,6 +174,7 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
     Model.register(kind: 30063, constructor: Release.fromMap, partialConstructor: PartialRelease.fromMap);
     Model.register(kind: 30078, constructor: CustomData.fromMap, partialConstructor: PartialCustomData.fromMap);
     Model.register(kind: 30222, constructor: TargetedPublication.fromMap, partialConstructor: PartialTargetedPublication.fromMap);
+    Model.register(kind: 30509, constructor: CryptographicIdentityProof.fromMap, partialConstructor: PartialCryptographicIdentityProof.fromMap);
     Model.register(kind: 30000, constructor: FollowSets.fromMap, partialConstructor: PartialFollowSets.fromMap);
     Model.register(kind: 30003, constructor: BookmarkSet.fromMap, partialConstructor: PartialBookmarkSet.fromMap);
     Model.register(kind: 30267, constructor: AppStack.fromMap, partialConstructor: PartialAppStack.fromMap);

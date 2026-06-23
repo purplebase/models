@@ -66,6 +66,7 @@ export 'src/models/pin_list.dart';
 export 'src/models/follow_sets.dart';
 export 'src/models/bookmark_set.dart';
 export 'src/models/app_stack.dart';
+export 'src/models/cryptographic_identity_proof.dart';
 export 'src/models/note.dart';
 export 'src/models/profile.dart';
 export 'src/models/reaction.dart';
