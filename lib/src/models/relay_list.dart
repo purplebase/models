@@ -16,11 +16,11 @@ import '../signer/signer.dart';
 abstract class RelayList<E extends RelayList<E>> extends ReplaceableModel<E> {
   RelayList.fromMap(super.map, super.ref) : super.fromMap();
 
-  /// Registry: Label → Kind mapping for relay list types
-  static const labels = <String, int>{
-    'AppCatalog': 10067,
-    // Future relay list labels registered here
-  };
+  /// Registry for relay groups that opt into implicit active-signer lookup.
+  ///
+  /// App catalog relays are deliberately app-managed: Zapstore accepts only
+  /// device-authored kind 10067 events after explicit user confirmation.
+  static const labels = <String, int>{};
 
   /// All relay URLs in this list
   Set<String> get relays => event.getTagSetValues('r');

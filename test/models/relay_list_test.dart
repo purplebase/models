@@ -297,14 +297,8 @@ void main() {
   });
 
   group('RelayList.labels registry', () {
-    test('labels contains AppCatalog mapping', () {
-      expect(RelayList.labels, containsPair('AppCatalog', 10067));
-    });
-
-    test('labels can be extended for future relay list types', () {
-      // This test documents that labels is a const map
-      // New relay list types should be added to the static const
-      expect(RelayList.labels, isA<Map<String, int>>());
+    test('AppCatalog is app-managed', () {
+      expect(RelayList.labels, isNot(contains('AppCatalog')));
     });
   });
 
@@ -373,7 +367,7 @@ void main() {
     });
   });
 
-  group('StorageNotifier.resolveRelays() - Signed RelayList precedence', () {
+  group('StorageNotifier.resolveRelays() - configured relay groups', () {
     test('uses defaultRelays when no signed RelayList exists', () async {
       final testContainer = await createTestContainer(
         config: StorageConfiguration(
@@ -396,7 +390,7 @@ void main() {
       testContainer.dispose();
     });
 
-    test('signed AppCatalogRelayList overrides defaultRelays', () async {
+    test('signed AppCatalogRelayList does not override app config', () async {
       final testContainer = await createTestContainer(
         config: StorageConfiguration(
           keepSignatures: false,
@@ -425,15 +419,14 @@ void main() {
 
       await testStorage.save({signedRelayList});
 
-      // Resolve should now return signed relays, not defaults
+      // AppCatalog is app-managed, so local signed events do not implicitly
+      // override the configured relay group.
       final resolved = await testStorage.resolveRelays('AppCatalog');
 
-      expect(resolved, hasLength(3));
-      expect(resolved, contains('wss://signed1.com'));
-      expect(resolved, contains('wss://signed2.com'));
-      expect(resolved, contains('wss://signed3.com'));
-      expect(resolved, isNot(contains('wss://default1.com')));
-      expect(resolved, isNot(contains('wss://default2.com')));
+      expect(resolved, hasLength(2));
+      expect(resolved, contains('wss://default1.com'));
+      expect(resolved, contains('wss://default2.com'));
+      expect(resolved, isNot(contains('wss://signed1.com')));
 
       testContainer.dispose();
     });
@@ -503,7 +496,7 @@ void main() {
       testContainer.dispose();
     });
 
-    test('publish() uses resolveRelays for relay resolution', () async {
+    test('publish() uses configured AppCatalog relays', () async {
       final testContainer = await createTestContainer(
         config: StorageConfiguration(
           keepSignatures: false,
@@ -533,18 +526,16 @@ void main() {
 
       // Publish a note using the 'AppCatalog' label
       final note = PartialNote('Test note').dummySign(testSigner.pubkey);
-      final response = await testStorage.publish({
-        note,
-      }, relays: 'AppCatalog');
+      final response = await testStorage.publish({note}, relays: 'AppCatalog');
 
-      // Should have published to the signed relay, not the default
+      // Should publish to the app-configured relay, not an implicit signed list.
       expect(response.results, isNotEmpty);
       // Get all relay URLs from the results
       final allRelayUrls = response.results.values
           .expand((states) => states.map((s) => s.relayUrl))
           .toSet();
-      expect(allRelayUrls, contains('wss://signed.com'));
-      expect(allRelayUrls, isNot(contains('wss://default.com')));
+      expect(allRelayUrls, contains('wss://default.com'));
+      expect(allRelayUrls, isNot(contains('wss://signed.com')));
 
       testContainer.dispose();
     });
