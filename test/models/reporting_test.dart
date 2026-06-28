@@ -13,7 +13,8 @@ void main() {
       config: StorageConfiguration(keepSignatures: false),
     );
     storage =
-        container.read(storageNotifierProvider.notifier) as DummyStorageNotifier;
+        container.read(storageNotifierProvider.notifier)
+            as DummyStorageNotifier;
   });
 
   tearDown(() async {
@@ -204,8 +205,7 @@ void main() {
       expect(eTags.length, 1);
       expect(eTags.first[0], 'e');
       expect(eTags.first[1], contentId);
-      expect(eTags.first[2], '');
-      expect(eTags.first[3], 'profanity');
+      expect(eTags.first[2], 'profanity');
 
       final pTags = report.event.getTagSet('p');
       expect(pTags.length, 1);
@@ -231,16 +231,14 @@ void main() {
       expect(xTags.length, 1);
       expect(xTags.first[0], 'x');
       expect(xTags.first[1], fileHash);
-      expect(xTags.first[2], '');
-      expect(xTags.first[3], 'nudity');
+      expect(xTags.first[2], 'nudity');
 
       // Check e tag (content ID)
       final eTags = report.event.getTagSet('e');
       expect(eTags.length, 1);
       expect(eTags.first[0], 'e');
       expect(eTags.first[1], contentId);
-      expect(eTags.first[2], '');
-      expect(eTags.first[3], 'nudity');
+      expect(eTags.first[2], 'nudity');
 
       // Check server tag
       expect(

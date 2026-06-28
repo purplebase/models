@@ -1,4 +1,3 @@
-
 import '../core/model.dart';
 import '../filter/request_filter.dart';
 import '../filter/request.dart';
@@ -52,12 +51,12 @@ class Report extends RegularModel<Report> {
     final eTag = event.getTagSet('e').firstOrNull;
     final xTag = event.getTagSet('x').firstOrNull;
 
-    if (pTag != null && pTag.length > 3) {
-      return ReportType.fromString(pTag[3]);
-    } else if (eTag != null && eTag.length > 3) {
-      return ReportType.fromString(eTag[3]);
-    } else if (xTag != null && xTag.length > 3) {
-      return ReportType.fromString(xTag[3]);
+    if (pTag != null && pTag.length > 2) {
+      return ReportType.fromString(pTag[2]);
+    } else if (eTag != null && eTag.length > 2) {
+      return ReportType.fromString(eTag[2]);
+    } else if (xTag != null && xTag.length > 2) {
+      return ReportType.fromString(xTag[2]);
     }
     return null;
   }
@@ -229,8 +228,8 @@ class PartialReport extends RegularPartialModel<Report> {
     required ReportType violationType,
     String? reason,
   }) {
-    // Add content reference with violation type
-    event.addTag('e', [contentId, '', violationType.protocolValue]);
+    // NIP-56 puts the violation type in the third tag entry.
+    event.addTag('e', [contentId, violationType.protocolValue]);
     // Add author reference
     event.addTag('p', [authorPubkey]);
     if (reason != null) this.reason = reason;
@@ -246,8 +245,8 @@ class PartialReport extends RegularPartialModel<Report> {
     required ReportType violationType,
     String? reason,
   }) {
-    // Add user reference with violation type
-    event.addTag('p', [userPubkey, '', violationType.protocolValue]);
+    // NIP-56 puts the violation type in the third tag entry.
+    event.addTag('p', [userPubkey, violationType.protocolValue]);
     if (reason != null) this.reason = reason;
   }
 
@@ -265,10 +264,9 @@ class PartialReport extends RegularPartialModel<Report> {
     String? reason,
     String? serverUrl,
   }) {
-    // Add file hash with violation type
-    event.addTag('x', [fileHash, '', violationType.protocolValue]);
-    // Add event reference
-    event.addTag('e', [contentId, '', violationType.protocolValue]);
+    // NIP-56 puts the violation type in the third tag entry.
+    event.addTag('x', [fileHash, violationType.protocolValue]);
+    event.addTag('e', [contentId, violationType.protocolValue]);
     if (serverUrl != null) mediaServerUrl = serverUrl;
     if (reason != null) this.reason = reason;
   }
