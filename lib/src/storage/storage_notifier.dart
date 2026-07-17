@@ -218,7 +218,12 @@ abstract class StorageNotifier extends StateNotifier<StorageState> {
       return await _resolveByKind(kind, relayValue);
     }
 
-    return _resolveRelayIterable(config.defaultRelays[relayValue] ?? const {});
+    final configuredRelays = config.defaultRelays[relayValue];
+    if (configuredRelays == null) return {};
+    if (configuredRelays.isEmpty) {
+      return _resolveRelayIterable(config.defaultRelays['default'] ?? const {});
+    }
+    return _resolveRelayIterable(configuredRelays);
   }
 
   Set<String> _resolveRelayIterable(Iterable relays) {

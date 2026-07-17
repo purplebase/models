@@ -390,6 +390,29 @@ void main() {
       testContainer.dispose();
     });
 
+    test('falls back to the default group when a named group is empty',
+        () async {
+      final testContainer = await createTestContainer(
+        config: StorageConfiguration(
+          keepSignatures: false,
+          defaultRelays: {
+            'default': {'wss://fallback.com'},
+            'AppCatalog': {},
+          },
+        ),
+      );
+      final testStorage =
+          testContainer.read(storageNotifierProvider.notifier)
+              as DummyStorageNotifier;
+
+      expect(
+        await testStorage.resolveRelays('AppCatalog'),
+        {'wss://fallback.com'},
+      );
+
+      testContainer.dispose();
+    });
+
     test('signed AppCatalogRelayList does not override app config', () async {
       final testContainer = await createTestContainer(
         config: StorageConfiguration(
