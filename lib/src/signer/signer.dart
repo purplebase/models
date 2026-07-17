@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:riverpod/riverpod.dart';
 
+import '../core/event.dart';
 import '../core/model.dart';
 import '../models/profile.dart';
 import '../nip13/nip13.dart';
@@ -103,11 +104,8 @@ abstract class Signer {
       ];
       try {
         for (final partialModel in partialModels) {
-          final result = await Nip13.mine(
-            partialModel.event,
-            pubkey: pubkey,
-            options: proofOfWork,
-          );
+          final result = await (proofOfWork.executor ?? _inlinePowExecutor)
+              .mine(partialModel.event, pubkey: pubkey, options: proofOfWork);
           minedIds.add(result.id);
         }
       } catch (_) {
@@ -203,4 +201,19 @@ abstract class Signer {
     );
     return state.models.firstOrNull;
   });
+}
+
+const _inlinePowExecutor = _InlineProofOfWorkExecutor();
+
+final class _InlineProofOfWorkExecutor implements ProofOfWorkExecutor {
+  const _InlineProofOfWorkExecutor();
+
+  @override
+  Future<ProofOfWorkResult> mine<E extends Model<dynamic>>(
+    PartialEvent<E> event, {
+    required String pubkey,
+    required ProofOfWorkOptions options,
+  }) {
+    return Nip13.mine(event, pubkey: pubkey, options: options);
+  }
 }

@@ -21,6 +21,32 @@ final class _MutatingDummySigner extends DummySigner {
   }
 }
 
+final class _RecordingExecutor implements ProofOfWorkExecutor {
+  bool sawEncryptedContent = false;
+
+  @override
+  Future<ProofOfWorkResult> mine<E extends Model<dynamic>>(
+    PartialEvent<E> event, {
+    required String pubkey,
+    required ProofOfWorkOptions options,
+  }) {
+    sawEncryptedContent = event.content.contains('dummy_nip44_encrypted');
+    return Nip13.mine(event, pubkey: pubkey, options: options);
+  }
+}
+
+final class _FailingExecutor implements ProofOfWorkExecutor {
+  @override
+  Future<ProofOfWorkResult> mine<E extends Model<dynamic>>(
+    PartialEvent<E> event, {
+    required String pubkey,
+    required ProofOfWorkOptions options,
+  }) {
+    event.setTag('nonce', ['executor', options.difficulty.toString()]);
+    throw const ProofOfWorkCancelled();
+  }
+}
+
 void main() {
   late ProviderContainer container;
   late DummySigner signer;
@@ -56,6 +82,17 @@ void main() {
       expect(
         () => Nip13.difficultyForId('g'.padRight(64, 'g')),
         throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('isValidProof treats malformed event IDs as invalid data', () {
+      expect(
+        Nip13.isValidProof(
+          id: '30267:author:identifier',
+          tags: const [],
+          minimumDifficulty: 16,
+        ),
+        isFalse,
       );
     });
 
@@ -254,6 +291,48 @@ void main() {
 
       expect(signed.content, contains('dummy_nip44_encrypted'));
       expect(Nip13.isValid(signed.event, minimumDifficulty: 8), isTrue);
+    });
+
+    test('delegates prepared content to an external executor', () async {
+      final executor = _RecordingExecutor();
+      final signed =
+          await PartialDirectMessage(
+            content: 'secret proof',
+            receiver: _pubkey,
+          ).signWith(
+            signer,
+            proofOfWork: ProofOfWorkOptions(
+              difficulty: 8,
+              maxAttempts: 100000,
+              timeout: const Duration(seconds: 5),
+              executor: executor,
+            ),
+          );
+
+      expect(executor.sawEncryptedContent, isTrue);
+      expect(Nip13.isValid(signed.event, minimumDifficulty: 8), isTrue);
+    });
+
+    test('executor cancellation restores original tags', () async {
+      final partial = PartialNote('cancelled proof')
+        ..event.tags = [
+          ['t', 'original'],
+        ];
+
+      await expectLater(
+        partial.signWith(
+          signer,
+          proofOfWork: ProofOfWorkOptions(
+            difficulty: 8,
+            executor: _FailingExecutor(),
+          ),
+        ),
+        throwsA(isA<ProofOfWorkCancelled>()),
+      );
+
+      expect(partial.event.tags, [
+        ['t', 'original'],
+      ]);
     });
 
     test('iterable signWith prepares and mines every partial', () async {

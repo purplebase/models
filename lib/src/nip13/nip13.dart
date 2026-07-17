@@ -2,6 +2,19 @@ import '../core/event.dart';
 import '../core/model.dart';
 import '../utils/utils.dart';
 
+/// Executes NIP-13 mining for a prepared event.
+///
+/// Implementations must mutate [event] only after mining succeeds. This seam
+/// lets applications move CPU-bound mining to a worker isolate while models
+/// retains signing-order and proof-validation ownership.
+abstract interface class ProofOfWorkExecutor {
+  Future<ProofOfWorkResult> mine<E extends Model<dynamic>>(
+    PartialEvent<E> event, {
+    required String pubkey,
+    required ProofOfWorkOptions options,
+  });
+}
+
 /// Options for bounded NIP-13 proof-of-work mining.
 final class ProofOfWorkOptions {
   ProofOfWorkOptions({
@@ -10,6 +23,7 @@ final class ProofOfWorkOptions {
     this.maxAttempts = 1 << 24,
     this.batchSize = 2048,
     this.startNonce = 0,
+    this.executor,
   }) {
     RangeError.checkValueInInterval(difficulty, 0, 256, 'difficulty');
     RangeError.checkValueInInterval(
@@ -43,6 +57,9 @@ final class ProofOfWorkOptions {
 
   /// First nonce value to try.
   final int startNonce;
+
+  /// Optional execution adapter for moving mining off the caller's isolate.
+  final ProofOfWorkExecutor? executor;
 }
 
 /// Details of a successfully mined NIP-13 event.
@@ -103,6 +120,14 @@ final class ProofOfWorkInvalidated implements Exception {
   }
 }
 
+/// Thrown when an external proof-of-work executor is cancelled.
+final class ProofOfWorkCancelled implements Exception {
+  const ProofOfWorkCancelled();
+
+  @override
+  String toString() => 'ProofOfWorkCancelled()';
+}
+
 /// NIP-13 proof-of-work helpers and miner.
 abstract final class Nip13 {
   static final RegExp _eventIdPattern = RegExp(r'^[0-9a-fA-F]{64}$');
@@ -158,7 +183,14 @@ abstract final class Nip13 {
       'minimumDifficulty',
     );
 
-    final actualDifficulty = difficultyForId(id);
+    late final int actualDifficulty;
+    try {
+      actualDifficulty = difficultyForId(id);
+    } on FormatException {
+      // Relay/database data is untrusted. Invalid event IDs simply do not
+      // satisfy proof of work; callers must not crash while inspecting them.
+      return false;
+    }
     if (actualDifficulty < minimumDifficulty) return false;
 
     final committed = committedDifficulty(tags);
