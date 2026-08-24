@@ -174,13 +174,24 @@ class Utils {
   // Events
 
   static String getEventId(PartialEvent event, String pubkey) {
+    return getEventIdFromMap({
+      'pubkey': pubkey,
+      'created_at': event.createdAt.toSeconds(),
+      'kind': event.kind,
+      'tags': event.tags,
+      'content': event.content,
+    });
+  }
+
+  /// Recompute the NIP-01 event id from a raw event map.
+  static String getEventIdFromMap(Map<String, dynamic> map) {
     final data = [
       0,
-      pubkey.toLowerCase(),
-      event.createdAt.toSeconds(),
-      event.kind,
-      event.tags,
-      event.content,
+      (map['pubkey'] as String).toLowerCase(),
+      map['created_at'],
+      map['kind'],
+      map['tags'],
+      map['content'],
     ];
     final digest = sha256.convert(
       Uint8List.fromList(utf8.encode(json.encode(data))),

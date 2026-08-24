@@ -1,3 +1,4 @@
+import 'package:bip340/bip340.dart' as bip340;
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
@@ -44,6 +45,32 @@ void main() {
       // Verify the signed event
       final result = verifier.verify(signedNote.toMap());
       expect(result, isTrue);
+    });
+
+    test('verify returns false for tampered kind with valid id/sig pair',
+        () async {
+      const privateKey =
+          'deef3563ddbf74e62b2e8e5e44b25b8d63fb05e29a991f7e39cff56aa3ce82b8';
+      final signer = Bip340PrivateKeySigner(privateKey, ref);
+      await signer.signIn();
+
+      final partialNote = PartialNote('Test note for verification');
+      final signedNote = await partialNote.signWith(signer);
+
+      // Tamper with the kind while keeping the original id and sig
+      final tampered = signedNote.toMap()..['kind'] = 4;
+
+      // The id/sig pair is still cryptographically valid on its own…
+      expect(
+        bip340.verify(
+          tampered['pubkey'] as String,
+          tampered['id'] as String,
+          tampered['sig'] as String,
+        ),
+        isTrue,
+      );
+      // …but the recomputed id no longer matches, so verification must fail
+      expect(verifier.verify(tampered), isFalse);
     });
 
     test('verify returns false for invalid signature', () {
