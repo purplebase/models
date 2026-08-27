@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.5]
+
+### Fixed
+
+- Reject events whose claimed id no longer matches the serialized event (tampered kind/content)
+
 ## [Unreleased]
 
 ### Added
